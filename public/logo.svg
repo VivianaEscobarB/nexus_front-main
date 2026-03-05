@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Outer Gear Gradient -->
+    <linearGradient id="gearGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    
+    <!-- Ship's Wheel Gradient -->
+    <linearGradient id="wheelGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+
+    <!-- Padlock Gradient -->
+    <linearGradient id="lockGradient" x1="256" y1="180" x2="256" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    
+    <!-- Padlock Shackle Gradient -->
+    <linearGradient id="shackleGradient" x1="216" y1="180" x2="296" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a5b4fc" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="shadowGear" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#020617" flood-opacity="0.6"/>
+    </filter>
+    <filter id="shadowWheel" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#020617" flood-opacity="0.7"/>
+    </filter>
+    <filter id="shadowLock" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#020617" flood-opacity="0.8"/>
+    </filter>
+
+    <!-- Masks to create cutout shapes -->
+    <mask id="gearMask">
+      <!-- White keeps, Black makes transparent -->
+      <rect width="512" height="512" fill="white" />
+      <circle cx="256" cy="256" r="160" fill="black" />
+    </mask>
+  </defs>
+
+  <!-- IMPORTANT: Background can be transparent so it integrates beautifully in the navbar -->
+  
+  <!-- 1. OUTER GEAR (Engranaje) -->
+  <g mask="url(#gearMask)" filter="url(#shadowGear)">
+    <!-- Gear Teeth (12 dientes) -->
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" />
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" transform="rotate(30 256 256)" />
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" transform="rotate(60 256 256)" />
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" transform="rotate(90 256 256)" />
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" transform="rotate(120 256 256)" />
+    <rect x="232" y="16" width="48" height="480" rx="12" fill="url(#gearGradient)" transform="rotate(150 256 256)" />
+    
+    <!-- Gear Body Ring -->
+    <circle cx="256" cy="256" r="210" fill="url(#gearGradient)" />
+  </g>
+  <!-- Inner rim of gear -->
+  <circle cx="256" cy="256" r="164" fill="none" stroke="#6366f1" stroke-width="8" opacity="0.6" />
+  <circle cx="256" cy="256" r="152" fill="none" stroke="#818cf8" stroke-width="2" opacity="0.4" />
+
+  <!-- 2. SHIP'S WHEEL (Timón) -->
+  <g filter="url(#shadowWheel)">
+    <!-- 8 Spokes -->
+    <g fill="url(#wheelGradient)">
+      <rect x="244" y="50" width="24" height="412" rx="12" />
+      <rect x="244" y="50" width="24" height="412" rx="12" transform="rotate(45 256 256)" />
+      <rect x="244" y="50" width="24" height="412" rx="12" transform="rotate(90 256 256)" />
+      <rect x="244" y="50" width="24" height="412" rx="12" transform="rotate(135 256 256)" />
+    </g>
+    <!-- Spoke Highlighting (inner thin lines for 3D effect) -->
+    <g fill="#a5b4fc" opacity="0.4">
+      <rect x="254" y="56" width="4" height="400" rx="2" />
+      <rect x="254" y="56" width="4" height="400" rx="2" transform="rotate(45 256 256)" />
+      <rect x="254" y="56" width="4" height="400" rx="2" transform="rotate(90 256 256)" />
+      <rect x="254" y="56" width="4" height="400" rx="2" transform="rotate(135 256 256)" />
+    </g>
+
+    <!-- Wheel Ring -->
+    <circle cx="256" cy="256" r="126" fill="none" stroke="url(#wheelGradient)" stroke-width="36" />
+    <circle cx="256" cy="256" r="144" fill="none" stroke="#1e1b4b" stroke-width="6" opacity="0.5" />
+    <circle cx="256" cy="256" r="108" fill="none" stroke="#1e1b4b" stroke-width="6" opacity="0.5" />
+    <!-- Center Hub back -->
+    <circle cx="256" cy="256" r="48" fill="url(#wheelGradient)" />
+  </g>
+
+  <!-- 3. PADLOCK (Candado de Seguridad) -->
+  <g filter="url(#shadowLock)">
+    <!-- Shackle (Arco del candado) -->
+    <path d="M 206 230 V 186 C 206 158.4 228.4 136 256 136 C 283.6 136 306 158.4 306 186 V 230" fill="none" stroke="url(#shackleGradient)" stroke-width="24" stroke-linecap="round" />
+    <!-- Shackle inner shadow for 3D -->
+    <path d="M 206 230 V 186 C 206 158.4 228.4 136 256 136 C 283.6 136 306 158.4 306 186 V 230" fill="none" stroke="#1e1b4b" stroke-width="8" stroke-linecap="round" opacity="0.4" />
+    
+    <!-- Lock Body -->
+    <rect x="176" y="210" width="160" height="130" rx="24" fill="url(#lockGradient)" />
+    <!-- Lock Body Inner Stroke -->
+    <rect x="176" y="210" width="160" height="130" rx="24" fill="none" stroke="#818cf8" stroke-width="4" opacity="0.8" />
+    
+    <!-- Keyhole -->
+    <path d="M 256 254 C 247.163 254 240 261.163 240 270 C 240 275.602 242.88 280.536 247.382 283.332 L 244 308 H 268 L 264.618 283.332 C 269.12 280.536 272 275.602 272 270 C 272 261.163 264.837 254 256 254 Z" fill="#1e1b4b" />
+    <!-- Keyhole glow/highlight -->
+    <path d="M 256 254 C 247.163 254 240 261.163 240 270 C 240 275.602 242.88 280.536 247.382 283.332 L 244 308 H 268 L 264.618 283.332 C 269.12 280.536 272 275.602 272 270 C 272 261.163 264.837 254 256 254 Z" fill="none" stroke="#818cf8" stroke-width="1.5" opacity="0.6" />
+  </g>
+
+</svg>
