@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { resetPassword } from "@/services/auth.service";
 
 const resetSchema = z.object({
     code: z
@@ -28,15 +29,6 @@ const resetSchema = z.object({
 });
 
 type ResetFormValues = z.infer<typeof resetSchema>;
-
-// Icons
-function ShieldIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-            <path fillRule="evenodd" d="M10 1c-4.97 0-9 4.03-9 9 0 4.14 2.8 7.6 6.64 8.7 1.05.3 2.11.3 3.16 0A9 9 0 0019 10c0-4.97-4.03-9-9-9zm4 10.6l-5.3 5.3a1 1 0 01-1.4 0L4 13.6a1 1 0 011.4-1.4l2.6 2.6V5.5a1 1 0 012 0v9.3l4-4a1 1 0 111.4 1.4z" clipRule="evenodd" />
-        </svg>
-    )
-}
 
 function LockIcon() {
     return (
@@ -97,18 +89,17 @@ export function ResetPasswordForm() {
         setServerError(null);
 
         try {
-            // Lógica asíncrona simulada de validación de código a la API
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-
-            // Simulación de validación (Si el código no es 123456 tira error)
-            /* 
-            if (values.code !== "123456") {
-                 throw new Error("Código inválido");
-            } 
-            */
+            await resetPassword({
+                token: values.code,
+                newPassword: values.password,
+            });
             setSuccess(true);
         } catch (error) {
-            setServerError("El código es incorrecto o expiró. Por favor ingresalo nuevamente.");
+            setServerError(
+                error instanceof Error
+                    ? error.message
+                    : "El codigo es incorrecto o expiro. Por favor ingresalo nuevamente."
+            );
         } finally {
             setIsLoading(false);
         }
