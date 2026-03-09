@@ -7,7 +7,6 @@ import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 // ---------------------------------------------------------------------------
 // Schema de validación
 // ---------------------------------------------------------------------------
@@ -86,8 +85,12 @@ export function LoginForm() {
         setServerError(null);
         try {
             await signIn(values);
-        } catch {
-            setServerError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+        } catch (error) {
+            setServerError(
+                error instanceof Error
+                    ? error.message
+                    : "Credenciales incorrectas. Verifica tu correo y contraseña."
+            );
         }
     }
 

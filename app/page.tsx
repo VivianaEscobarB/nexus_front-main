@@ -96,7 +96,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Link href="/register" className="w-full sm:w-auto">
+              <Link href="/login" className="w-full sm:w-auto">
                 <Button variant="primary" size="lg" className="w-full h-14 text-lg px-8">
                   Comenzar ahora
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 ml-2">

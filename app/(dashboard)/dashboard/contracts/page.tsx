@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button, Card, CardBody, Input, Select, Badge } from "@/components/ui";
 import Link from "next/link";
+import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { Contract } from "@/types";
 
 // --- MOCK DATA ---
@@ -22,7 +23,8 @@ const MOCK_CONTRACTS: Contract[] = [
             document_type: "NIT",
             document_number: "900.123.456-7",
             email: "contacto@frigonorte.com",
-            user_id: "USR-101",
+            name: "Laura Martinez",
+            status: "ACTIVE",
             phone: "+57 300 123 4567",
             address: "Calle 100 # 14-25"
         },
@@ -51,7 +53,8 @@ const MOCK_CONTRACTS: Contract[] = [
             document_type: "NIT",
             document_number: "800.987.654-3",
             email: "gerencia@textilesandinos.com",
-            user_id: "USR-102",
+            name: "Carlos Rojas",
+            status: "ACTIVE",
             phone: "+57 311 987 6543",
             address: "Carrera 50 # 22-10"
         },
@@ -80,7 +83,8 @@ const MOCK_CONTRACTS: Contract[] = [
             document_type: "NIT",
             document_number: "901.345.678-9",
             email: "logistica@impgen.com",
-            user_id: "USR-103",
+            name: "Mariana Soto",
+            status: "INACTIVE",
             phone: "+57 320 345 6789",
             address: "Avenida 68 # 50-20"
         },
@@ -134,7 +138,8 @@ export default function ContractsPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
+        <ProcessVisibilityGuard process="contracts">
+            <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
             {/* Cabecera */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -256,5 +261,6 @@ export default function ContractsPage() {
                 </CardBody>
             </Card>
         </div>
+        </ProcessVisibilityGuard>
     );
 }

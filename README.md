@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nexus Frontend
 
-## Getting Started
+## Variables de entorno
 
-First, run the development server:
+El proyecto usa estas variables para conectar el modulo de autenticacion:
+
+```bash
+NEXT_PUBLIC_API_TARGET=deployed
+NEXT_PUBLIC_DEPLOYED_API_BASE_URL=https://nexus-api-xhe7.onrender.com
+NEXT_PUBLIC_LOCAL_API_BASE_URL=http://localhost:8080
+NEXT_PUBLIC_AUTH_PROVIDER=api
+```
+
+`NEXT_PUBLIC_API_TARGET` admite:
+
+- `deployed`: usa la API desplegada
+- `local`: usa la API local en `NEXT_PUBLIC_LOCAL_API_BASE_URL`
+
+`NEXT_PUBLIC_AUTH_PROVIDER` admite:
+
+- `api`: usa la API real desplegada
+- `mock`: mantiene el flujo simulado actual
+
+## Cambio rapido entre API desplegada y local
+
+Para seguir desarrollando contra la API desplegada:
+
+```bash
+NEXT_PUBLIC_API_TARGET=deployed
+```
+
+Para probar cambios locales del backend sin tocar produccion:
+
+```bash
+NEXT_PUBLIC_API_TARGET=local
+```
+
+`.env.local` es solo local y no se despliega a produccion. En Vercel debes definir las variables del ambiente productivo por separado.
+
+## Desarrollo local
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Despliegue en Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Configura las mismas variables en el proyecto de Vercel:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_API_TARGET`
+- `NEXT_PUBLIC_DEPLOYED_API_BASE_URL`
+- `NEXT_PUBLIC_AUTH_PROVIDER`
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Si el backend responde desde otro origen, valida tambien la configuracion de CORS en la API.

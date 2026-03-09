@@ -1,0 +1,21 @@
+2026-03-08T02:24:42.626Z launch
+2026-03-08T02:24:42.968Z chrome-stderr DevTools listening on ws://127.0.0.1:9226/devtools/browser/19716d59-1bdb-4138-95f5-cb581d698224
+2026-03-08T02:24:43.162Z devtools-ready
+2026-03-08T02:24:43.206Z page-target-ready
+2026-03-08T02:24:43.253Z ws-open
+2026-03-08T02:24:43.348Z cdp-enabled
+2026-03-08T02:24:45.787Z navigated-login
+2026-03-08T02:24:46.072Z login-dom-ready
+2026-03-08T02:24:46.078Z selectors {"hasEmail":false,"hasPassword":false,"hasForm":false,"bodyText":"No se puede acceder a este sitio web\n\nLa página 127.0.0.1 ha rechazado la conexión.\n\nPrueba a:\n\nComprobar la conexión\nComprobar el proxy y el cortafuegos\nERR_CONNECTION_REFUSED\nVolver a cargar\nDetalles"}
+2026-03-08T02:24:48.270Z chrome-stderr [7148:8168:0307/212448.270:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: PHONE_REGISTRATION_ERROR
+2026-03-08T02:24:48.271Z chrome-stderr [7148:8168:0307/212448.271:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: PHONE_REGISTRATION_ERROR
+[7148:8168:0307/212448.271:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: PHONE_REGISTRATION_ERROR
+2026-03-08T02:24:51.503Z fatal Error: selector timeout
+    at waitFor ([stdin]:28:9)
+    at async [stdin]:93:3
+2026-03-08T02:24:57.232Z chrome-stderr Created TensorFlow Lite XNNPACK delegate for CPU.
+2026-03-08T02:25:10.590Z chrome-stderr [7148:8168:0307/212510.590:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: DEPRECATED_ENDPOINT
+2026-03-08T02:26:06.212Z chrome-stderr [7148:8168:0307/212606.212:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: DEPRECATED_ENDPOINT
+2026-03-08T02:27:55.152Z chrome-stderr [7148:8168:0307/212755.151:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: DEPRECATED_ENDPOINT
+2026-03-08T02:31:24.479Z chrome-stderr [7148:8168:0307/213124.479:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: DEPRECATED_ENDPOINT
+2026-03-08T02:37:45.317Z chrome-stderr [7148:8168:0307/213745.316:ERROR:google_apis\gcm\engine\registration_request.cc:290] Registration response error message: DEPRECATED_ENDPOINT

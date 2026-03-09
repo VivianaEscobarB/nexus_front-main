@@ -22,19 +22,19 @@ export default function DashboardIndexPage() {
         );
     }
 
-    const role = user.roles?.[0]?.role_name || "OPERATOR";
+    const role = user.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
 
     const renderDashboard = () => {
         switch (role) {
-            case "ADMIN":
+            case UserRole.ADMIN:
                 return <AdminDashboard />;
-            case "SUPERVISOR":
+            case UserRole.WAREHOUSE_SUPERVISOR:
                 return <SupervisorDashboard />;
-            case "SALES_AGENT":
+            case UserRole.SALES_AGENT:
                 return <SalesDashboard />;
-            case "CLIENT":
+            case UserRole.CLIENT:
                 return <ClientDashboard />;
-            case "OPERATOR":
+            case UserRole.WAREHOUSE_OPERATOR:
             default:
                 return <UserDashboard />;
         }
