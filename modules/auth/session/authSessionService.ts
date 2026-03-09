@@ -10,15 +10,29 @@ import type {
     ResetPasswordRequest,
 } from "@/modules/auth/api/authTypes";
 import * as authMock from "@/modules/auth/mocks/auth.mock";
+import { authStore } from "@/modules/auth/state/authStore";
 import { tokenStorage } from "@/modules/auth/session/tokenStorage";
 import { configureHttpClientAuth } from "@/shared/api/httpClient";
 import { ApiError, isApiError } from "@/shared/api/apiError";
+import { UserRole } from "@/types";
 import type { AuthSession, LoginCredentials, Role, User } from "@/types";
 
 let refreshPromise: Promise<AuthTokens> | null = null;
+const VALID_USER_ROLES = new Set<string>(Object.values(UserRole));
+const ACCESS_TOKEN_REFRESH_LEEWAY_SECONDS = 30;
 
 function normalizeRoleName(role: string): string {
-    return role.startsWith("ROLE_") ? role.slice(5) : role;
+    const normalizedRole = role.startsWith("ROLE_") ? role.slice(5) : role;
+
+    if (normalizedRole === "MANAGER") {
+        return UserRole.ADMIN;
+    }
+
+    if (VALID_USER_ROLES.has(normalizedRole)) {
+        return normalizedRole;
+    }
+
+    return normalizedRole;
 }
 
 function normalizeStatus(status: string): User["status"] {
@@ -49,15 +63,92 @@ function mapCurrentUserToLegacyUser(user: CurrentUser): User {
     };
 }
 
-function mapTokens(tokens: AuthTokens): AuthSession["tokens"] {
+function buildAuthSession(user: User, tokens: AuthTokens): AuthSession {
+    const normalizedRefreshToken = tokens.refreshToken ?? "";
+
     return {
-        accessToken: tokens.token,
-        refreshToken: tokens.refreshToken ?? "",
+        userId: user.user_id,
+        username: [user.first_name, user.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || user.email,
+        roles: user.roles.map((role) => role.role_name),
+        permissions: [],
+        token: tokens.token,
+        refreshToken: normalizedRefreshToken,
+        user,
+        tokens: {
+            accessToken: tokens.token,
+            refreshToken: normalizedRefreshToken,
+        },
     };
 }
 
 function isUnauthorized(error: unknown): boolean {
     return isApiError(error) && error.status === 401;
+}
+
+function clearLocalSession(): void {
+    tokenStorage.clearTokens();
+    authMock.clearMockSessionState();
+    authStore.clearSession();
+}
+
+function redirectToLogin(): void {
+    if (typeof window === "undefined") return;
+
+    if (window.location.pathname === "/login") {
+        return;
+    }
+
+    window.location.replace("/login");
+}
+
+function decodeBase64Url(value: string): string | null {
+    if (typeof window === "undefined") return null;
+
+    try {
+        const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized.padEnd(
+            normalized.length + ((4 - (normalized.length % 4)) % 4),
+            "="
+        );
+
+        return window.atob(padded);
+    } catch {
+        return null;
+    }
+}
+
+function parseTokenExpiration(token: string): number | null {
+    const parts = token.split(".");
+
+    if (parts.length < 2) {
+        return null;
+    }
+
+    const payload = decodeBase64Url(parts[1]);
+    if (!payload) {
+        return null;
+    }
+
+    try {
+        const parsed = JSON.parse(payload) as { exp?: number };
+        return typeof parsed.exp === "number" ? parsed.exp : null;
+    } catch {
+        return null;
+    }
+}
+
+function isAccessTokenExpired(token: string): boolean {
+    const expiration = parseTokenExpiration(token);
+
+    if (!expiration) {
+        return false;
+    }
+
+    const currentUnixTime = Math.floor(Date.now() / 1000);
+    return expiration <= currentUnixTime + ACCESS_TOKEN_REFRESH_LEEWAY_SECONDS;
 }
 
 async function loginWithApi(
@@ -66,23 +157,21 @@ async function loginWithApi(
     const tokens = await authApi.login(credentials);
     tokenStorage.setTokens(tokens);
     const user = await getCurrentUser();
-    return {
-        user,
-        tokens: mapTokens(tokens),
-    };
+    return buildAuthSession(user, tokens);
 }
 
 async function loginWithMock(
     credentials: LoginCredentials
 ): Promise<AuthSession> {
     const session = await authMock.login(credentials);
+    const tokens: AuthTokens = {
+        token: session.token,
+        refreshToken: session.refreshToken || null,
+    };
 
-    tokenStorage.setTokens({
-        token: session.tokens.accessToken,
-        refreshToken: session.tokens.refreshToken || null,
-    });
+    tokenStorage.setTokens(tokens);
 
-    return session;
+    return buildAuthSession(session.user, tokens);
 }
 
 export async function login(
@@ -124,7 +213,9 @@ export async function getCurrentUser(): Promise<User> {
     return mapCurrentUserToLegacyUser(currentUser);
 }
 
-export async function refreshSession(): Promise<AuthTokens> {
+export async function refreshToken(
+    overrideRefreshToken?: string | null
+): Promise<AuthTokens> {
     if (appEnv.authProvider !== "api") {
         const storedTokens = tokenStorage.getTokens();
         if (storedTokens?.token) {
@@ -144,9 +235,9 @@ export async function refreshSession(): Promise<AuthTokens> {
         return refreshPromise;
     }
 
-    const refreshToken = tokenStorage.getRefreshToken();
+    const refreshTokenValue = overrideRefreshToken ?? tokenStorage.getRefreshToken();
 
-    if (!refreshToken) {
+    if (!refreshTokenValue) {
         throw new ApiError({
             timestamp: new Date().toISOString(),
             status: 401,
@@ -157,7 +248,7 @@ export async function refreshSession(): Promise<AuthTokens> {
     }
 
     refreshPromise = authApi
-        .refresh({ refreshToken })
+        .refresh({ refreshToken: refreshTokenValue })
         .then((tokens) => {
             tokenStorage.setTokens(tokens);
             return tokens;
@@ -169,7 +260,11 @@ export async function refreshSession(): Promise<AuthTokens> {
     return refreshPromise;
 }
 
-export async function restoreSession(): Promise<User | null> {
+export async function refreshSession(): Promise<AuthTokens> {
+    return refreshToken();
+}
+
+export async function restoreSession(): Promise<AuthSession | null> {
     const storedTokens = tokenStorage.getTokens();
 
     if (!storedTokens?.token) {
@@ -177,36 +272,47 @@ export async function restoreSession(): Promise<User | null> {
     }
 
     try {
-        return await getCurrentUser();
+        const user = await getCurrentUser();
+        return buildAuthSession(user, storedTokens);
     } catch (error) {
         if (appEnv.authProvider === "api" && isUnauthorized(error)) {
             try {
-                await refreshSession();
-                return await getCurrentUser();
+                const refreshedTokens = await refreshToken();
+                const user = await getCurrentUser();
+                return buildAuthSession(user, refreshedTokens);
             } catch {
-                tokenStorage.clearTokens();
+                clearLocalSession();
                 return null;
             }
         }
 
-        tokenStorage.clearTokens();
+        clearLocalSession();
         return null;
     }
 }
 
-export async function logout(): Promise<void> {
+interface LogoutOptions {
+    redirectToLogin?: boolean;
+    revokeRemote?: boolean;
+}
+
+export async function logout(options: LogoutOptions = {}): Promise<void> {
+    const { redirectToLogin: shouldRedirectToLogin = false, revokeRemote = true } = options;
     const accessToken = tokenStorage.getAccessToken();
     const refreshToken = tokenStorage.getRefreshToken();
 
     try {
-        if (appEnv.authProvider === "api" && accessToken) {
+        if (revokeRemote && appEnv.authProvider === "api" && accessToken) {
             await authApi.logout(accessToken, { refreshToken });
-        } else {
+        } else if (appEnv.authProvider !== "api") {
             await authMock.logout();
         }
     } finally {
-        tokenStorage.clearTokens();
-        authMock.clearMockSessionState();
+        clearLocalSession();
+
+        if (shouldRedirectToLogin) {
+            redirectToLogin();
+        }
     }
 }
 
@@ -232,11 +338,19 @@ export async function resetPassword(
 
 configureHttpClientAuth({
     getAccessToken: () => tokenStorage.getAccessToken(),
+    isAccessTokenExpired,
     refreshAccessToken: async () => {
-        await refreshSession();
+        await refreshToken();
     },
-    onAuthFailure: () => {
-        tokenStorage.clearTokens();
-        authMock.clearMockSessionState();
+    onAuthFailure: async () => {
+        await logout({
+            redirectToLogin: true,
+            revokeRemote: false,
+        });
+    },
+    onForbidden: (error) => {
+        authStore.setError(
+            error.message || "Acceso denegado. No tienes permisos para realizar esta accion."
+        );
     },
 });

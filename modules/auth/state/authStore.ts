@@ -95,6 +95,13 @@ export const authStore = {
         }));
     },
 
+    clearError() {
+        updateState((previous) => ({
+            ...previous,
+            error: null,
+        }));
+    },
+
     setError(message: string | null) {
         updateState((previous) => ({
             ...previous,

@@ -24,15 +24,17 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = "nexus_theme";
 const CYCLE: Theme[] = ["light", "dark", "system"];
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [theme, setThemeState] = useState<Theme>("system");
+function getInitialTheme(): Theme {
+    if (typeof window === "undefined") {
+        return "system";
+    }
 
-    useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-        if (stored && CYCLE.includes(stored)) {
-            setThemeState(stored);
-        }
-    }, []);
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    return stored && CYCLE.includes(stored) ? stored : "system";
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+    const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
     const resolvedTheme = useMemo<"light" | "dark">(() => {
         if (theme === "system") {

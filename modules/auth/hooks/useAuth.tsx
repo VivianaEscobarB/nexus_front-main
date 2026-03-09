@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import {
     login,
     logout,
-    restoreAuthSession,
+    restoreSession,
 } from "@/modules/auth/services/auth.service";
 import { authStore, useAuthStore } from "@/modules/auth/state/authStore";
 import type { LoginCredentials, User } from "@/types";
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         initializedRef.current = true;
         authStore.startRestore();
 
-        restoreAuthSession()
+        restoreSession()
             .then((user) => {
                 authStore.finishRestore(user);
             })
@@ -86,9 +86,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             await logout();
         } finally {
             authStore.clearSession();
-            router.push("/login");
         }
-    }, [router]);
+    }, []);
 
     const value = useMemo<AuthContextValue>(
         () => ({

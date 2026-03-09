@@ -15,8 +15,10 @@ export interface HttpRequestOptions {
 
 interface HttpClientAuthHandlers {
     getAccessToken: () => string | null;
+    isAccessTokenExpired: (token: string) => boolean;
     refreshAccessToken: () => Promise<void>;
-    onAuthFailure: () => void;
+    onAuthFailure: () => void | Promise<void>;
+    onForbidden: (error: ApiError) => void | Promise<void>;
 }
 
 let authHandlers: Partial<HttpClientAuthHandlers> = {};
@@ -79,7 +81,33 @@ async function request<T>(
     }
 
     if (auth) {
-        const accessToken = authHandlers.getAccessToken?.();
+        let accessToken = authHandlers.getAccessToken?.() ?? null;
+
+        if (
+            accessToken &&
+            authHandlers.isAccessTokenExpired?.(accessToken) &&
+            authHandlers.refreshAccessToken
+        ) {
+            try {
+                await authHandlers.refreshAccessToken();
+                accessToken = authHandlers.getAccessToken?.() ?? null;
+            } catch (refreshError) {
+                await authHandlers.onAuthFailure?.();
+
+                if (refreshError instanceof Error) {
+                    throw refreshError;
+                }
+
+                throw new ApiError({
+                    timestamp: new Date().toISOString(),
+                    status: 401,
+                    error: "Unauthorized",
+                    message: "La sesion expiro. Vuelve a iniciar sesion.",
+                    path,
+                });
+            }
+        }
+
         if (accessToken) {
             requestHeaders.set("Authorization", `Bearer ${accessToken}`);
         }
@@ -103,7 +131,7 @@ async function request<T>(
             await authHandlers.refreshAccessToken();
             return await request<T>(path, options, true);
         } catch (refreshError) {
-            authHandlers.onAuthFailure?.();
+            await authHandlers.onAuthFailure?.();
 
             if (refreshError instanceof Error) {
                 throw refreshError;
@@ -122,7 +150,13 @@ async function request<T>(
     const payload = await parsePayload<unknown>(response);
 
     if (!response.ok) {
-        throw buildApiError(payload, response.status, path);
+        const apiError = buildApiError(payload, response.status, path);
+
+        if (response.status === 403) {
+            await authHandlers.onForbidden?.(apiError);
+        }
+
+        throw apiError;
     }
 
     return payload as T;

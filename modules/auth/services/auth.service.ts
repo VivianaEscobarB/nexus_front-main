@@ -1,4 +1,3 @@
-import { refresh as refreshAuthTokens } from "@/modules/auth/api/authApi";
 import type {
     ForgotPasswordRequest,
     RegisterRequest,
@@ -9,10 +8,11 @@ import {
     getCurrentUser,
     login as loginSession,
     logout as logoutSession,
+    refreshToken as refreshSessionToken,
     refreshSession,
     register as registerUser,
     resetPassword as resetPasswordRequest,
-    restoreSession,
+    restoreSession as restoreSessionState,
 } from "@/modules/auth/session/authSessionService";
 import type { AuthSession, LoginCredentials, User } from "@/types";
 
@@ -27,19 +27,24 @@ export async function register(payload: RegisterRequest) {
 }
 
 export async function logout(): Promise<void> {
-    return logoutSession();
+    return logoutSession({ redirectToLogin: true });
 }
 
 export async function getMe(): Promise<User> {
     return getCurrentUser();
 }
 
+export async function restoreSession(): Promise<User | null> {
+    const session = await restoreSessionState();
+    return session?.user ?? null;
+}
+
 export async function restoreAuthSession(): Promise<User | null> {
     return restoreSession();
 }
 
-export async function refreshTokens(refreshToken: string) {
-    return refreshAuthTokens({ refreshToken });
+export async function refreshTokens(refreshToken?: string | null) {
+    return refreshSessionToken(refreshToken);
 }
 
 export async function refreshCurrentSession() {

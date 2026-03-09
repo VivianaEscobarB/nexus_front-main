@@ -29,8 +29,8 @@ export async function login(
     const fakeToken = "mockHeader.eyJleHAiOjk5OTk5OTk5OTl9.mockSignature";
 
     const emailLower = credentials.email.toLowerCase();
-    let roleName = "OPERATOR";
-    let roleId = "rol_02";
+    let roleName = "WAREHOUSE_OPERATOR";
+    let roleId = "rol_04";
     let firstName = "Empleado";
     let lastName = "Operativo";
 
@@ -39,14 +39,19 @@ export async function login(
         roleId = "rol_01";
         firstName = "Administrador";
         lastName = "General";
+    } else if (emailLower.includes("manager") || emailLower.includes("gerencia")) {
+        roleName = "ADMIN";
+        roleId = "rol_01";
+        firstName = "Administrador";
+        lastName = "General";
     } else if (emailLower.includes("supervisor")) {
-        roleName = "SUPERVISOR";
+        roleName = "WAREHOUSE_SUPERVISOR";
         roleId = "rol_03";
         firstName = "Supervisor";
         lastName = "Bodega";
     } else if (emailLower.includes("sales") || emailLower.includes("venta")) {
         roleName = "SALES_AGENT";
-        roleId = "rol_04";
+        roleId = "rol_05";
         firstName = "Agente";
         lastName = "De Ventas";
     } else if (
@@ -54,12 +59,18 @@ export async function login(
         emailLower.includes("cliente")
     ) {
         roleName = "CLIENT";
-        roleId = "rol_05";
+        roleId = "rol_06";
         firstName = "Cliente";
         lastName = "VIP";
     }
 
     const mockSession: AuthSession = {
+        userId: `usr_${roleName.toLowerCase()}`,
+        username: `${firstName} ${lastName}`.trim(),
+        roles: [roleName],
+        permissions: [],
+        token: fakeToken,
+        refreshToken: "fake_refresh_token",
         tokens: {
             accessToken: fakeToken,
             refreshToken: "fake_refresh_token",
@@ -110,6 +121,9 @@ export async function getMe(): Promise<User> {
 
     if (typeof window !== "undefined") {
         roleName = window.localStorage.getItem("mock_user_role") || "ADMIN";
+        if (roleName === "MANAGER") {
+            roleName = "ADMIN";
+        }
         firstName = window.localStorage.getItem("mock_user_fname") || "Usuario";
         lastName =
             window.localStorage.getItem("mock_user_lname") ||
