@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { forgotPassword } from "@/services/auth.service";
 
 const forgotSchema = z.object({
     email: z
@@ -51,13 +52,14 @@ export function ForgotPasswordForm() {
         setServerError(null);
 
         try {
-            // Aquí iría tu integración real de recuperación (ej. Supabase, Firebase u API)
-            // Simulamos una solicitud real de unos segundos
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await forgotPassword({ email: values.email });
             setSuccessEmail(values.email);
-
         } catch (error) {
-            setServerError("Hubo un error al procesar tu solicitud. Intenta nuevamente.");
+            setServerError(
+                error instanceof Error
+                    ? error.message
+                    : "Hubo un error al procesar tu solicitud. Intenta nuevamente."
+            );
         } finally {
             setIsLoading(false);
         }

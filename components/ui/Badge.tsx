@@ -56,8 +56,8 @@ const MOVEMENT_TYPE_VARIANT: Record<MovementType, BadgeVariant> = {
 
 const USER_ROLE_VARIANT: Record<UserRole, BadgeVariant> = {
     [UserRole.ADMIN]: "danger",
-    [UserRole.WAREHOUSE_MANAGER]: "brand",
-    [UserRole.OPERATOR]: "info",
+    [UserRole.WAREHOUSE_SUPERVISOR]: "brand",
+    [UserRole.WAREHOUSE_OPERATOR]: "info",
     [UserRole.SALES_AGENT]: "success",
     [UserRole.CLIENT]: "neutral",
 };
@@ -107,8 +107,8 @@ function MovementTypeBadge({ type, size }: { type: MovementType; size?: BadgeSiz
 
 const ROLE_LABEL: Record<UserRole, string> = {
     [UserRole.ADMIN]: "Administrador",
-    [UserRole.WAREHOUSE_MANAGER]: "Supervisor de Bodega",
-    [UserRole.OPERATOR]: "Operario",
+    [UserRole.WAREHOUSE_SUPERVISOR]: "Supervisor de Bodega",
+    [UserRole.WAREHOUSE_OPERATOR]: "Operador de Bodega",
     [UserRole.SALES_AGENT]: "Agente de Ventas",
     [UserRole.CLIENT]: "Cliente",
 };

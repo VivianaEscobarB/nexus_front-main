@@ -26,6 +26,20 @@ function isAuthRoute(pathname: string): boolean {
     return AUTH_ROUTES.some((route) => route !== "/" && pathname.startsWith(route));
 }
 
+function decodeBase64Url(value: string): string {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+        normalized.length + ((4 - (normalized.length % 4)) % 4),
+        "="
+    );
+
+    if (typeof atob === "function") {
+        return atob(padded);
+    }
+
+    return Buffer.from(padded, "base64").toString("utf-8");
+}
+
 /**
  * Verifica si el token JWT no ha expirado comprobando el campo `exp`
  * del payload. Esta comprobación es superficial (no verifica la firma)
@@ -37,9 +51,8 @@ function isTokenExpired(token: string): boolean {
         const [, payloadB64] = token.split(".");
         if (!payloadB64) return true;
 
-        // atob no existe en Edge Runtime; usamos Buffer disponible en Node.js Edge
         const payload = JSON.parse(
-            Buffer.from(payloadB64, "base64").toString("utf-8")
+            decodeBase64Url(payloadB64)
         ) as { exp?: number };
 
         if (!payload.exp) return true;

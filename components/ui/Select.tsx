@@ -30,7 +30,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     ({ label, error, hint, options, selectSize = "md",
         fullWidth = true, wrapperClassName = "", id, className = "",
         disabled, ...props }, ref) => {
-        const selectId = id ?? React.useId();
+        const generatedId = React.useId();
+        const selectId = id ?? generatedId;
         const errorId = `${selectId}-error`;
         const hintId = `${selectId}-hint`;
         const hasError = Boolean(error);

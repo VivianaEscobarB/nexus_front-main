@@ -38,7 +38,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     ({ label, error, hint, leadingIcon, trailingIcon, inputSize = "md",
         fullWidth = true, wrapperClassName = "", id, className = "",
         disabled, ...props }, ref) => {
-        const inputId = id ?? React.useId();
+        const generatedId = React.useId();
+        const inputId = id ?? generatedId;
         const errorId = `${inputId}-error`;
         const hintId = `${inputId}-hint`;
         const hasError = Boolean(error);

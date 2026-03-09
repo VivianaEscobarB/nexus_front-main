@@ -25,13 +25,13 @@ export enum MovementType {
     RETURN = "RETURN",     // Devolución de cliente o proveedor
 }
 
-/** Roles del usuario en el sistema. */
+/** Roles del usuario activos en el sistema. */
 export enum UserRole {
-    ADMIN = "ADMIN",                  // Administrador del sistema
-    WAREHOUSE_MANAGER = "SUPERVISOR", // Supervisor de bodega
-    OPERATOR = "OPERATOR",            // Empleado de bodega
-    SALES_AGENT = "SALES_AGENT",      // Agente de venta
-    CLIENT = "CLIENT",                // Cliente
+    ADMIN = "ADMIN",                                // Administrador del sistema
+    WAREHOUSE_SUPERVISOR = "WAREHOUSE_SUPERVISOR", // Supervisor de bodega
+    WAREHOUSE_OPERATOR = "WAREHOUSE_OPERATOR",     // Operador de bodega
+    SALES_AGENT = "SALES_AGENT",                    // Agente de venta
+    CLIENT = "CLIENT",                              // Cliente
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +52,8 @@ export interface User {
     password?: string;
     status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
     roles: Role[]; // Obtenido por el JOIN de User_Role
+    client_id?: string | null;
+    client?: Client | null;
     // Mantenido para retrocompatibilidad rápida del frontend si es necesario:
     lastLoginAt?: string | null;
     createdAt?: string;
@@ -59,13 +61,16 @@ export interface User {
 
 export interface Client {
     client_id: string;
+    name: string;
+    email: string;
+    status: "ACTIVE" | "INACTIVE";
     document_type: string;
     document_number: string;
     business_name: string;
     phone: string | null;
     address: string | null;
-    email: string;
-    user_id: string; // Foreign key
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface Country {
@@ -198,6 +203,12 @@ export interface AuthTokens {
 }
 
 export interface AuthSession {
+    userId: string;
+    username: string;
+    roles: string[];
+    permissions: string[];
+    token: string;
+    refreshToken: string;
     user: User;
     tokens: AuthTokens;
 }
