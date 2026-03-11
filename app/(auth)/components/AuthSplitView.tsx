@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 interface AuthSplitViewProps {
     title: string;
@@ -15,7 +16,7 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                 className="hidden lg:flex lg:w-[50%] flex-col relative overflow-hidden justify-center items-center text-center p-12"
                 style={{ background: "var(--color-sidebar-bg)" }}
             >
-                <div className="relative z-10 flex flex-col items-center max-w-md">
+                <Link href="/" className="relative z-10 flex flex-col items-center max-w-md transition-opacity hover:opacity-90">
                     <img
                         src="/logo.svg"
                         alt="Nexus Logo"
@@ -31,7 +32,7 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                         style={{ color: "var(--color-brand-light)" }}>
                         Gestión de bodegas e inventario
                     </p>
-                </div>
+                </Link>
 
                 <div className="absolute bottom-10 text-sm font-medium opacity-50"
                     style={{ color: "var(--color-brand-light)" }}>
@@ -49,7 +50,7 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                     {/* Header del formulario */}
                     <div className="space-y-1">
                         {/* Logo mobile */}
-                        <div className="flex items-center gap-2 mb-6 lg:hidden">
+                        <Link href="/" className="flex items-center gap-2 mb-6 lg:hidden transition-opacity hover:opacity-80">
                             <div
                                 className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-sm"
                                 style={{ background: "var(--color-brand-strong)", color: "var(--color-text-inverse)" }}
@@ -60,7 +61,7 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                                 style={{ color: "var(--color-text-primary)" }}>
                                 Nexus
                             </span>
-                        </div>
+                        </Link>
 
                         <h2 className="text-2xl font-bold"
                             style={{ color: "var(--color-text-primary)" }}>
