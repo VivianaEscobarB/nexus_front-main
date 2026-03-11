@@ -101,52 +101,22 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
         throw new Error("La API devolvio una bodega invalida.");
     }
 
-    const id = payload.id ?? payload.warehouse_id ?? payload.warehouseId;
-    const name =
-        getString(payload.name) ??
-        getString(payload.warehouse_name) ??
-        getString(payload.warehouseName);
+    const id = payload.id;
+    const name = getString(payload.name);
 
     if (!id || !name) {
         throw new Error("La API devolvio una bodega incompleta.");
     }
 
-    const code =
-        getString(payload.code) ??
-        getString(payload.warehouse_code) ??
-        getString(payload.warehouseCode) ??
-        `WH-${id}`;
-
-    const cityObject = isObject(payload.city) ? payload.city : null;
-    const typeObject =
-        isObject(payload.warehouse_type) ? payload.warehouse_type :
-            isObject(payload.warehouseType) ? payload.warehouseType : null;
-
     return {
         id: String(id),
-        code,
+        code: `WH-${id}`, // Generado en frontend para consistencia visual si no viene del back
         name,
-        address:
-            getString(payload.address) ??
-            getString(payload.location) ??
-            getString(payload.description) ??
-            "Sin direccion registrada",
-        cityName:
-            getString(payload.cityName) ??
-            getString(cityObject?.name) ??
-            getString(cityObject?.city_name),
-        typeName:
-            getString(payload.typeName) ??
-            getString(typeObject?.name) ??
-            getString(typeObject?.warehouse_type_name),
-        totalCapacityM2:
-            getNumber(payload.totalCapacityM2) ??
-            getNumber(payload.total_capacity_m2) ??
-            getNumber(payload.capacityM2),
-        availableCapacityM2:
-            getNumber(payload.availableCapacityM2) ??
-            getNumber(payload.available_capacity_m2) ??
-            getNumber(payload.remainingCapacityM2),
+        address: getString(payload.location) ?? "Sin ubicacion registrada",
+        cityName: null,
+        typeName: null,
+        totalCapacityM2: getNumber(payload.totalCapacityM2),
+        availableCapacityM2: getNumber(payload.availableCapacityM2),
         status: normalizeStatus(payload.status, "ACTIVE"),
     };
 }
@@ -266,14 +236,9 @@ function mapApiSpace(payload: unknown): ManagedSpace {
 
 function buildWarehousePayload(input: CreateWarehouseInput | UpdateWarehouseInput) {
     return compactRecord({
-        code: input.code?.trim(),
         name: input.name?.trim(),
-        address: input.address?.trim(),
-        cityId: input.cityId?.trim(),
-        warehouseTypeId: input.warehouseTypeId?.trim(),
-        totalCapacityM2: input.totalCapacityM2,
-        availableCapacityM2: input.availableCapacityM2,
-        status: input.status,
+        location: input.address?.trim(), // Frontend uses 'address', backend DTO expects 'location'
+        totalCapacityM2: input.totalCapacityM2
     });
 }
 
