@@ -4,6 +4,8 @@ import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocationManager } from "@/hooks/useLocationManager";
+import { LocationSelects } from "@/components/LocationSelects";
 import {
     Badge,
     Button,
@@ -267,6 +269,7 @@ function WarehouseFormModal({
         register,
         handleSubmit,
         reset,
+        setValue,
         formState: { errors, isValid },
     } = useForm<WarehouseFormValues>({
         resolver: zodResolver(warehouseSchema),
@@ -286,6 +289,21 @@ function WarehouseFormModal({
                     : "ACTIVE",
         },
     });
+
+    const {
+        location,
+        countries,
+        departments,
+        cities,
+        isLoading: locationLoading,
+        handleCountryChange,
+        handleDepartmentChange,
+        handleCityChange
+    } = useLocationManager();
+
+    React.useEffect(() => {
+        setValue("cityId", location.cityId || "", { shouldValidate: true });
+    }, [location.cityId, setValue]);
 
     React.useEffect(() => {
         reset({
@@ -365,11 +383,16 @@ function WarehouseFormModal({
                     {...register("address")}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Input
-                        label="Ciudad ID"
-                        hint="Opcional. Util si la API solicita una ciudad existente."
+                    <LocationSelects
+                        location={location}
+                        countries={countries}
+                        departments={departments}
+                        cities={cities}
+                        isLoading={locationLoading}
+                        onCountryChange={handleCountryChange}
+                        onDepartmentChange={handleDepartmentChange}
+                        onCityChange={handleCityChange}
                         error={errors.cityId?.message}
-                        {...register("cityId")}
                     />
                     <Input
                         label="Tipo de bodega ID"
