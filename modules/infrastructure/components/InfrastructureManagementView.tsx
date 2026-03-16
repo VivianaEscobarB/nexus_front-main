@@ -21,11 +21,13 @@ import {
     createSector,
     createSpace,
     createWarehouse,
+    createStatusCatalog,
     deleteSector,
     deleteSpace,
     deleteWarehouse,
     listSectors,
     listSpaces,
+    listStatusCatalogsByEntityType,
     listWarehouses,
     updateSector,
     updateSpace,
@@ -39,6 +41,7 @@ import type {
     ManagedSector,
     ManagedSpace,
     ManagedWarehouse,
+    StatusCatalog,
     UpdateSectorInput,
     UpdateSpaceInput,
     UpdateWarehouseInput,
@@ -94,6 +97,18 @@ const STATUS_LABELS: Record<InfrastructureStatus, string> = {
     RESERVED: "Reservado",
 };
 
+const ENTITY_TYPE_ID = {
+    warehouse: 1,
+    sector: 2,
+    storageSpace: 3,
+} as const;
+
+const ENTITY_TYPE_OPTIONS = [
+    { value: ENTITY_TYPE_ID.warehouse, label: "Bodega (warehouse)" },
+    { value: ENTITY_TYPE_ID.sector, label: "Sector (sector)" },
+    { value: ENTITY_TYPE_ID.storageSpace, label: "Espacio (storageSpace)" },
+];
+
 const optionalNumberField = z
     .number()
     .min(0, "El valor no puede ser negativo")
@@ -103,12 +118,12 @@ const warehouseSchema = z
     .object({
         code: z.string().min(2, "El codigo debe tener al menos 2 caracteres"),
         name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-        address: z.string().min(5, "La direccion debe tener al menos 5 caracteres"),
+        location: z.string().min(5, "La ubicacion debe tener al menos 5 caracteres"),
         cityId: z.string().optional(),
         warehouseTypeId: z.string().optional(),
         totalCapacityM2: optionalNumberField,
         availableCapacityM2: optionalNumberField,
-        status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
+        statusCatalogId: z.number().optional(),
     })
     .superRefine((value, context) => {
         if (
@@ -131,28 +146,35 @@ const sectorSchema = z.object({
     name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
     description: z.string().optional(),
     capacityM2: optionalNumberField,
-    status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
+    statusCatalogId: z.number().optional(),
 });
 
 const spaceSchema = z.object({
     warehouseId: z.string().min(1, "Selecciona una bodega"),
     sectorId: z.string().min(1, "Selecciona un sector"),
-    code: z.string().min(2, "El codigo debe tener al menos 2 caracteres"),
-    name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-    description: z.string().optional(),
+    aisle: z.string().min(1, "Aislacion requerida"),
+    row: z.string().min(1, "Fila requerida"),
+    level: z.string().min(1, "Nivel requerido"),
+    position: z.string().min(1, "Posicion requerida"),
     capacityM2: optionalNumberField,
-    status: z.enum([
-        "AVAILABLE",
-        "OCCUPIED",
-        "RESERVED",
-        "MAINTENANCE",
-        "INACTIVE",
-    ]),
+    temperatureControl: z.string().optional(),
+    humidityControl: z.string().optional(),
+    storageSpaceTypeId: z.number().optional(),
+    statusCatalogId: z.number().optional(),
+});
+
+const statusCatalogSchema = z.object({
+    code: z.string().min(2, "Código requerido"),
+    description: z.string().min(2, "Descripción requerida"),
+    color: z.string().min(4, "Color requerido").regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Color inválido, use formato #RGB o #RRGGBB"),
+    isOperational: z.boolean(),
+    entityTypeId: z.number().min(1, "Selecciona un tipo de entidad"),
 });
 
 type WarehouseFormValues = z.infer<typeof warehouseSchema>;
 type SectorFormValues = z.infer<typeof sectorSchema>;
 type SpaceFormValues = z.infer<typeof spaceSchema>;
+type StatusCatalogFormValues = z.infer<typeof statusCatalogSchema>;
 
 function getErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message) {
@@ -248,6 +270,7 @@ function WarehouseFormModal({
     isOpen,
     mode,
     warehouse,
+    warehouseStatusOptions,
     isSubmitting,
     actionError,
     onClose,
@@ -256,6 +279,7 @@ function WarehouseFormModal({
     isOpen: boolean;
     mode: CrudMode;
     warehouse?: ManagedWarehouse;
+    warehouseStatusOptions: { value: number; label: string }[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -274,16 +298,12 @@ function WarehouseFormModal({
         defaultValues: {
             code: warehouse?.code ?? "",
             name: warehouse?.name ?? "",
-            address: warehouse?.address ?? "",
+            location: warehouse?.address ?? "",
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
             availableCapacityM2: warehouse?.availableCapacityM2 ?? undefined,
-            status:
-                warehouse?.status === "INACTIVE" ||
-                warehouse?.status === "MAINTENANCE"
-                    ? warehouse.status
-                    : "ACTIVE",
+            statusCatalogId: undefined,
         },
     });
 
@@ -291,16 +311,12 @@ function WarehouseFormModal({
         reset({
             code: warehouse?.code ?? "",
             name: warehouse?.name ?? "",
-            address: warehouse?.address ?? "",
+            location: warehouse?.address ?? "",
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
             availableCapacityM2: warehouse?.availableCapacityM2 ?? undefined,
-            status:
-                warehouse?.status === "INACTIVE" ||
-                warehouse?.status === "MAINTENANCE"
-                    ? warehouse.status
-                    : "ACTIVE",
+            statusCatalogId: undefined,
         });
     }, [warehouse, reset]);
 
@@ -333,12 +349,14 @@ function WarehouseFormModal({
                     await onSubmit({
                         code: values.code,
                         name: values.name,
-                        address: values.address,
+                        location: values.location,
                         cityId: values.cityId?.trim() || undefined,
-                        warehouseTypeId: values.warehouseTypeId?.trim() || undefined,
+                        warehouseTypeId: values.warehouseTypeId
+                            ? Number(values.warehouseTypeId)
+                            : undefined,
                         totalCapacityM2: values.totalCapacityM2,
                         availableCapacityM2: values.availableCapacityM2,
-                        status: values.status,
+                        statusCatalogId: values.statusCatalogId,
                     });
                 })}
             >
@@ -360,9 +378,9 @@ function WarehouseFormModal({
                     />
                 </div>
                 <Input
-                    label="Direccion"
-                    error={errors.address?.message}
-                    {...register("address")}
+                    label="Ubicacion"
+                    error={errors.location?.message}
+                    {...register("location")}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
                     <Input
@@ -376,6 +394,19 @@ function WarehouseFormModal({
                         hint="Opcional. Usa el identificador real del backend si aplica."
                         error={errors.warehouseTypeId?.message}
                         {...register("warehouseTypeId")}
+                    />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Select
+                        label="Estado"
+                        options={warehouseStatusOptions.length > 0
+                            ? warehouseStatusOptions.map((status) => ({
+                                value: String(status.value),
+                                label: status.label,
+                            }))
+                            : [{ value: "", label: "Cargando estados..." }]}
+                        error={errors.statusCatalogId?.message}
+                        {...register("statusCatalogId", { valueAsNumber: true })}
                     />
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
@@ -399,12 +430,6 @@ function WarehouseFormModal({
                             setValueAs: toOptionalNumber,
                         })}
                     />
-                    <Select
-                        label="Estado"
-                        options={[...WAREHOUSE_STATUS_OPTIONS]}
-                        error={errors.status?.message}
-                        {...register("status")}
-                    />
                 </div>
             </form>
         </Modal>
@@ -417,6 +442,7 @@ function SectorFormModal({
     sector,
     warehouses,
     defaultWarehouseId,
+    sectorStatusOptions,
     isSubmitting,
     actionError,
     onClose,
@@ -427,6 +453,7 @@ function SectorFormModal({
     sector?: ManagedSector;
     warehouses: ManagedWarehouse[];
     defaultWarehouseId: string | null;
+    sectorStatusOptions: { value: number; label: string }[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -446,10 +473,7 @@ function SectorFormModal({
             name: sector?.name ?? "",
             description: sector?.description ?? "",
             capacityM2: sector?.capacityM2 ?? undefined,
-            status:
-                sector?.status === "INACTIVE" || sector?.status === "MAINTENANCE"
-                    ? sector.status
-                    : "ACTIVE",
+            statusCatalogId: sector?.statusCatalogId ?? undefined,
         },
     });
 
@@ -460,10 +484,7 @@ function SectorFormModal({
             name: sector?.name ?? "",
             description: sector?.description ?? "",
             capacityM2: sector?.capacityM2 ?? undefined,
-            status:
-                sector?.status === "INACTIVE" || sector?.status === "MAINTENANCE"
-                    ? sector.status
-                    : "ACTIVE",
+            statusCatalogId: sector?.statusCatalogId ?? undefined,
         });
     }, [defaultWarehouseId, reset, sector]);
 
@@ -499,7 +520,7 @@ function SectorFormModal({
                         name: values.name,
                         description: values.description?.trim() || undefined,
                         capacityM2: values.capacityM2,
-                        status: values.status,
+                        statusCatalogId: values.statusCatalogId,
                     });
                 })}
             >
@@ -547,9 +568,14 @@ function SectorFormModal({
                     />
                     <Select
                         label="Estado"
-                        options={[...SECTOR_STATUS_OPTIONS]}
-                        error={errors.status?.message}
-                        {...register("status")}
+                        options={sectorStatusOptions.length > 0
+                            ? sectorStatusOptions.map((status) => ({
+                                value: String(status.value),
+                                label: status.label,
+                            }))
+                            : [{ value: "", label: "Cargando estados..." }]}
+                        error={errors.statusCatalogId?.message}
+                        {...register("statusCatalogId", { valueAsNumber: true })}
                     />
                 </div>
             </form>
@@ -565,6 +591,7 @@ function SpaceFormModal({
     sectors,
     defaultWarehouseId,
     defaultSectorId,
+    spaceStatusOptions,
     isSubmitting,
     actionError,
     onClose,
@@ -577,6 +604,7 @@ function SpaceFormModal({
     sectors: ManagedSector[];
     defaultWarehouseId: string | null;
     defaultSectorId: string | null;
+    spaceStatusOptions: { value: number; label: string }[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -595,11 +623,15 @@ function SpaceFormModal({
         defaultValues: {
             warehouseId: space?.warehouseId || defaultWarehouseId || "",
             sectorId: space?.sectorId || defaultSectorId || "",
-            code: space?.code ?? "",
-            name: space?.name ?? "",
-            description: space?.description ?? "",
+            aisle: space?.aisle ?? "",
+            row: space?.row ?? "",
+            level: space?.level ?? "",
+            position: space?.position ?? "",
             capacityM2: space?.capacityM2 ?? undefined,
-            status: normalizeSpaceStatus(space?.status),
+            temperatureControl: space?.temperatureControl ? "true" : "false",
+            humidityControl: space?.humidityControl ? "true" : "false",
+            storageSpaceTypeId: space?.storageSpaceTypeId ?? undefined,
+            statusCatalogId: space?.statusCatalogId ?? undefined,
         },
     });
 
@@ -607,11 +639,15 @@ function SpaceFormModal({
         reset({
             warehouseId: space?.warehouseId || defaultWarehouseId || "",
             sectorId: space?.sectorId || defaultSectorId || "",
-            code: space?.code ?? "",
-            name: space?.name ?? "",
-            description: space?.description ?? "",
+            aisle: space?.aisle ?? "",
+            row: space?.row ?? "",
+            level: space?.level ?? "",
+            position: space?.position ?? "",
             capacityM2: space?.capacityM2 ?? undefined,
-            status: normalizeSpaceStatus(space?.status),
+            temperatureControl: space?.temperatureControl ? "true" : "false",
+            humidityControl: space?.humidityControl ? "true" : "false",
+            storageSpaceTypeId: space?.storageSpaceTypeId ?? undefined,
+            statusCatalogId: space?.statusCatalogId ?? undefined,
         });
     }, [defaultSectorId, defaultWarehouseId, reset, space]);
 
@@ -655,13 +691,16 @@ function SpaceFormModal({
                 className="space-y-5"
                 onSubmit={handleSubmit(async (values) => {
                     await onSubmit({
-                        warehouseId: values.warehouseId,
                         sectorId: values.sectorId,
-                        code: values.code,
-                        name: values.name,
-                        description: values.description?.trim() || undefined,
+                        aisle: values.aisle,
+                        row: values.row,
+                        level: values.level,
+                        position: values.position,
                         capacityM2: values.capacityM2,
-                        status: values.status,
+                        temperatureControl: values.temperatureControl === "true",
+                        humidityControl: values.humidityControl === "true",
+                        storageSpaceTypeId: values.storageSpaceTypeId,
+                        statusCatalogId: values.statusCatalogId,
                     });
                 })}
             >
@@ -692,21 +731,28 @@ function SpaceFormModal({
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                     <Input
-                        label="Codigo"
-                        error={errors.code?.message}
-                        {...register("code")}
+                        label="Pasillo"
+                        error={errors.aisle?.message}
+                        {...register("aisle")}
                     />
                     <Input
-                        label="Nombre"
-                        error={errors.name?.message}
-                        {...register("name")}
+                        label="Fila"
+                        error={errors.row?.message}
+                        {...register("row")}
                     />
                 </div>
-                <TextareaField
-                    label="Descripcion"
-                    error={errors.description?.message}
-                    {...register("description")}
-                />
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Input
+                        label="Nivel"
+                        error={errors.level?.message}
+                        {...register("level")}
+                    />
+                    <Input
+                        label="Posicion"
+                        error={errors.position?.message}
+                        {...register("position")}
+                    />
+                </div>
                 <div className="grid gap-4 md:grid-cols-2">
                     <Input
                         type="number"
@@ -718,11 +764,151 @@ function SpaceFormModal({
                             setValueAs: toOptionalNumber,
                         })}
                     />
+                    <Input
+                        type="number"
+                        min={0}
+                        label="Tipo de espacio ID"
+                        error={errors.storageSpaceTypeId?.message}
+                        {...register("storageSpaceTypeId", {
+                            setValueAs: toOptionalNumber,
+                        })}
+                    />
+                </div>
+                <Select
+                    label="Estado"
+                    options={
+                        spaceStatusOptions.length > 0
+                            ? spaceStatusOptions.map((status) => ({
+                                  value: String(status.value),
+                                  label: status.label,
+                              }))
+                            : [{ value: "", label: "Cargando estados..." }]
+                    }
+                    error={errors.statusCatalogId?.message}
+                    {...register("statusCatalogId", { valueAsNumber: true })}
+                />
+                <div className="grid gap-4 md:grid-cols-2">
                     <Select
-                        label="Estado"
-                        options={[...SPACE_STATUS_OPTIONS]}
-                        error={errors.status?.message}
-                        {...register("status")}
+                        label="Control de temperatura"
+                        options={[{ value: "true", label: "Sí" }, { value: "false", label: "No" }]}
+                        error={errors.temperatureControl?.message}
+                        {...register("temperatureControl")}
+                    />
+                    <Select
+                        label="Control de humedad"
+                        options={[{ value: "true", label: "Sí" }, { value: "false", label: "No" }]}
+                        error={errors.humidityControl?.message}
+                        {...register("humidityControl")}
+                    />
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+function StatusCatalogFormModal({
+    isOpen,
+    isSubmitting,
+    actionError,
+    onClose,
+    onSubmit,
+}: {
+    isOpen: boolean;
+    isSubmitting: boolean;
+    actionError: string | null;
+    onClose: () => void;
+    onSubmit: (values: StatusCatalogFormValues) => Promise<void>;
+}) {
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { errors, isValid },
+    } = useForm<StatusCatalogFormValues>({
+        resolver: zodResolver(statusCatalogSchema),
+        mode: "onChange",
+        defaultValues: {
+            code: "",
+            description: "",
+            color: "#000000",
+            isOperational: true,
+            entityTypeId: ENTITY_TYPE_ID.warehouse,
+        },
+    });
+
+    React.useEffect(() => {
+        if (isOpen) {
+            reset({
+                code: "",
+                description: "",
+                color: "#000000",
+                isOperational: true,
+                entityTypeId: ENTITY_TYPE_ID.warehouse,
+            });
+        }
+    }, [isOpen, reset]);
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Registrar estado"
+            description="Crea un nuevo estado para el catálogo y relaciona con entity type."
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        type="submit"
+                        form="status-catalog-form"
+                        isLoading={isSubmitting}
+                        disabled={!isValid}
+                    >
+                        Guardar estado
+                    </Button>
+                </>
+            }
+        >
+            <form
+                id="status-catalog-form"
+                className="space-y-4"
+                onSubmit={handleSubmit(onSubmit)}
+            >
+                {actionError ? (
+                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                        {actionError}
+                    </div>
+                ) : null}
+                <Input label="Código" error={errors.code?.message} {...register("code")} />
+                <TextareaField
+                    label="Descripción"
+                    error={errors.description?.message}
+                    {...register("description")}
+                />
+                <Input label="Color" error={errors.color?.message} {...register("color")} />
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Select
+                        label="Entidad"
+                        options={ENTITY_TYPE_OPTIONS.map((option) => ({
+                            value: String(option.value),
+                            label: option.label,
+                        }))}
+                        error={errors.entityTypeId?.message}
+                        {...register("entityTypeId", { valueAsNumber: true })}
+                    />
+                    <Select
+                        label="Operacional"
+                        options={
+                            [
+                                { value: "true", label: "Sí" },
+                                { value: "false", label: "No" },
+                            ]
+                        }
+                        error={errors.isOperational?.message}
+                        {...register("isOperational", {
+                            setValueAs: (value) => value === "true",
+                        })}
                     />
                 </div>
             </form>
@@ -750,6 +936,18 @@ export function InfrastructureManagementView() {
     const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(
         null
     );
+    const [warehouseStatusOptions, setWarehouseStatusOptions] = React.useState<
+        { value: number; label: string }[]
+    >([]);
+    const [sectorStatusOptions, setSectorStatusOptions] = React.useState<
+        { value: number; label: string }[]
+    >([]);
+    const [spaceStatusOptions, setSpaceStatusOptions] = React.useState<
+        { value: number; label: string }[]
+    >([]);
+    const [isStatusCatalogModalOpen, setIsStatusCatalogModalOpen] = React.useState(false);
+    const [isStatusCatalogSubmitting, setIsStatusCatalogSubmitting] = React.useState(false);
+    const [statusCatalogActionError, setStatusCatalogActionError] = React.useState<string | null>(null);
     const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<
         string | null
     >(null);
@@ -763,11 +961,17 @@ export function InfrastructureManagementView() {
         setPageError(null);
 
         try {
-            const [warehouseData, sectorData, spaceData] = await Promise.all([
-                listWarehouses(),
-                listSectors(),
-                listSpaces(),
-            ]);
+            const warehouseData = await listWarehouses();
+            const warehouseId = warehouseData[0]?.id;
+
+            const sectorData = warehouseId
+                ? await listSectors({ warehouseId })
+                : [];
+            const sectorId = sectorData[0]?.id;
+
+            const spaceData = sectorId
+                ? await listSpaces({ sectorId })
+                : [];
 
             setWarehouses(warehouseData);
             setSectors(sectorData);
@@ -782,6 +986,45 @@ export function InfrastructureManagementView() {
     React.useEffect(() => {
         loadInfrastructure();
     }, [loadInfrastructure]);
+
+    const refreshStatusOptions = React.useCallback(async () => {
+        try {
+            const warehouseStatuses = await listStatusCatalogsByEntityType(
+                ENTITY_TYPE_ID.warehouse
+            );
+            const sectorStatuses = await listStatusCatalogsByEntityType(
+                ENTITY_TYPE_ID.sector
+            );
+            const spaceStatuses = await listStatusCatalogsByEntityType(
+                ENTITY_TYPE_ID.storageSpace
+            );
+
+            setWarehouseStatusOptions(
+                warehouseStatuses.map((status) => ({
+                    value: status.id,
+                    label: status.name,
+                }))
+            );
+            setSectorStatusOptions(
+                sectorStatuses.map((status) => ({
+                    value: status.id,
+                    label: status.name,
+                }))
+            );
+            setSpaceStatusOptions(
+                spaceStatuses.map((status) => ({
+                    value: status.id,
+                    label: status.name,
+                }))
+            );
+        } catch {
+            // no bloquea, fallback manual
+        }
+    }, []);
+
+    React.useEffect(() => {
+        void refreshStatusOptions();
+    }, [refreshStatusOptions]);
 
     React.useEffect(() => {
         if (warehouses.length === 0) {
@@ -1004,17 +1247,28 @@ export function InfrastructureManagementView() {
                             }
                         />
                         {canManageWarehouses ? (
-                            <Button
-                                onClick={() => {
-                                    setFeedbackMessage(null);
-                                    setEditor({
-                                        entity: "warehouse",
-                                        mode: "create",
-                                    });
-                                }}
-                            >
-                                Nueva bodega
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => {
+                                        setFeedbackMessage(null);
+                                        setEditor({
+                                            entity: "warehouse",
+                                            mode: "create",
+                                        });
+                                    }}
+                                >
+                                    Nueva bodega
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setStatusCatalogActionError(null);
+                                        setIsStatusCatalogModalOpen(true);
+                                    }}
+                                >
+                                    Registrar estado
+                                </Button>
+                            </>
                         ) : null}
                         <Button variant="outline" onClick={() => loadInfrastructure()}>
                             Recargar
@@ -1610,6 +1864,7 @@ export function InfrastructureManagementView() {
                     warehouse={
                         editor?.entity === "warehouse" ? editor.warehouse : undefined
                     }
+                    warehouseStatusOptions={warehouseStatusOptions}
                     isSubmitting={isSubmitting}
                     actionError={actionError}
                     onClose={closeEditor}
@@ -1644,6 +1899,7 @@ export function InfrastructureManagementView() {
                     sector={editor?.entity === "sector" ? editor.sector : undefined}
                     warehouses={warehouses}
                     defaultWarehouseId={selectedWarehouseId}
+                    sectorStatusOptions={sectorStatusOptions}
                     isSubmitting={isSubmitting}
                     actionError={actionError}
                     onClose={closeEditor}
@@ -1679,6 +1935,7 @@ export function InfrastructureManagementView() {
                     sectors={filteredSectors}
                     defaultWarehouseId={selectedWarehouseId}
                     defaultSectorId={selectedSectorId}
+                    spaceStatusOptions={spaceStatusOptions}
                     isSubmitting={isSubmitting}
                     actionError={actionError}
                     onClose={closeEditor}

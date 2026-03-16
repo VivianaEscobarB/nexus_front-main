@@ -16,7 +16,7 @@ import type {
 
 const WAREHOUSES_BASE_PATH = "/api/warehouses";
 const SECTORS_BASE_PATH = "/api/sectors";
-const SPACES_BASE_PATH = "/api/spaces";
+const SPACES_BASE_PATH = "/api/storage-spaces";
 
 const VALID_STATUSES = new Set<InfrastructureStatus>([
     "ACTIVE",
@@ -105,7 +105,8 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
     const name =
         getString(payload.name) ??
         getString(payload.warehouse_name) ??
-        getString(payload.warehouseName);
+        getString(payload.warehouseName) ??
+        getString(payload.code);
 
     if (!id || !name) {
         throw new Error("La API devolvio una bodega incompleta.");
@@ -116,11 +117,6 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
         getString(payload.warehouse_code) ??
         getString(payload.warehouseCode) ??
         `WH-${id}`;
-
-    const cityObject = isObject(payload.city) ? payload.city : null;
-    const typeObject =
-        isObject(payload.warehouse_type) ? payload.warehouse_type :
-            isObject(payload.warehouseType) ? payload.warehouseType : null;
 
     return {
         id: String(id),
@@ -133,21 +129,25 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
             "Sin direccion registrada",
         cityName:
             getString(payload.cityName) ??
-            getString(cityObject?.name) ??
-            getString(cityObject?.city_name),
+            (isObject(payload.city) ? getString(payload.city.name) : null) ??
+            null,
         typeName:
             getString(payload.typeName) ??
-            getString(typeObject?.name) ??
-            getString(typeObject?.warehouse_type_name),
+            getString(payload.type_name) ??
+            null,
         totalCapacityM2:
             getNumber(payload.totalCapacityM2) ??
-            getNumber(payload.total_capacity_m2) ??
-            getNumber(payload.capacityM2),
+            getNumber(payload.capacityM2) ??
+            null,
         availableCapacityM2:
             getNumber(payload.availableCapacityM2) ??
-            getNumber(payload.available_capacity_m2) ??
-            getNumber(payload.remainingCapacityM2),
-        status: normalizeStatus(payload.status, "ACTIVE"),
+            getNumber(payload.remainingCapacityM2) ??
+            null,
+        status: normalizeStatus(
+            getString(payload.statusName) ?? getString(payload.status) ?? "ACTIVE",
+            "ACTIVE"
+        ),
+        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
     };
 }
 
@@ -157,46 +157,40 @@ function mapApiSector(payload: unknown): ManagedSector {
     }
 
     const id = payload.id ?? payload.sector_id ?? payload.sectorId;
+    const code =
+        getString(payload.code) ??
+        getString(payload.sector_code) ??
+        getString(payload.sectorCode) ??
+        `SEC-${id}`;
+    const description = getString(payload.description);
     const name =
         getString(payload.name) ??
-        getString(payload.sector_name) ??
-        getString(payload.sectorName);
+        description ??
+        getString(payload.code) ??
+        code;
 
     if (!id || !name) {
         throw new Error("La API devolvio un sector incompleto.");
     }
 
-    const warehouseObject =
-        isObject(payload.warehouse) ? payload.warehouse :
-            isObject(payload.parentWarehouse) ? payload.parentWarehouse : null;
-
     const warehouseId =
         getString(payload.warehouseId) ??
         getString(payload.warehouse_id) ??
-        getString(warehouseObject?.warehouse_id) ??
-        getString(warehouseObject?.id) ??
-        "";
+        String(payload.warehouseId ?? payload.warehouse_id ?? payload.warehouseId ?? "");
 
     return {
         id: String(id),
-        code:
-            getString(payload.code) ??
-            getString(payload.sector_code) ??
-            getString(payload.sectorCode) ??
-            `SEC-${id}`,
+        code,
         name,
         warehouseId,
-        warehouseName:
-            getString(payload.warehouseName) ??
-            getString(warehouseObject?.name) ??
-            getString(warehouseObject?.warehouse_name),
-        description: getString(payload.description),
-        capacityM2:
-            getNumber(payload.capacityM2) ??
-            getNumber(payload.capacity_m2) ??
-            getNumber(payload.totalCapacityM2) ??
-            getNumber(payload.total_capacity_m2),
-        status: normalizeStatus(payload.status, "ACTIVE"),
+        warehouseName: getString(payload.warehouseName) ?? null,
+        description,
+        capacityM2: getNumber(payload.capacityM2) ?? null,
+        status: normalizeStatus(
+            getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "ACTIVE"),
+            "ACTIVE"
+        ),
+        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
     };
 }
 
@@ -206,61 +200,42 @@ function mapApiSpace(payload: unknown): ManagedSpace {
     }
 
     const id = payload.id ?? payload.space_id ?? payload.spaceId;
+    const code = getString(payload.code) ?? getString(payload.space_code) ?? getString(payload.spaceCode);
+    const sectorId =
+        getString(payload.sectorId) ??
+        getString(payload.sector_id) ??
+        String(payload.sectorId ?? payload.sector_id ?? payload.sector?.id ?? "");
+
     const name =
         getString(payload.name) ??
-        getString(payload.space_name) ??
-        getString(payload.spaceName);
+        code ??
+        getString(payload.description) ??
+        "Espacio";
 
-    if (!id || !name) {
+    if (!id || !code) {
         throw new Error("La API devolvio un espacio incompleto.");
     }
 
-    const sectorObject =
-        isObject(payload.sector) ? payload.sector :
-            isObject(payload.parentSector) ? payload.parentSector : null;
-    const warehouseObject =
-        isObject(payload.warehouse) ? payload.warehouse :
-            isObject(payload.parentWarehouse) ? payload.parentWarehouse : null;
-
     return {
         id: String(id),
-        code:
-            getString(payload.code) ??
-            getString(payload.space_code) ??
-            getString(payload.spaceCode) ??
-            `SP-${id}`,
+        code,
         name,
-        warehouseId:
-            getString(payload.warehouseId) ??
-            getString(payload.warehouse_id) ??
-            getString(warehouseObject?.warehouse_id) ??
-            getString(warehouseObject?.id) ??
-            getString(sectorObject?.warehouse_id) ??
-            "",
-        warehouseName:
-            getString(payload.warehouseName) ??
-            getString(warehouseObject?.name) ??
-            getString(warehouseObject?.warehouse_name),
-        sectorId:
-            getString(payload.sectorId) ??
-            getString(payload.sector_id) ??
-            getString(sectorObject?.sector_id) ??
-            getString(sectorObject?.id) ??
-            "",
-        sectorName:
-            getString(payload.sectorName) ??
-            getString(sectorObject?.name) ??
-            getString(sectorObject?.sector_name),
-        description: getString(payload.description),
-        capacityM2:
-            getNumber(payload.capacityM2) ??
-            getNumber(payload.capacity_m2) ??
-            getNumber(payload.areaM2) ??
-            getNumber(payload.area_m2),
+        warehouseId: getString(payload.warehouseId) ?? "",
+        warehouseName: getString(payload.warehouseName) ?? null,
+        sectorId: sectorId ?? "",
+        sectorName: getString(payload.sectorName) ?? null,
+        description: (
+            getString(payload.description) ??
+            [getString(payload.aisle), getString(payload.row), getString(payload.level), getString(payload.position)]
+                .filter(Boolean)
+                .join("/")
+        ) || null,
+        capacityM2: getNumber(payload.capacityM2) ?? null,
         status: normalizeStatus(
-            payload.status,
-            Boolean(payload.occupied) ? "OCCUPIED" : "AVAILABLE"
+            getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "AVAILABLE"),
+            "AVAILABLE"
         ),
+        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
     };
 }
 
@@ -268,36 +243,85 @@ function buildWarehousePayload(input: CreateWarehouseInput | UpdateWarehouseInpu
     return compactRecord({
         code: input.code?.trim(),
         name: input.name?.trim(),
-        address: input.address?.trim(),
-        cityId: input.cityId?.trim(),
-        warehouseTypeId: input.warehouseTypeId?.trim(),
         totalCapacityM2: input.totalCapacityM2,
-        availableCapacityM2: input.availableCapacityM2,
-        status: input.status,
+        location: input.location?.trim(),
+        cityId: input.cityId ? Number(input.cityId) : undefined,
+        statusCatalogId: input.statusCatalogId,
+        warehouseTypeId: input.warehouseTypeId,
     });
 }
 
 function buildSectorPayload(input: CreateSectorInput | UpdateSectorInput) {
     return compactRecord({
-        warehouseId: input.warehouseId?.trim(),
+        warehouseId: Number(input.warehouseId),
         code: input.code?.trim(),
-        name: input.name?.trim(),
         description: input.description?.trim(),
-        capacityM2: input.capacityM2,
-        status: input.status,
+        statusCatalogId: input.statusCatalogId,
     });
 }
 
 function buildSpacePayload(input: CreateSpaceInput | UpdateSpaceInput) {
     return compactRecord({
-        warehouseId: input.warehouseId?.trim(),
-        sectorId: input.sectorId?.trim(),
-        code: input.code?.trim(),
-        name: input.name?.trim(),
-        description: input.description?.trim(),
+        sectorId: Number(input.sectorId),
+        aisle: input.aisle?.trim(),
+        row: input.row?.trim(),
+        level: input.level?.trim(),
+        position: input.position?.trim(),
         capacityM2: input.capacityM2,
-        status: input.status,
+        temperatureControl: input.temperatureControl,
+        humidityControl: input.humidityControl,
+        storageSpaceTypeId: input.storageSpaceTypeId,
+        statusCatalogId: input.statusCatalogId,
     });
+}
+
+export async function listStatusCatalogsByEntityType(
+    entityTypeId: number
+): Promise<StatusCatalog[]> {
+    const payload = await httpClient.get<unknown>(
+        `/api/status-catalogs/entity-type/${entityTypeId}`
+    );
+
+    const items = extractCollection(payload);
+    return items
+        .filter(isObject)
+        .map((item) => ({
+            id: Number(item.id ?? item.statusCatalogId ?? item.value),
+            name:
+                getString(item.name) ?? getString(item.statusName) ??
+                getString(item.description) ?? "",
+            code: getString(item.code) ?? null,
+            description: getString(item.description) ?? null,
+        }))
+        .filter((item) => Number.isFinite(item.id));
+}
+
+export async function createStatusCatalog(
+    input: CreateStatusCatalogInput
+): Promise<StatusCatalog> {
+    const payload = await httpClient.post<unknown>(
+        "/api/status-catalogs",
+        compactRecord({
+            code: input.code?.trim(),
+            description: input.description?.trim(),
+            color: input.color?.trim(),
+            isOperational: input.isOperational,
+            entityTypeId: input.entityTypeId,
+        })
+    );
+
+    if (!isObject(payload)) {
+        throw new Error("La API devolvio un estado invalido.");
+    }
+
+    return {
+        id: Number(payload.id ?? payload.statusCatalogId ?? payload.value),
+        name:
+            getString(payload.name) ?? getString(payload.statusName) ??
+            getString(payload.description) ?? "",
+        code: getString(payload.code) ?? null,
+        description: getString(payload.description) ?? null,
+    };
 }
 
 export async function listWarehouses(): Promise<ManagedWarehouse[]> {
@@ -335,9 +359,13 @@ export async function deleteWarehouse(id: string): Promise<void> {
 export async function listSectors(
     params?: ListSectorsParams
 ): Promise<ManagedSector[]> {
-    const payload = await httpClient.get<unknown>(SECTORS_BASE_PATH, {
-        query: params ? { warehouseId: params.warehouseId } : undefined,
-    });
+    if (!params?.warehouseId) {
+        return [];
+    }
+
+    const payload = await httpClient.get<unknown>(
+        `${SECTORS_BASE_PATH}/warehouse/${params.warehouseId}`
+    );
 
     return extractCollection(payload).map(mapApiSector);
 }
@@ -372,14 +400,13 @@ export async function deleteSector(id: string): Promise<void> {
 export async function listSpaces(
     params?: ListSpacesParams
 ): Promise<ManagedSpace[]> {
-    const payload = await httpClient.get<unknown>(SPACES_BASE_PATH, {
-        query: params
-            ? {
-                warehouseId: params.warehouseId,
-                sectorId: params.sectorId,
-            }
-            : undefined,
-    });
+    if (!params?.sectorId) {
+        return [];
+    }
+
+    const payload = await httpClient.get<unknown>(
+        `${SPACES_BASE_PATH}/sector/${params.sectorId}`
+    );
 
     return extractCollection(payload).map(mapApiSpace);
 }
