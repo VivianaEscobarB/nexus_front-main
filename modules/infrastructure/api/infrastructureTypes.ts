@@ -98,8 +98,6 @@ export interface CreateSpaceInput {
 
 export type UpdateSpaceInput = Partial<CreateSpaceInput>;
 
-export type UpdateSectorInput = Partial<CreateSectorInput>;
-
 export interface CreateStatusCatalogInput {
     code: string;
     description: string;

@@ -33,6 +33,16 @@ import {
     updateSpace,
     updateWarehouse,
 } from "@/modules/infrastructure";
+import {
+    listCitiesByRegion,
+    listCountries,
+    listRegionsByCountry,
+    listWarehouseTypes,
+    type LocationCity,
+    type LocationCountry,
+    type LocationRegion,
+    type WarehouseTypeOption,
+} from "@/modules/locations";
 import type {
     CreateSectorInput,
     CreateSpaceInput,
@@ -119,6 +129,8 @@ const warehouseSchema = z
         code: z.string().min(2, "El codigo debe tener al menos 2 caracteres"),
         name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
         location: z.string().min(5, "La ubicacion debe tener al menos 5 caracteres"),
+        countryId: z.string().optional(),
+        regionId: z.string().optional(),
         cityId: z.string().optional(),
         warehouseTypeId: z.string().optional(),
         totalCapacityM2: optionalNumberField,
@@ -291,6 +303,7 @@ function WarehouseFormModal({
         register,
         handleSubmit,
         reset,
+        control,
         formState: { errors, isValid },
     } = useForm<WarehouseFormValues>({
         resolver: zodResolver(warehouseSchema),
@@ -299,6 +312,8 @@ function WarehouseFormModal({
             code: warehouse?.code ?? "",
             name: warehouse?.name ?? "",
             location: warehouse?.address ?? "",
+            countryId: "",
+            regionId: "",
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
@@ -312,6 +327,8 @@ function WarehouseFormModal({
             code: warehouse?.code ?? "",
             name: warehouse?.name ?? "",
             location: warehouse?.address ?? "",
+            countryId: "",
+            regionId: "",
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
@@ -320,12 +337,134 @@ function WarehouseFormModal({
         });
     }, [warehouse, reset]);
 
+    const [countries, setCountries] = React.useState<LocationCountry[]>([]);
+    const [regions, setRegions] = React.useState<LocationRegion[]>([]);
+    const [cities, setCities] = React.useState<LocationCity[]>([]);
+    const [warehouseTypes, setWarehouseTypes] = React.useState<
+        WarehouseTypeOption[]
+    >([]);
+    const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
+    const [locationsError, setLocationsError] = React.useState<string | null>(null);
+
+    const selectedCountryId = useWatch({ control, name: "countryId" });
+    const selectedRegionId = useWatch({ control, name: "regionId" });
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        async function loadInitialOptions() {
+            setIsLoadingLocations(true);
+            setLocationsError(null);
+
+            try {
+                const [countriesData, warehouseTypesData] = await Promise.all([
+                    listCountries(),
+                    listWarehouseTypes(),
+                ]);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setCountries(countriesData);
+                setWarehouseTypes(warehouseTypesData);
+            } catch (error) {
+                if (!isMounted) {
+                    return;
+                }
+
+                setLocationsError(
+                    error instanceof Error
+                        ? error.message
+                        : "No fue posible cargar los catalogos de ubicacion."
+                );
+            } finally {
+                if (isMounted) {
+                    setIsLoadingLocations(false);
+                }
+            }
+        }
+
+        void loadInitialOptions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (!selectedCountryId) {
+            setRegions([]);
+            setCities([]);
+            return;
+        }
+
+        let isMounted = true;
+
+        async function loadRegions() {
+            try {
+                const data = await listRegionsByCountry(Number(selectedCountryId));
+                if (!isMounted) {
+                    return;
+                }
+                setRegions(data);
+                setCities([]);
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+                setRegions([]);
+                setCities([]);
+            }
+        }
+
+        void loadRegions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedCountryId]);
+
+    React.useEffect(() => {
+        if (!selectedRegionId) {
+            setCities([]);
+            return;
+        }
+
+        let isMounted = true;
+
+        async function loadCities() {
+            try {
+                const data = await listCitiesByRegion(Number(selectedRegionId));
+                if (!isMounted) {
+                    return;
+                }
+                setCities(data);
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+                setCities([]);
+            }
+        }
+
+        void loadCities();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedRegionId]);
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             title={mode === "create" ? "Nueva bodega" : "Editar bodega"}
-            description="Define la informacion principal de la bodega."
+            description={
+                mode === "create"
+                    ? "Registra una nueva instalación definiendo su identidad, ubicación y capacidad operativa."
+                    : "Ajusta los datos operativos de la bodega seleccionada."
+            }
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose}>
@@ -344,7 +483,7 @@ function WarehouseFormModal({
         >
             <form
                 id="warehouse-form"
-                className="space-y-5"
+                className="space-y-6"
                 onSubmit={handleSubmit(async (values) => {
                     await onSubmit({
                         code: values.code,
@@ -365,72 +504,178 @@ function WarehouseFormModal({
                         {actionError}
                     </div>
                 ) : null}
-                <div className="grid gap-4 md:grid-cols-2">
+                {locationsError ? (
+                    <div className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-xs text-[var(--color-warning-strong)]">
+                        {locationsError}
+                    </div>
+                ) : null}
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        Identificación de la bodega
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                        Define un código y nombre claros para que el equipo pueda encontrar la bodega rápidamente en reportes y filtros.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <Input
+                            label="Codigo interno"
+                            hint="Usa un identificador corto y consistente, por ejemplo BOG-ALM-01."
+                            error={errors.code?.message}
+                            {...register("code")}
+                        />
+                        <Input
+                            label="Nombre operativo"
+                            hint="Nombre descriptivo que el equipo reconoce en el día a día."
+                            error={errors.name?.message}
+                            {...register("name")}
+                        />
+                    </div>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        Ubicación física
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                        Selecciona país, departamento o región y ciudad para normalizar la dirección y facilitar reportes geográficos.
+                    </p>
                     <Input
-                        label="Codigo"
-                        error={errors.code?.message}
-                        {...register("code")}
+                        label="Direccion detallada"
+                        hint="Calle, número, referencias internas o parque industrial."
+                        error={errors.location?.message}
+                        {...register("location")}
                     />
-                    <Input
-                        label="Nombre"
-                        error={errors.name?.message}
-                        {...register("name")}
+                    <div className="grid gap-4 md:grid-cols-3">
+                    <Select
+                        label="País"
+                        options={
+                            isLoadingLocations && countries.length === 0
+                                ? [{ value: "", label: "Cargando países..." }]
+                                : [
+                                      { value: "", label: "Selecciona un país" },
+                                      ...countries.map((country) => ({
+                                          value: String(country.id),
+                                          label: country.name,
+                                      })),
+                                  ]
+                        }
+                        error={errors.countryId?.message}
+                        {...register("countryId")}
                     />
-                </div>
-                <Input
-                    label="Ubicacion"
-                    error={errors.location?.message}
-                    {...register("location")}
-                />
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Input
-                        label="Ciudad ID"
+                    <Select
+                        label="Departamento / Región"
+                        options={
+                            !selectedCountryId
+                                ? [{ value: "", label: "Selecciona un país primero" }]
+                                : regions.length === 0
+                                    ? [{ value: "", label: "Sin regiones disponibles" }]
+                                    : [
+                                          { value: "", label: "Selecciona una región" },
+                                          ...regions.map((region) => ({
+                                              value: String(region.id),
+                                              label: region.name,
+                                          })),
+                                      ]
+                        }
+                        error={errors.regionId?.message}
+                        {...register("regionId")}
+                    />
+                    <Select
+                        label="Ciudad"
+                        options={
+                            !selectedRegionId
+                                ? [{ value: "", label: "Selecciona una región primero" }]
+                                : cities.length === 0
+                                    ? [{ value: "", label: "Sin ciudades disponibles" }]
+                                    : [
+                                          { value: "", label: "Selecciona una ciudad" },
+                                          ...cities.map((city) => ({
+                                              value: String(city.id),
+                                              label: city.name,
+                                          })),
+                                      ]
+                        }
                         hint="Opcional. Util si la API solicita una ciudad existente."
                         error={errors.cityId?.message}
                         {...register("cityId")}
                     />
-                    <Input
-                        label="Tipo de bodega ID"
-                        hint="Opcional. Usa el identificador real del backend si aplica."
-                        error={errors.warehouseTypeId?.message}
-                        {...register("warehouseTypeId")}
-                    />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Select
-                        label="Estado"
-                        options={warehouseStatusOptions.length > 0
-                            ? warehouseStatusOptions.map((status) => ({
-                                value: String(status.value),
-                                label: status.label,
-                            }))
-                            : [{ value: "", label: "Cargando estados..." }]}
-                        error={errors.statusCatalogId?.message}
-                        {...register("statusCatalogId", { valueAsNumber: true })}
-                    />
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        label="Capacidad total (m2)"
-                        error={errors.totalCapacityM2?.message}
-                        {...register("totalCapacityM2", {
-                            setValueAs: toOptionalNumber,
-                        })}
-                    />
-                    <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        label="Capacidad disponible (m2)"
-                        error={errors.availableCapacityM2?.message}
-                        {...register("availableCapacityM2", {
-                            setValueAs: toOptionalNumber,
-                        })}
-                    />
-                </div>
+                    </div>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        Clasificación operativa
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                        Selecciona el tipo de bodega y su estado para que los equipos de ventas y operaciones sepan cómo utilizarla.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <Select
+                            label="Tipo de bodega"
+                            options={
+                                isLoadingLocations && warehouseTypes.length === 0
+                                    ? [{ value: "", label: "Cargando tipos de bodega..." }]
+                                    : [
+                                          { value: "", label: "Selecciona un tipo de bodega" },
+                                          ...warehouseTypes.map((type) => ({
+                                              value: String(type.id),
+                                              label: type.name,
+                                          })),
+                                      ]
+                            }
+                            hint="Ejemplo: refrigerada, seca, industrial. Se usa para filtrar bodegas en procesos comerciales."
+                            error={errors.warehouseTypeId?.message}
+                            {...register("warehouseTypeId")}
+                        />
+                        <Select
+                            label="Estado operativo"
+                            options={
+                                warehouseStatusOptions.length > 0
+                                    ? warehouseStatusOptions.map((status) => ({
+                                          value: String(status.value),
+                                          label: status.label,
+                                      }))
+                                    : [{ value: "", label: "Cargando estados..." }]
+                            }
+                            hint="Controla si la bodega se muestra como disponible para nuevas operaciones."
+                            error={errors.statusCatalogId?.message}
+                            {...register("statusCatalogId", { valueAsNumber: true })}
+                        />
+                    </div>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        Capacidad instalada
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                        Define la capacidad total y disponible en metros cuadrados para soportar decisiones comerciales y de planificación.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            label="Capacidad total (m²)"
+                            hint="Metros cuadrados físicos disponibles en la instalación."
+                            error={errors.totalCapacityM2?.message}
+                            {...register("totalCapacityM2", {
+                                setValueAs: toOptionalNumber,
+                            })}
+                        />
+                        <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            label="Capacidad disponible (m²)"
+                            hint="Metros cuadrados que aún se pueden comercializar."
+                            error={errors.availableCapacityM2?.message}
+                            {...register("availableCapacityM2", {
+                                setValueAs: toOptionalNumber,
+                            })}
+                        />
+                    </div>
+                </section>
             </form>
         </Modal>
     );
