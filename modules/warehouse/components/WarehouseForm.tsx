@@ -2,7 +2,7 @@ import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { useLocationCascade } from '../hooks/useLocationCascade';
 import { CreateWarehousePayload, WarehouseType } from '../types';
-import { Input, Button, Label, Select } from '@/components/ui';
+import { Input, Button, Select } from '@/components/ui';
 
 interface Props {
   warehouseTypes: WarehouseType[];
@@ -22,8 +22,12 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseTypes, onSubmit }) => 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="name">Nombre de la Bodega</Label>
-          <Input id="name" {...register("name", { required: true })} placeholder="Ej: Bodega Central" />
+          <Input 
+            id="name" 
+            label="Nombre de la Bodega"
+            {...register("name", { required: true })} 
+            placeholder="Ej: Bodega Central" 
+          />
         </div>
 
         <div className="space-y-2">
@@ -42,8 +46,12 @@ export const WarehouseForm: React.FC<Props> = ({ warehouseTypes, onSubmit }) => 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address">Dirección Física</Label>
-          <Input id="address" {...register("address", { required: true })} placeholder="Ej: Calle 10 # 15-20" />
+          <Input 
+            id="address" 
+            label="Dirección Física"
+            {...register("address", { required: true })} 
+            placeholder="Ej: Calle 10 # 15-20" 
+          />
         </div>
 
         {/* --- CASCADA --- */}
