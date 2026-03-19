@@ -7,7 +7,9 @@ export {
     deleteWarehouse,
     listSectors,
     listSpaces,
+    listStatusCatalogsByEntityType,
     listWarehouses,
+    createStatusCatalog,
     updateSector,
     updateSpace,
     updateWarehouse,
@@ -21,9 +23,11 @@ export type {
     ManagedSector,
     ManagedSpace,
     ManagedWarehouse,
+    StatusCatalog,
     UpdateSectorInput,
     UpdateSpaceInput,
     UpdateWarehouseInput,
+    CreateStatusCatalogInput,
 } from "./api/infrastructureTypes";
 
 export { InfrastructureManagementView } from "./components/InfrastructureManagementView";

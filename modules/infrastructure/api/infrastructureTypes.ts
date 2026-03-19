@@ -6,6 +6,13 @@ export type InfrastructureStatus =
     | "OCCUPIED"
     | "RESERVED";
 
+export interface StatusCatalog {
+    id: number;
+    name: string;
+    code?: string;
+    description?: string;
+}
+
 export interface ManagedWarehouse {
     id: string;
     code: string;
@@ -16,6 +23,7 @@ export interface ManagedWarehouse {
     totalCapacityM2: number | null;
     availableCapacityM2: number | null;
     status: InfrastructureStatus;
+    statusCatalogId?: number;
 }
 
 export interface ManagedSector {
@@ -27,6 +35,7 @@ export interface ManagedSector {
     description: string | null;
     capacityM2: number | null;
     status: InfrastructureStatus;
+    statusCatalogId?: number;
 }
 
 export interface ManagedSpace {
@@ -40,6 +49,7 @@ export interface ManagedSpace {
     description: string | null;
     capacityM2: number | null;
     status: InfrastructureStatus;
+    statusCatalogId?: number;
 }
 
 export interface ListSectorsParams {
@@ -54,12 +64,12 @@ export interface ListSpacesParams {
 export interface CreateWarehouseInput {
     code: string;
     name: string;
-    address: string;
+    location: string;
     cityId?: string;
-    warehouseTypeId?: string;
+    statusCatalogId?: number;
+    warehouseTypeId?: number;
     totalCapacityM2?: number;
     availableCapacityM2?: number;
-    status?: InfrastructureStatus;
 }
 
 export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
@@ -67,22 +77,32 @@ export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
 export interface CreateSectorInput {
     warehouseId: string;
     code: string;
-    name: string;
     description?: string;
-    capacityM2?: number;
-    status?: InfrastructureStatus;
+    statusCatalogId?: number;
 }
 
 export type UpdateSectorInput = Partial<CreateSectorInput>;
 
 export interface CreateSpaceInput {
-    warehouseId: string;
     sectorId: string;
-    code: string;
-    name: string;
-    description?: string;
+    aisle: string;
+    row: string;
+    level: string;
+    position: string;
     capacityM2?: number;
-    status?: InfrastructureStatus;
+    temperatureControl?: boolean;
+    humidityControl?: boolean;
+    storageSpaceTypeId?: number;
+    statusCatalogId?: number;
 }
 
 export type UpdateSpaceInput = Partial<CreateSpaceInput>;
+
+export interface CreateStatusCatalogInput {
+    code: string;
+    description: string;
+    color: string;
+    isOperational: boolean;
+    entityTypeId: number;
+}
+
