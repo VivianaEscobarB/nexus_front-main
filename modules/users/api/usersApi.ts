@@ -22,6 +22,17 @@ function getString(value: unknown): string | null {
     return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function getNumber(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
 function normalizeStatus(value: unknown): ManagedUserStatus {
     if (typeof value === "string" && VALID_STATUSES.has(value as ManagedUserStatus)) {
         return value as ManagedUserStatus;
@@ -88,6 +99,11 @@ function mapApiUser(payload: unknown): ManagedUser {
                 ? getString(payload.client.id) ??
                 getString(payload.client.client_id)
                 : null),
+        cityId:
+            getNumber(payload.cityId) ??
+            getNumber(payload.city_id) ??
+            (isObject(payload.city) ? getNumber(payload.city.id) : null) ??
+            null,
         clientName:
             getString(payload.clientName) ??
             getString(payload.client_name) ??
@@ -146,6 +162,14 @@ function buildMutationPayload(input: CreateUserInput | UpdateUserInput) {
 
     if ("clientId" in input) {
         payload.clientId = input.clientId?.trim() || null;
+    }
+
+    if (
+        "cityId" in input &&
+        typeof input.cityId === "number" &&
+        Number.isFinite(input.cityId)
+    ) {
+        payload.cityId = input.cityId;
     }
 
     return payload;

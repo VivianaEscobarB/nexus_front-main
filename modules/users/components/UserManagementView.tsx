@@ -22,6 +22,15 @@ import type {
     UpdateUserInput,
 } from "@/modules/users/api/userTypes";
 import type { ManagedClient } from "@/modules/clients";
+import {
+    listCitiesByRegion,
+    listCountries,
+    listRegionsByCountry,
+    resolveCityHierarchy,
+    type LocationCity,
+    type LocationRegion,
+} from "@/modules/locations";
+import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
 
 type UserManagementViewMode = "default" | "create";
@@ -70,44 +79,95 @@ function getStatusLabel(status: ManagedUserStatus): string {
     }
 }
 
-function buildFormSchema(isEditing: boolean) {
-    return z.object({
-        username: z
-            .string()
-            .min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
-        email: z
-            .string()
-            .min(1, "El correo es obligatorio")
-            .email("Debes ingresar un correo valido"),
-        role: z
-            .nativeEnum(UserRole, { message: "Selecciona un rol valido" }),
-        status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"], {
-            message: "Selecciona un estado valido",
-        }),
-        clientId: z.string().optional(),
-        password: isEditing
-            ? z
+/**
+ * Esquema estable: el resolver de RHF no se actualiza si el objeto Zod cambia de referencia.
+ * `getIsEditing` permite exigir cityId y password solo al crear.
+ */
+function buildUserFormSchema(getIsEditing: () => boolean) {
+    return z
+        .object({
+            username: z
                 .string()
-                .optional()
-                .refine(
-                    (value) => !value || value.length >= 8,
-                    "La contrasena debe tener al menos 8 caracteres"
-                )
-            : z
+                .min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
+            email: z
                 .string()
-                .min(8, "La contrasena debe tener al menos 8 caracteres"),
-    }).superRefine((values, ctx) => {
-        if (values.role === UserRole.CLIENT && (!values.clientId || values.clientId.trim().length === 0)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["clientId"],
-                message: "Debes asociar el usuario a un cliente existente.",
-            });
-        }
-    });
+                .min(1, "El correo es obligatorio")
+                .email("Debes ingresar un correo valido"),
+            role: z.nativeEnum(UserRole, { message: "Selecciona un rol valido" }),
+            status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"], {
+                message: "Selecciona un estado valido",
+            }),
+            clientId: z.string().optional(),
+            countryId: z.string().optional(),
+            regionId: z.string().optional(),
+            cityId: z.string().optional(),
+            password: z.string().optional(),
+        })
+        .superRefine((values, ctx) => {
+            const editing = getIsEditing();
+
+            if (
+                values.role === UserRole.CLIENT &&
+                (!values.clientId || values.clientId.trim().length === 0)
+            ) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["clientId"],
+                    message: "Debes asociar el usuario a un cliente existente.",
+                });
+            }
+
+            if (!editing) {
+                if (!values.cityId || values.cityId.trim().length === 0) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["cityId"],
+                        message:
+                            "Selecciona pais, region y ciudad. El API exige cityId numerico.",
+                    });
+                } else if (!Number.isFinite(Number(values.cityId))) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["cityId"],
+                        message: "Ciudad invalida. Vuelve a seleccionar.",
+                    });
+                }
+                if (!values.password || values.password.length < 8) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["password"],
+                        message: "La contrasena debe tener al menos 8 caracteres",
+                    });
+                }
+            } else if (
+                values.password &&
+                values.password.length > 0 &&
+                values.password.length < 8
+            ) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["password"],
+                    message: "La contrasena debe tener al menos 8 caracteres",
+                });
+            }
+
+            if (editing) {
+                const hasLocation =
+                    (values.countryId && values.countryId.trim().length > 0) ||
+                    (values.regionId && values.regionId.trim().length > 0) ||
+                    (values.cityId && values.cityId.trim().length > 0);
+                if (hasLocation && (!values.cityId || !Number.isFinite(Number(values.cityId)))) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["cityId"],
+                        message: "Completa pais, region y ciudad o deja la ubicacion vacia.",
+                    });
+                }
+            }
+        });
 }
 
-type UserFormValues = z.infer<ReturnType<typeof buildFormSchema>>;
+type UserFormValues = z.infer<ReturnType<typeof buildUserFormSchema>>;
 
 function buildDefaultValues(user?: ManagedUser): UserFormValues {
     return {
@@ -116,6 +176,9 @@ function buildDefaultValues(user?: ManagedUser): UserFormValues {
         role: (user?.roles[0] as UserRole) ?? UserRole.WAREHOUSE_OPERATOR,
         status: user?.status ?? "ACTIVE",
         clientId: user?.clientId ?? "",
+        countryId: "",
+        regionId: "",
+        cityId: "",
         password: "",
     };
 }
@@ -138,6 +201,10 @@ function formatDate(value: string | null): string {
 }
 
 function getErrorMessage(error: unknown): string {
+    if (isApiError(error)) {
+        return error.message;
+    }
+
     if (error instanceof Error && error.message) {
         return error.message;
     }
@@ -180,9 +247,25 @@ export function UserManagementView({
     const [pageError, setPageError] = React.useState<string | null>(null);
     const [actionError, setActionError] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [countries, setCountries] = React.useState<
+        { id: number; name: string }[]
+    >([]);
+    const [regions, setRegions] = React.useState<LocationRegion[]>([]);
+    const [cities, setCities] = React.useState<LocationCity[]>([]);
+    const [locationsError, setLocationsError] = React.useState<string | null>(
+        null
+    );
 
     const isEditing = Boolean(editingUser);
-    const schema = React.useMemo(() => buildFormSchema(isEditing), [isEditing]);
+    const isEditingRef = React.useRef(isEditing);
+    React.useLayoutEffect(() => {
+        isEditingRef.current = isEditing;
+    }, [isEditing]);
+
+    const userFormSchema = React.useMemo(
+        () => buildUserFormSchema(() => isEditingRef.current),
+        []
+    );
 
     const {
         register,
@@ -190,14 +273,98 @@ export function UserManagementView({
         reset,
         watch,
         setValue,
-        formState: { errors, isValid },
+        formState: { errors },
     } = useForm<UserFormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(userFormSchema),
         mode: "onChange",
         defaultValues: buildDefaultValues(),
     });
 
     const selectedRole = watch("role");
+    const selectedCountryId = watch("countryId");
+    const selectedRegionId = watch("regionId");
+
+    function resetLocationPickers() {
+        setRegions([]);
+        setCities([]);
+        setValue("countryId", "");
+        setValue("regionId", "");
+        setValue("cityId", "");
+    }
+
+    React.useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const list = await listCountries();
+                if (!cancelled) {
+                    setCountries(
+                        [...list].sort((a, b) =>
+                            a.name.localeCompare(b.name, "es")
+                        )
+                    );
+                    setLocationsError(null);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setLocationsError(getErrorMessage(error));
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (!isModalOpen || !editingUser?.cityId) {
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const hierarchy = await resolveCityHierarchy(editingUser.cityId!);
+                if (cancelled || !hierarchy) {
+                    return;
+                }
+
+                const regionsData = await listRegionsByCountry(
+                    hierarchy.countryId
+                );
+                if (cancelled) {
+                    return;
+                }
+                setRegions(regionsData);
+
+                const citiesData = await listCitiesByRegion(hierarchy.regionId);
+                if (cancelled) {
+                    return;
+                }
+                setCities(citiesData);
+
+                setValue("countryId", String(hierarchy.countryId), {
+                    shouldValidate: false,
+                });
+                setValue("regionId", String(hierarchy.regionId), {
+                    shouldValidate: false,
+                });
+                setValue("cityId", String(hierarchy.cityId), {
+                    shouldValidate: false,
+                });
+            } catch {
+                if (!cancelled) {
+                    setLocationsError(
+                        "No se pudo cargar la ciudad del usuario para edicion."
+                    );
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [editingUser?.cityId, editingUser?.id, isModalOpen, setValue]);
 
     const loadUsers = React.useCallback(async () => {
         setIsLoading(true);
@@ -265,6 +432,8 @@ export function UserManagementView({
         setIsModalOpen(false);
         setEditingUser(null);
         setActionError(null);
+        setRegions([]);
+        setCities([]);
         reset(buildDefaultValues());
 
         if (initialMode === "create") {
@@ -275,6 +444,8 @@ export function UserManagementView({
     function openCreateModal() {
         setEditingUser(null);
         setActionError(null);
+        setRegions([]);
+        setCities([]);
         reset(buildDefaultValues());
         setIsModalOpen(true);
     }
@@ -282,6 +453,8 @@ export function UserManagementView({
     function openEditModal(user: ManagedUser) {
         setEditingUser(user);
         setActionError(null);
+        setRegions([]);
+        setCities([]);
         reset(buildDefaultValues(user));
         setIsModalOpen(true);
     }
@@ -290,26 +463,45 @@ export function UserManagementView({
         setIsSubmitting(true);
         setActionError(null);
 
-        const payload: UpdateUserInput = {
-            username: values.username.trim(),
-            email: values.email.trim().toLowerCase(),
-            status: values.status,
-            roles: [values.role],
-            clientId:
-                values.role === UserRole.CLIENT
-                    ? values.clientId?.trim() || null
-                    : null,
-            password: values.password?.trim() || undefined,
-        };
+        const rolesPayload = [values.role];
+        const clientId =
+            values.role === UserRole.CLIENT
+                ? values.clientId?.trim() || null
+                : null;
 
         try {
             if (editingUser) {
-                await updateUser(editingUser.id, payload);
+                const updatePayload: UpdateUserInput = {
+                    username: values.username.trim(),
+                    email: values.email.trim().toLowerCase(),
+                    status: values.status,
+                    roles: rolesPayload,
+                    clientId,
+                    password: values.password?.trim() || undefined,
+                };
+
+                const cityNum = Number(values.cityId);
+                if (values.cityId && Number.isFinite(cityNum)) {
+                    updatePayload.cityId = cityNum;
+                }
+
+                await updateUser(editingUser.id, updatePayload);
                 setFeedbackMessage(
                     `Usuario ${values.username} actualizado correctamente.`
                 );
             } else {
-                await createUser(payload as CreateUserInput);
+                const cityNum = Number(values.cityId);
+                const createPayload: CreateUserInput = {
+                    username: values.username.trim(),
+                    email: values.email.trim().toLowerCase(),
+                    password: values.password!.trim(),
+                    status: values.status,
+                    roles: rolesPayload,
+                    cityId: cityNum,
+                    clientId,
+                };
+
+                await createUser(createPayload);
                 setFeedbackMessage(
                     `Usuario ${values.username} creado correctamente.`
                 );
@@ -585,6 +777,22 @@ export function UserManagementView({
                             </div>
                         ) : null}
 
+                        {locationsError ? (
+                            <div className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning-strong)]">
+                                {locationsError}
+                                <button
+                                    type="button"
+                                    className="ml-2 underline"
+                                    onClick={() => {
+                                        setLocationsError(null);
+                                        resetLocationPickers();
+                                    }}
+                                >
+                                    Limpiar ubicacion
+                                </button>
+                            </div>
+                        ) : null}
+
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Input
                                 label="Nombre de usuario"
@@ -601,14 +809,93 @@ export function UserManagementView({
                             />
                         </div>
 
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <Select
+                                label="Pais"
+                                options={countries.map((c) => ({
+                                    value: String(c.id),
+                                    label: c.name,
+                                }))}
+                                disabled={countries.length === 0}
+                                hint="Catálogo /api/locations/countries"
+                                {...register("countryId", {
+                                    onChange: async (e) => {
+                                        const v = e.target.value;
+                                        setValue("regionId", "");
+                                        setValue("cityId", "");
+                                        setCities([]);
+                                        if (!v) {
+                                            setRegions([]);
+                                            return;
+                                        }
+                                        try {
+                                            const r = await listRegionsByCountry(
+                                                Number(v)
+                                            );
+                                            setRegions(r);
+                                            setLocationsError(null);
+                                        } catch (error) {
+                                            setRegions([]);
+                                            setLocationsError(getErrorMessage(error));
+                                        }
+                                    },
+                                })}
+                            />
+                            <Select
+                                label="Region"
+                                options={regions.map((r) => ({
+                                    value: String(r.id),
+                                    label: r.name,
+                                }))}
+                                disabled={!selectedCountryId}
+                                hint="Regiones del pais seleccionado"
+                                {...register("regionId", {
+                                    onChange: async (e) => {
+                                        const v = e.target.value;
+                                        setValue("cityId", "");
+                                        if (!v) {
+                                            setCities([]);
+                                            return;
+                                        }
+                                        try {
+                                            const list = await listCitiesByRegion(
+                                                Number(v)
+                                            );
+                                            setCities(list);
+                                            setLocationsError(null);
+                                        } catch (error) {
+                                            setCities([]);
+                                            setLocationsError(getErrorMessage(error));
+                                        }
+                                    },
+                                })}
+                            />
+                            <Select
+                                label="Ciudad"
+                                options={cities.map((city) => ({
+                                    value: String(city.id),
+                                    label: city.name,
+                                }))}
+                                disabled={!selectedRegionId}
+                                error={errors.cityId?.message}
+                                hint={
+                                    isEditing
+                                        ? "Opcional: solo se envia cityId si eliges una ciudad."
+                                        : "Obligatorio: se envia cityId numerico en el POST."
+                                }
+                                {...register("cityId")}
+                            />
+                        </div>
+
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Select
-                                label="Rol principal"
+                                label="Rol"
                                 options={ROLE_OPTIONS.map((role) => ({
                                     value: role.value,
                                     label: role.label,
                                 }))}
                                 error={errors.role?.message}
+                                hint='El API espera roles como arreglo; aqui se envia un rol, p. ej. ["SALES_AGENT"].'
                                 {...register("role")}
                             />
                             <Select
@@ -662,7 +949,7 @@ export function UserManagementView({
                                 type="submit"
                                 variant="primary"
                                 isLoading={isSubmitting}
-                                disabled={!isValid || isSubmitting}
+                                disabled={isSubmitting}
                             >
                                 {isEditing ? "Guardar cambios" : "Crear usuario"}
                             </Button>
