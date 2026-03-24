@@ -74,11 +74,11 @@ function buildAuthSession(user: User, tokens: AuthTokens): AuthSession {
             .trim() || user.email,
         roles: user.roles.map((role) => role.role_name),
         permissions: [],
-        token: tokens.token,
+        token: tokens.accessToken,
         refreshToken: normalizedRefreshToken,
         user,
         tokens: {
-            accessToken: tokens.token,
+            accessToken: tokens.accessToken,
             refreshToken: normalizedRefreshToken,
         },
     };
@@ -165,7 +165,7 @@ async function loginWithMock(
 ): Promise<AuthSession> {
     const session = await authMock.login(credentials);
     const tokens: AuthTokens = {
-        token: session.token,
+        accessToken: session.token,
         refreshToken: session.refreshToken || null,
     };
 
@@ -191,9 +191,16 @@ export async function register(
 
     const response = await authApi.register(payload);
 
-    if (typeof response.token === "string") {
+    const registerAccessToken =
+        typeof response.accessToken === "string" && response.accessToken.trim().length > 0
+            ? response.accessToken
+            : typeof response.token === "string" && response.token.trim().length > 0
+                ? response.token
+                : null;
+
+    if (registerAccessToken) {
         tokenStorage.setTokens({
-            token: response.token,
+            accessToken: registerAccessToken,
             refreshToken:
                 typeof response.refreshToken === "string"
                     ? response.refreshToken
@@ -218,7 +225,7 @@ export async function refreshToken(
 ): Promise<AuthTokens> {
     if (appEnv.authProvider !== "api") {
         const storedTokens = tokenStorage.getTokens();
-        if (storedTokens?.token) {
+        if (storedTokens?.accessToken) {
             return storedTokens;
         }
 
@@ -237,18 +244,12 @@ export async function refreshToken(
 
     const refreshTokenValue = overrideRefreshToken ?? tokenStorage.getRefreshToken();
 
-    if (!refreshTokenValue) {
-        throw new ApiError({
-            timestamp: new Date().toISOString(),
-            status: 401,
-            error: "Unauthorized",
-            message: "No hay refresh token disponible.",
-            path: "/api/auth/refresh",
-        });
-    }
-
     refreshPromise = authApi
-        .refresh({ refreshToken: refreshTokenValue })
+        .refresh(
+            refreshTokenValue
+                ? { refreshToken: refreshTokenValue }
+                : undefined
+        )
         .then((tokens) => {
             tokenStorage.setTokens(tokens);
             return tokens;
@@ -267,7 +268,7 @@ export async function refreshSession(): Promise<AuthTokens> {
 export async function restoreSession(): Promise<AuthSession | null> {
     const storedTokens = tokenStorage.getTokens();
 
-    if (!storedTokens?.token) {
+    if (!storedTokens?.accessToken) {
         return null;
     }
 

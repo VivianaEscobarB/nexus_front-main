@@ -23,15 +23,22 @@ function updateAccessTokenCookie(token: string | null): void {
 function normalizeTokens(value: unknown): AuthTokens | null {
     if (!value || typeof value !== "object") return null;
 
-    const candidate = value as Partial<AuthTokens>;
-    if (!candidate.token || typeof candidate.token !== "string") {
+    const candidate = value as Partial<AuthTokens> & { token?: string | null };
+    const accessToken =
+        typeof candidate.accessToken === "string" && candidate.accessToken.trim().length > 0
+            ? candidate.accessToken
+            : typeof candidate.token === "string" && candidate.token.trim().length > 0
+                ? candidate.token
+                : null;
+
+    if (!accessToken) {
         return null;
     }
 
     return {
-        token: candidate.token,
+        accessToken,
         refreshToken:
-            typeof candidate.refreshToken === "string"
+            typeof candidate.refreshToken === "string" && candidate.refreshToken.trim().length > 0
                 ? candidate.refreshToken
                 : null,
     };
@@ -65,10 +72,10 @@ export const localTokenStorage: TokenStorage = {
         const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
         const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
 
-        if (!token) return null;
+        if (!token || token === "undefined" || token === "null") return null;
 
         return {
-            token,
+            accessToken: token,
             refreshToken: refreshToken ?? null,
         };
     },
@@ -77,7 +84,7 @@ export const localTokenStorage: TokenStorage = {
         if (!canUseStorage()) return;
 
         window.localStorage.setItem(TOKEN_BUNDLE_KEY, JSON.stringify(tokens));
-        window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.token);
+        window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
 
         if (tokens.refreshToken) {
             window.localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
@@ -85,7 +92,7 @@ export const localTokenStorage: TokenStorage = {
             window.localStorage.removeItem(REFRESH_TOKEN_KEY);
         }
 
-        updateAccessTokenCookie(tokens.token);
+        updateAccessTokenCookie(tokens.accessToken);
     },
 
     clearTokens() {
@@ -98,7 +105,7 @@ export const localTokenStorage: TokenStorage = {
     },
 
     getAccessToken() {
-        return this.getTokens()?.token ?? null;
+        return this.getTokens()?.accessToken ?? null;
     },
 
     getRefreshToken() {

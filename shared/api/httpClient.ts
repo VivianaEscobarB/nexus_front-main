@@ -36,6 +36,12 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     return url.toString();
 }
 
+function isSafeAccessToken(value: string | null): value is string {
+    if (!value) return false;
+    const normalized = value.trim();
+    return normalized.length > 0 && normalized !== "undefined" && normalized !== "null";
+}
+
 async function parsePayload<T>(response: Response): Promise<T> {
     const text = await response.text();
 
@@ -108,7 +114,7 @@ async function request<T>(
             }
         }
 
-        if (accessToken) {
+        if (isSafeAccessToken(accessToken)) {
             requestHeaders.set("Authorization", `Bearer ${accessToken}`);
         }
     }
@@ -118,6 +124,7 @@ async function request<T>(
         headers: requestHeaders,
         body: requestBody,
         signal,
+        credentials: "include",
     });
 
     if (

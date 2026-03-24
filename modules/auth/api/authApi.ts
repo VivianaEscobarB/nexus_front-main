@@ -1,6 +1,7 @@
 import { httpClient } from "@/shared/api/httpClient";
 import type {
     AuthResponse,
+    AuthTokens,
     CurrentUser,
     ForgotPasswordRequest,
     LoginRequest,
@@ -12,11 +13,34 @@ import type {
     ResetPasswordRequest,
 } from "@/modules/auth/api/authTypes";
 
-export function login(data: LoginRequest): Promise<AuthResponse> {
-    return httpClient.post<AuthResponse>("/api/auth/login", data, {
+function normalizeAuthTokens(payload: AuthResponse): AuthTokens {
+    const accessToken =
+        typeof payload.accessToken === "string" && payload.accessToken.trim().length > 0
+            ? payload.accessToken
+            : typeof payload.token === "string" && payload.token.trim().length > 0
+                ? payload.token
+                : null;
+
+    if (!accessToken) {
+        throw new Error("Respuesta de autenticacion invalida: falta accessToken/token.");
+    }
+
+    return {
+        accessToken,
+        refreshToken:
+            typeof payload.refreshToken === "string" && payload.refreshToken.trim().length > 0
+                ? payload.refreshToken
+                : null,
+    };
+}
+
+export async function login(data: LoginRequest): Promise<AuthTokens> {
+    const payload = await httpClient.post<AuthResponse>("/api/auth/login", data, {
         auth: false,
         retryOnUnauthorized: false,
     });
+
+    return normalizeAuthTokens(payload);
 }
 
 export function register(data: RegisterRequest): Promise<RegisterResponse> {
@@ -26,11 +50,15 @@ export function register(data: RegisterRequest): Promise<RegisterResponse> {
     });
 }
 
-export function refresh(data: RefreshTokenRequest): Promise<AuthResponse> {
-    return httpClient.post<AuthResponse>("/api/auth/refresh", data, {
+export async function refresh(
+    data?: Partial<RefreshTokenRequest>
+): Promise<AuthTokens> {
+    const payload = await httpClient.post<AuthResponse>("/api/auth/refresh", data ?? {}, {
         auth: false,
         retryOnUnauthorized: false,
     });
+
+    return normalizeAuthTokens(payload);
 }
 
 export function logout(
