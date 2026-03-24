@@ -247,6 +247,7 @@ export function UserManagementView({
     const [pageError, setPageError] = React.useState<string | null>(null);
     const [actionError, setActionError] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
     const [countries, setCountries] = React.useState<
         { id: number; name: string }[]
     >([]);
@@ -432,6 +433,7 @@ export function UserManagementView({
         setIsModalOpen(false);
         setEditingUser(null);
         setActionError(null);
+        setIsPasswordVisible(false);
         setRegions([]);
         setCities([]);
         reset(buildDefaultValues());
@@ -444,6 +446,7 @@ export function UserManagementView({
     function openCreateModal() {
         setEditingUser(null);
         setActionError(null);
+        setIsPasswordVisible(false);
         setRegions([]);
         setCities([]);
         reset(buildDefaultValues());
@@ -453,6 +456,7 @@ export function UserManagementView({
     function openEditModal(user: ManagedUser) {
         setEditingUser(user);
         setActionError(null);
+        setIsPasswordVisible(false);
         setRegions([]);
         setCities([]);
         reset(buildDefaultValues(user));
@@ -925,17 +929,64 @@ export function UserManagementView({
                             />
                         ) : null}
 
-                        <Input
-                            label={
-                                isEditing
-                                    ? "Nueva contrasena (opcional)"
-                                    : "Contrasena inicial"
-                            }
-                            type="password"
-                            placeholder="Minimo 8 caracteres"
-                            error={errors.password?.message}
-                            {...register("password")}
-                        />
+                        <div className="relative">
+                            <Input
+                                label={
+                                    isEditing
+                                        ? "Nueva contrasena (opcional)"
+                                        : "Contrasena inicial"
+                                }
+                                type={isPasswordVisible ? "text" : "password"}
+                                placeholder="Minimo 8 caracteres"
+                                error={errors.password?.message}
+                                trailingIcon={<span className="h-5 w-5" />}
+                                {...register("password")}
+                            />
+                            <button
+                                type="button"
+                                aria-label={
+                                    isPasswordVisible
+                                        ? "Ocultar contraseña"
+                                        : "Mostrar contraseña"
+                                }
+                                onClick={() =>
+                                    setIsPasswordVisible((visible) => !visible)
+                                }
+                                className="absolute right-3 top-[2.35rem] flex h-5 w-5 items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                            >
+                                {isPasswordVisible ? (
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-5 w-5"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M3 3l18 18" />
+                                        <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                                        <path d="M9.88 5.09A10.94 10.94 0 0 1 12 5c5 0 9.27 3.11 11 7a11.83 11.83 0 0 1-4.09 5.19" />
+                                        <path d="M6.61 6.61A11.84 11.84 0 0 0 1 12c.77 1.73 2 3.34 3.57 4.61" />
+                                    </svg>
+                                ) : (
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-5 w-5"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
 
                         <div className="flex justify-end gap-3 border-t border-[var(--color-border-subtle)] pt-5">
                             <Button

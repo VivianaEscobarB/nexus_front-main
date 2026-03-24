@@ -208,7 +208,7 @@ export async function updateUser(
     id: string,
     input: UpdateUserInput
 ): Promise<ManagedUser> {
-    const payload = await httpClient.patch<unknown>(
+    const payload = await httpClient.put<unknown>(
         `${USERS_BASE_PATH}/${id}`,
         buildMutationPayload(input)
     );
