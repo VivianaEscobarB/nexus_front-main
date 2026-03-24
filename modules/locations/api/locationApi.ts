@@ -123,3 +123,37 @@ export async function listWarehouseTypes(): Promise<WarehouseTypeOption[]> {
         .filter((item) => Number.isFinite(item.id) && item.name.length > 0);
 }
 
+export interface ResolvedCityHierarchy {
+    countryId: number;
+    regionId: number;
+    cityId: number;
+}
+
+/**
+ * Resuelve país y región a partir de un cityId recorriendo los catálogos públicos.
+ */
+export async function resolveCityHierarchy(
+    cityId: number
+): Promise<ResolvedCityHierarchy | null> {
+    if (!Number.isFinite(cityId)) {
+        return null;
+    }
+
+    const countries = await listCountries();
+    for (const country of countries) {
+        const regions = await listRegionsByCountry(country.id);
+        for (const region of regions) {
+            const cities = await listCitiesByRegion(region.id);
+            if (cities.some((city) => city.id === cityId)) {
+                return {
+                    countryId: country.id,
+                    regionId: region.id,
+                    cityId,
+                };
+            }
+        }
+    }
+
+    return null;
+}
+

@@ -228,6 +228,24 @@ function getStatusLabel(status: InfrastructureStatus): string {
     return STATUS_LABELS[status] ?? status;
 }
 
+function isWarehouseInactive(warehouse: ManagedWarehouse): boolean {
+    return (
+        warehouse.operationalStatus === "INACTIVE" ||
+        warehouse.active === false ||
+        warehouse.status === "INACTIVE"
+    );
+}
+
+function getWarehouseStatusLabel(warehouse: ManagedWarehouse): string {
+    if (warehouse.operationalLabel) {
+        return warehouse.operationalLabel;
+    }
+    if (warehouse.operationalStatus) {
+        return warehouse.operationalStatus === "INACTIVE" ? "Inactivo" : "Activo";
+    }
+    return warehouse.active === false ? "Inactivo" : "Activo";
+}
+
 function TextareaField({
     label,
     error,
@@ -1383,12 +1401,22 @@ export function InfrastructureManagementView() {
             return;
         }
 
-        await runMutation(
-            async () => {
-                await deleteWarehouse(warehouse.id);
-            },
-            "Bodega eliminada correctamente."
-        );
+        setIsSubmitting(true);
+        setActionError(null);
+
+        try {
+            const updatedWarehouse = await deleteWarehouse(warehouse.id);
+            setWarehouses((current) =>
+                current.map((item) =>
+                    item.id === updatedWarehouse.id ? updatedWarehouse : item
+                )
+            );
+            setFeedbackMessage("Bodega eliminada correctamente.");
+        } catch (error) {
+            setActionError(getErrorMessage(error));
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     async function handleDeleteSectorAction(sector: ManagedSector) {
@@ -1596,6 +1624,8 @@ export function InfrastructureManagementView() {
                                         warehouses.map((warehouse) => {
                                             const isSelected =
                                                 warehouse.id === selectedWarehouseId;
+                                            const warehouseInactive =
+                                                isWarehouseInactive(warehouse);
 
                                             return (
                                                 <Card
@@ -1607,6 +1637,9 @@ export function InfrastructureManagementView() {
                                                         isSelected
                                                             ? "border-[var(--color-brand-strong)] bg-[var(--color-brand-subtle)]"
                                                             : "border-[var(--color-border-subtle)]",
+                                                        warehouseInactive
+                                                            ? "opacity-80"
+                                                            : "",
                                                     ].join(" ")}
                                                     onClick={() => {
                                                         setSelectedWarehouseId(warehouse.id);
@@ -1624,8 +1657,12 @@ export function InfrastructureManagementView() {
                                                                     variant="brand"
                                                                 />
                                                                 <Badge
-                                                                    label={getStatusLabel(warehouse.status)}
-                                                                    variant={STATUS_VARIANTS[warehouse.status]}
+                                                                    label={getWarehouseStatusLabel(warehouse)}
+                                                                    variant={
+                                                                        warehouseInactive
+                                                                            ? "neutral"
+                                                                            : "success"
+                                                                    }
                                                                 />
                                                             </div>
                                                             <p className="text-sm text-[var(--color-text-secondary)]">
@@ -1662,6 +1699,7 @@ export function InfrastructureManagementView() {
                                                                     <Button
                                                                         variant="outline"
                                                                         size="sm"
+                                                                        disabled={warehouseInactive}
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
                                                                             setFeedbackMessage(null);
