@@ -62,6 +62,21 @@ function normalizeStatus(
     return fallback;
 }
 
+function normalizeOperationalStatus(
+    value: unknown
+): "ACTIVE" | "INACTIVE" | null {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    if (normalized === "ACTIVE" || normalized === "INACTIVE") {
+        return normalized;
+    }
+
+    return null;
+}
+
 function extractCollection(payload: unknown): unknown[] {
     if (Array.isArray(payload)) {
         return payload;
@@ -144,10 +159,24 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
             getNumber(payload.remainingCapacityM2) ??
             null,
         status: normalizeStatus(
-            getString(payload.statusName) ?? getString(payload.status) ?? "ACTIVE",
+            normalizeOperationalStatus(payload.operationalStatus) ??
+                (payload.active === false ? "INACTIVE" : "ACTIVE"),
             "ACTIVE"
         ),
-        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
+        statusCatalogId:
+            getNumber(payload.statusCatalogId) ??
+            getNumber(payload.status_catalog_id) ??
+            undefined,
+        active: typeof payload.active === "boolean" ? payload.active : null,
+        operationalStatus: normalizeOperationalStatus(payload.operationalStatus),
+        operationalLabel:
+            getString(payload.operationalLabel) ??
+            getString(payload.operational_label) ??
+            null,
+        statusName:
+            getString(payload.statusName) ??
+            getString(payload.status_name) ??
+            null,
     };
 }
 
@@ -352,8 +381,9 @@ export async function updateWarehouse(
     return mapApiWarehouse(payload);
 }
 
-export async function deleteWarehouse(id: string): Promise<void> {
-    await httpClient.delete<void>(`${WAREHOUSES_BASE_PATH}/${id}`);
+export async function deleteWarehouse(id: string): Promise<ManagedWarehouse> {
+    const payload = await httpClient.delete<unknown>(`${WAREHOUSES_BASE_PATH}/${id}`);
+    return mapApiWarehouse(payload);
 }
 
 export async function listSectors(

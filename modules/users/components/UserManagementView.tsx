@@ -729,6 +729,7 @@ export function UserManagementView({
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
+                                                            disabled={user.status === "INACTIVE"}
                                                             onClick={() => openEditModal(user)}
                                                         >
                                                             Editar
