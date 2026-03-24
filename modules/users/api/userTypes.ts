@@ -9,6 +9,7 @@ export interface ManagedUser {
     status: ManagedUserStatus;
     roles: string[];
     clientId: string | null;
+    cityId: number | null;
     clientName: string | null;
     createdAt: string | null;
     lastLoginAt: string | null;
@@ -26,6 +27,7 @@ export interface CreateUserInput {
     password: string;
     status: ManagedUserStatus;
     roles: string[];
+    cityId: number;
     clientId?: string | null;
 }
 
@@ -35,5 +37,6 @@ export interface UpdateUserInput {
     password?: string;
     status?: ManagedUserStatus;
     roles?: string[];
+    cityId?: number;
     clientId?: string | null;
 }

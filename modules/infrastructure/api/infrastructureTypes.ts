@@ -24,6 +24,10 @@ export interface ManagedWarehouse {
     availableCapacityM2: number | null;
     status: InfrastructureStatus;
     statusCatalogId?: number;
+    active: boolean | null;
+    operationalStatus: "ACTIVE" | "INACTIVE" | null;
+    operationalLabel: string | null;
+    statusName: string | null;
 }
 
 export interface ManagedSector {

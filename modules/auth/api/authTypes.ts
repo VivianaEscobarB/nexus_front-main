@@ -1,6 +1,6 @@
 import type { AuthError } from "@/shared/api/apiError";
 
-export type AuthTokens = { token: string; refreshToken: string | null };
+export type AuthTokens = { accessToken: string; refreshToken: string | null };
 
 export type LoginRequest = { email: string; password: string };
 export type RegisterRequest = {
@@ -22,8 +22,13 @@ export type CurrentUser = {
     roles: string[];
 };
 
-export type AuthResponse = AuthTokens;
+export type AuthResponse = {
+    accessToken?: string | null;
+    token?: string | null;
+    refreshToken?: string | null;
+} & Record<string, unknown>;
 export type RegisterResponse = {
+    accessToken?: string | null;
     token?: string | null;
     refreshToken?: string | null;
     message?: string;
