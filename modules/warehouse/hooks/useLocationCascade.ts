@@ -25,7 +25,6 @@ export const useLocationCascade = () => {
 
   useEffect(() => {
     if (!selectedCountry) {
-      setDepartments([]);
       return;
     }
     const fetchDepartments = async () => {
@@ -38,7 +37,6 @@ export const useLocationCascade = () => {
 
   useEffect(() => {
     if (!selectedDepartment) {
-      setCities([]);
       return;
     }
     const fetchCities = async () => {
@@ -52,11 +50,16 @@ export const useLocationCascade = () => {
   const handleCountryChange = (countryId: string) => {
     setSelectedCountry(countryId);
     setSelectedDepartment(null);
-    setCities([]); 
+    setDepartments([]);
+    setCities([]);
+    setIsLoadingDepartments(false);
+    setIsLoadingCities(false);
   };
 
   const handleDepartmentChange = (departmentId: string) => {
     setSelectedDepartment(departmentId);
+    setCities([]);
+    setIsLoadingCities(false);
   };
 
   return {
