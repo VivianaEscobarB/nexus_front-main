@@ -19,7 +19,7 @@ NEXT_PUBLIC_AUTH_PROVIDER=api
 `NEXT_PUBLIC_AUTH_PROVIDER` admite:
 
 - `api`: usa la API real desplegada
-- `mock`: mantiene el flujo simulado actual
+- `mock`: mantiene el flujo simulado actual, solo permitido con `NODE_ENV=development`
 
 ## Cambio rapido entre API desplegada y local
 

@@ -16,6 +16,8 @@ import { UserRole } from "@/types";
 import type { LoginCredentials, Role, User } from "@/types";
 
 const VALID_USER_ROLES = new Set<string>(Object.values(UserRole));
+const isMockAuthEnabled =
+    appEnv.isDevelopment && appEnv.authProvider === "mock";
 let refreshPromise: Promise<void> | null = null;
 
 function normalizeRoleName(role: string): string {
@@ -65,7 +67,10 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function clearLocalSession(): void {
-    authMock.clearMockSessionState();
+    if (isMockAuthEnabled) {
+        authMock.clearMockSessionState();
+    }
+
     authStore.clearSession();
 }
 
@@ -95,15 +100,13 @@ async function loginWithMock(
 export async function login(
     credentials: LoginCredentials
 ): Promise<User> {
-    return appEnv.authProvider === "api"
-        ? loginWithApi(credentials)
-        : loginWithMock(credentials);
+    return isMockAuthEnabled ? loginWithMock(credentials) : loginWithApi(credentials);
 }
 
 export async function register(
     payload: RegisterRequest
 ): Promise<RegisterResponse> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         return authMock.register(payload);
     }
 
@@ -117,7 +120,7 @@ interface GetCurrentUserOptions {
 export async function getCurrentUser(
     options: GetCurrentUserOptions = {}
 ): Promise<User> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         return authMock.getMe();
     }
 
@@ -128,7 +131,7 @@ export async function getCurrentUser(
 }
 
 async function refreshSession(): Promise<void> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         return;
     }
 
@@ -144,7 +147,7 @@ async function refreshSession(): Promise<void> {
 }
 
 export async function restoreSession(): Promise<User | null> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         if (!authMock.hasMockSessionState()) {
             return null;
         }
@@ -178,9 +181,9 @@ export async function logout(options: LogoutOptions = {}): Promise<void> {
     const { redirectToLogin: shouldRedirectToLogin = false, revokeRemote = true } = options;
 
     try {
-        if (revokeRemote && appEnv.authProvider === "api") {
+        if (revokeRemote && !isMockAuthEnabled) {
             await authApi.logout();
-        } else if (appEnv.authProvider !== "api") {
+        } else if (isMockAuthEnabled) {
             await authMock.logout();
         }
     } finally {
@@ -195,7 +198,7 @@ export async function logout(options: LogoutOptions = {}): Promise<void> {
 export async function forgotPassword(
     payload: ForgotPasswordRequest
 ): Promise<PasswordActionResponse> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         return authMock.forgotPassword(payload);
     }
 
@@ -205,7 +208,7 @@ export async function forgotPassword(
 export async function resetPassword(
     payload: ResetPasswordRequest
 ): Promise<PasswordActionResponse> {
-    if (appEnv.authProvider !== "api") {
+    if (isMockAuthEnabled) {
         return authMock.resetPassword(payload);
     }
 

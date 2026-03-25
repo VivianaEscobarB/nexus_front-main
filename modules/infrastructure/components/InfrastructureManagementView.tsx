@@ -134,22 +134,7 @@ const warehouseSchema = z
         cityId: z.string().optional(),
         warehouseTypeId: z.string().optional(),
         totalCapacityM2: optionalNumberField,
-        availableCapacityM2: optionalNumberField,
         statusCatalogId: z.number().optional(),
-    })
-    .superRefine((value, context) => {
-        if (
-            typeof value.totalCapacityM2 === "number" &&
-            typeof value.availableCapacityM2 === "number" &&
-            value.availableCapacityM2 > value.totalCapacityM2
-        ) {
-            context.addIssue({
-                code: z.ZodIssueCode.custom,
-                message:
-                    "La capacidad disponible no puede superar la capacidad total.",
-                path: ["availableCapacityM2"],
-            });
-        }
     });
 
 const sectorSchema = z.object({
@@ -335,7 +320,6 @@ function WarehouseFormModal({
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
-            availableCapacityM2: warehouse?.availableCapacityM2 ?? undefined,
             statusCatalogId: undefined,
         },
     });
@@ -350,7 +334,6 @@ function WarehouseFormModal({
             cityId: "",
             warehouseTypeId: "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
-            availableCapacityM2: warehouse?.availableCapacityM2 ?? undefined,
             statusCatalogId: undefined,
         });
     }, [warehouse, reset]);
@@ -478,6 +461,7 @@ function WarehouseFormModal({
             isOpen={isOpen}
             onClose={onClose}
             title={mode === "create" ? "Nueva bodega" : "Editar bodega"}
+            size="xl"
             description={
                 mode === "create"
                     ? "Registra una nueva instalación definiendo su identidad, ubicación y capacidad operativa."
@@ -512,7 +496,6 @@ function WarehouseFormModal({
                             ? Number(values.warehouseTypeId)
                             : undefined,
                         totalCapacityM2: values.totalCapacityM2,
-                        availableCapacityM2: values.availableCapacityM2,
                         statusCatalogId: values.statusCatalogId,
                     });
                 })}
@@ -563,60 +546,60 @@ function WarehouseFormModal({
                         error={errors.location?.message}
                         {...register("location")}
                     />
-                    <div className="grid gap-4 md:grid-cols-3">
-                    <Select
-                        label="País"
-                        options={
-                            isLoadingLocations && countries.length === 0
-                                ? [{ value: "", label: "Cargando países..." }]
-                                : [
-                                      { value: "", label: "Selecciona un país" },
-                                      ...countries.map((country) => ({
-                                          value: String(country.id),
-                                          label: country.name,
-                                      })),
-                                  ]
-                        }
-                        error={errors.countryId?.message}
-                        {...register("countryId")}
-                    />
-                    <Select
-                        label="Departamento / Región"
-                        options={
-                            !selectedCountryId
-                                ? [{ value: "", label: "Selecciona un país primero" }]
-                                : regions.length === 0
-                                    ? [{ value: "", label: "Sin regiones disponibles" }]
+                    <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <Select
+                            label="País"
+                            options={
+                                isLoadingLocations && countries.length === 0
+                                    ? [{ value: "", label: "Cargando países..." }]
                                     : [
-                                          { value: "", label: "Selecciona una región" },
-                                          ...regions.map((region) => ({
-                                              value: String(region.id),
-                                              label: region.name,
+                                          { value: "", label: "Selecciona un país" },
+                                          ...countries.map((country) => ({
+                                              value: String(country.id),
+                                              label: country.name,
                                           })),
                                       ]
-                        }
-                        error={errors.regionId?.message}
-                        {...register("regionId")}
-                    />
-                    <Select
-                        label="Ciudad"
-                        options={
-                            !selectedRegionId
-                                ? [{ value: "", label: "Selecciona una región primero" }]
-                                : cities.length === 0
-                                    ? [{ value: "", label: "Sin ciudades disponibles" }]
-                                    : [
-                                          { value: "", label: "Selecciona una ciudad" },
-                                          ...cities.map((city) => ({
-                                              value: String(city.id),
-                                              label: city.name,
-                                          })),
-                                      ]
-                        }
-                        hint="Opcional. Util si la API solicita una ciudad existente."
-                        error={errors.cityId?.message}
-                        {...register("cityId")}
-                    />
+                            }
+                            error={errors.countryId?.message}
+                            {...register("countryId")}
+                        />
+                        <Select
+                            label="Departamento / Región"
+                            options={
+                                !selectedCountryId
+                                    ? [{ value: "", label: "Selecciona un país primero" }]
+                                    : regions.length === 0
+                                      ? [{ value: "", label: "Sin regiones disponibles" }]
+                                      : [
+                                            { value: "", label: "Selecciona una región" },
+                                            ...regions.map((region) => ({
+                                                value: String(region.id),
+                                                label: region.name,
+                                            })),
+                                        ]
+                            }
+                            error={errors.regionId?.message}
+                            {...register("regionId")}
+                        />
+                        <Select
+                            label="Ciudad"
+                            options={
+                                !selectedRegionId
+                                    ? [{ value: "", label: "Selecciona una región primero" }]
+                                    : cities.length === 0
+                                      ? [{ value: "", label: "Sin ciudades disponibles" }]
+                                      : [
+                                            { value: "", label: "Selecciona una ciudad" },
+                                            ...cities.map((city) => ({
+                                                value: String(city.id),
+                                                label: city.name,
+                                            })),
+                                        ]
+                            }
+                            hint="Opcional. Util si la API solicita una ciudad existente."
+                            error={errors.cityId?.message}
+                            {...register("cityId")}
+                        />
                     </div>
                 </section>
 
@@ -667,9 +650,9 @@ function WarehouseFormModal({
                         Capacidad instalada
                     </h3>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                        Define la capacidad total y disponible en metros cuadrados para soportar decisiones comerciales y de planificación.
+                        Define la capacidad total en metros cuadrados para dar una referencia operativa clara de la instalación.
                     </p>
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <Input
                             type="number"
                             min={0}
@@ -678,17 +661,6 @@ function WarehouseFormModal({
                             hint="Metros cuadrados físicos disponibles en la instalación."
                             error={errors.totalCapacityM2?.message}
                             {...register("totalCapacityM2", {
-                                setValueAs: toOptionalNumber,
-                            })}
-                        />
-                        <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            label="Capacidad disponible (m²)"
-                            hint="Metros cuadrados que aún se pueden comercializar."
-                            error={errors.availableCapacityM2?.message}
-                            {...register("availableCapacityM2", {
                                 setValueAs: toOptionalNumber,
                             })}
                         />

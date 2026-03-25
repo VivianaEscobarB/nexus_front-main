@@ -10,11 +10,38 @@ function parseString(
         : fallback;
 }
 
-function parseProviderMode(
+function parseOptionalProviderMode(
     value: string | undefined,
     fallback: ProviderMode
 ): ProviderMode {
     return value === "api" || value === "mock" ? value : fallback;
+}
+
+function parseRequiredAuthProvider(
+    value: string | undefined,
+    nodeEnv: string
+): ProviderMode {
+    const normalized = value?.trim();
+
+    if (!normalized) {
+        throw new Error(
+            "Missing NEXT_PUBLIC_AUTH_PROVIDER. Set it explicitly to 'api' or 'mock'."
+        );
+    }
+
+    if (normalized !== "api" && normalized !== "mock") {
+        throw new Error(
+            `Invalid NEXT_PUBLIC_AUTH_PROVIDER='${normalized}'. Use 'api' or 'mock'.`
+        );
+    }
+
+    if (normalized === "mock" && nodeEnv !== "development") {
+        throw new Error(
+            "NEXT_PUBLIC_AUTH_PROVIDER=mock is only allowed when NODE_ENV=development."
+        );
+    }
+
+    return normalized;
 }
 
 function parseApiTarget(
@@ -43,6 +70,9 @@ const localApiBaseUrl =
     process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL ??
     "http://localhost:8080";
 
+const nodeEnv = parseString(process.env.NODE_ENV, "development");
+const isDevelopment = nodeEnv === "development";
+
 const sessionCookieName = parseString(
     process.env.AUTH_SESSION_COOKIE_NAME ??
         process.env.NEXT_PUBLIC_AUTH_SESSION_COOKIE_NAME,
@@ -66,11 +96,13 @@ export const appEnv = {
     apiTarget,
     deployedApiBaseUrl: normalizeUrl(deployedApiBaseUrl),
     localApiBaseUrl: normalizeUrl(localApiBaseUrl),
-    authProvider: parseProviderMode(
+    nodeEnv,
+    isDevelopment,
+    authProvider: parseRequiredAuthProvider(
         process.env.NEXT_PUBLIC_AUTH_PROVIDER,
-        "mock"
+        nodeEnv
     ),
-    stockProvider: parseProviderMode(
+    stockProvider: parseOptionalProviderMode(
         process.env.NEXT_PUBLIC_STOCK_PROVIDER,
         "api"
     ),

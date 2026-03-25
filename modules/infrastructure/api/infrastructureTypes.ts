@@ -80,7 +80,6 @@ export interface CreateWarehouseInput {
     statusCatalogId?: number;
     warehouseTypeId?: number;
     totalCapacityM2?: number;
-    availableCapacityM2?: number;
 }
 
 export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
