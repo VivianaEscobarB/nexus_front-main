@@ -1,17 +1,24 @@
+import { appEnv } from "@/lib/config/env";
 import { NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
-// Configuración de rutas
+// Configuracion de rutas
 // ---------------------------------------------------------------------------
 
-/** Rutas que requieren sesión activa. */
+/** Rutas que requieren sesion activa. */
 const PROTECTED_PREFIXES = ["/dashboard"] as const;
 
-/** Rutas de autenticación — redirigen al dashboard si ya hay sesión. */
-const AUTH_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password"] as const;
+/** Rutas de autenticacion; redirigen al dashboard si ya hay sesion. */
+const AUTH_ROUTES = [
+    "/",
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+] as const;
 
-/** Nombre de la cookie donde el backend deposita el JWT (HttpOnly). */
-const ACCESS_TOKEN_COOKIE = "nexus_access_token";
+/** Nombre de la cookie HttpOnly que indica una sesion potencialmente activa. */
+const SESSION_COOKIE_NAME = appEnv.sessionCookieName;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,43 +30,9 @@ function isProtectedRoute(pathname: string): boolean {
 
 function isAuthRoute(pathname: string): boolean {
     if (pathname === "/") return true;
-    return AUTH_ROUTES.some((route) => route !== "/" && pathname.startsWith(route));
-}
-
-function decodeBase64Url(value: string): string {
-    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(
-        normalized.length + ((4 - (normalized.length % 4)) % 4),
-        "="
+    return AUTH_ROUTES.some(
+        (route) => route !== "/" && pathname.startsWith(route)
     );
-
-    if (typeof atob === "function") {
-        return atob(padded);
-    }
-
-    return Buffer.from(padded, "base64").toString("utf-8");
-}
-
-/**
- * Verifica si el token JWT no ha expirado comprobando el campo `exp`
- * del payload. Esta comprobación es superficial (no verifica la firma)
- * pero es segura para el middleware de Edge: la firma se valida en el
- * servidor de la API en cada petición real.
- */
-function isTokenExpired(token: string): boolean {
-    try {
-        const [, payloadB64] = token.split(".");
-        if (!payloadB64) return true;
-
-        const payload = JSON.parse(
-            decodeBase64Url(payloadB64)
-        ) as { exp?: number };
-
-        if (!payload.exp) return true;
-        return Date.now() >= payload.exp * 1000;
-    } catch {
-        return true;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -69,38 +42,29 @@ function isTokenExpired(token: string): boolean {
 export function proxy(request: NextRequest): NextResponse {
     const { pathname } = request.nextUrl;
 
-    // Leer el token de la cookie HttpOnly establecida por el backend / login
-    const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
-    const isAuthenticated = Boolean(token && !isTokenExpired(token));
+    // El backend valida la sesion real y administra su renovacion.
+    // En el proxy solo usamos la presencia de la cookie HttpOnly.
+    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const isAuthenticated = Boolean(sessionCookie);
 
-    // 1. Ruta protegida sin sesión válida → /login
     if (isProtectedRoute(pathname) && !isAuthenticated) {
         const loginUrl = new URL("/login", request.url);
-        // Guarda la ruta original para redirigir después del login
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);
     }
 
-    // 2. Ruta de autenticación con sesión activa → /dashboard
     if (isAuthRoute(pathname) && isAuthenticated) {
         const dashboardUrl = new URL("/dashboard", request.url);
         return NextResponse.redirect(dashboardUrl);
     }
 
-    // 3. Permitir la petición sin modificaciones
     return NextResponse.next();
 }
 
 // ---------------------------------------------------------------------------
-// Configuración del matcher
+// Configuracion del matcher
 // ---------------------------------------------------------------------------
 
-/**
- * El matcher excluye archivos estáticos y las rutas internas de Next.js
- * para no ejecutar el middleware en cada asset (imágenes, fuentes, etc.).
- */
 export const config = {
-    matcher: [
-        "/((?!_next/static|_next/image|favicon.ico|public/|api/).*)",
-    ],
+    matcher: ["/((?!_next/static|_next/image|favicon.ico|public/|api/).*)"],
 };

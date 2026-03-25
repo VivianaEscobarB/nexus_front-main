@@ -197,22 +197,6 @@ export interface LoginCredentials {
     password: string;
 }
 
-export interface AuthTokens {
-    accessToken: string;
-    refreshToken: string;
-}
-
-export interface AuthSession {
-    userId: string;
-    username: string;
-    roles: string[];
-    permissions: string[];
-    token: string;
-    refreshToken: string;
-    user: User;
-    tokens: AuthTokens;
-}
-
 // ---------------------------------------------------------------------------
 // Respuestas paginadas de la API
 // ---------------------------------------------------------------------------

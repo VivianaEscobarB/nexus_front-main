@@ -34,6 +34,19 @@ function updateState(updater: (previous: AuthState) => AuthState): void {
     emitChange();
 }
 
+function buildResolvedAuthState(
+    previous: AuthState,
+    user: User | null,
+    overrides: Partial<AuthState> = {}
+): AuthState {
+    return {
+        ...previous,
+        user,
+        isAuthenticated: Boolean(user),
+        ...overrides,
+    };
+}
+
 export const authStore = {
     subscribe(listener: AuthStateListener) {
         listeners.add(listener);
@@ -53,13 +66,12 @@ export const authStore = {
     },
 
     finishRestore(user: User | null) {
-        updateState((previous) => ({
-            ...previous,
-            user,
-            isAuthenticated: Boolean(user),
-            isLoading: false,
-            initialized: true,
-        }));
+        updateState((previous) =>
+            buildResolvedAuthState(previous, user, {
+                isLoading: false,
+                initialized: true,
+            })
+        );
     },
 
     startSignIn() {
@@ -72,15 +84,14 @@ export const authStore = {
     },
 
     finishSignIn(user: User | null) {
-        updateState((previous) => ({
-            ...previous,
-            user,
-            isAuthenticated: Boolean(user),
-            isLoading: false,
-            isSigningIn: false,
-            initialized: true,
-            error: null,
-        }));
+        updateState((previous) =>
+            buildResolvedAuthState(previous, user, {
+                isLoading: false,
+                isSigningIn: false,
+                initialized: true,
+                error: null,
+            })
+        );
     },
 
     clearSession() {
