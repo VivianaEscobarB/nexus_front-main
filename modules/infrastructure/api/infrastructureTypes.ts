@@ -51,7 +51,14 @@ export interface ManagedSpace {
     sectorId: string;
     sectorName: string | null;
     description: string | null;
+    aisle: string | null;
+    row: string | null;
+    level: string | null;
+    position: string | null;
     capacityM2: number | null;
+    temperatureControl: boolean | null;
+    humidityControl: boolean | null;
+    storageSpaceTypeId?: number;
     status: InfrastructureStatus;
     statusCatalogId?: number;
 }
@@ -73,7 +80,6 @@ export interface CreateWarehouseInput {
     statusCatalogId?: number;
     warehouseTypeId?: number;
     totalCapacityM2?: number;
-    availableCapacityM2?: number;
 }
 
 export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
@@ -81,7 +87,9 @@ export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
 export interface CreateSectorInput {
     warehouseId: string;
     code: string;
+    name: string;
     description?: string;
+    capacityM2?: number;
     statusCatalogId?: number;
 }
 

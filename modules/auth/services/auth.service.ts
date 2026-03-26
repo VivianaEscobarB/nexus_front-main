@@ -8,17 +8,15 @@ import {
     getCurrentUser,
     login as loginSession,
     logout as logoutSession,
-    refreshToken as refreshSessionToken,
-    refreshSession,
     register as registerUser,
     resetPassword as resetPasswordRequest,
     restoreSession as restoreSessionState,
 } from "@/modules/auth/session/authSessionService";
-import type { AuthSession, LoginCredentials, User } from "@/types";
+import type { LoginCredentials, User } from "@/types";
 
 export async function login(
     credentials: LoginCredentials
-): Promise<AuthSession> {
+): Promise<User> {
     return loginSession(credentials);
 }
 
@@ -35,20 +33,7 @@ export async function getMe(): Promise<User> {
 }
 
 export async function restoreSession(): Promise<User | null> {
-    const session = await restoreSessionState();
-    return session?.user ?? null;
-}
-
-export async function restoreAuthSession(): Promise<User | null> {
-    return restoreSession();
-}
-
-export async function refreshTokens(refreshToken?: string | null) {
-    return refreshSessionToken(refreshToken);
-}
-
-export async function refreshCurrentSession() {
-    return refreshSession();
+    return restoreSessionState();
 }
 
 export async function forgotPassword(payload: ForgotPasswordRequest) {
