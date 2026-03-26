@@ -10,6 +10,7 @@ import type {
 } from "@/modules/auth/api/authTypes";
 import * as authMock from "@/modules/auth/mocks/auth.mock";
 import { authStore } from "@/modules/auth/state/authStore";
+import { clearCsrfToken } from "@/shared/api/csrf";
 import { configureHttpClientAuth } from "@/shared/api/httpClient";
 import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
@@ -18,6 +19,13 @@ import type { LoginCredentials, Role, User } from "@/types";
 const VALID_USER_ROLES = new Set<string>(Object.values(UserRole));
 const isMockAuthEnabled =
     appEnv.isDevelopment && appEnv.authProvider === "mock";
+const CLIENT_AUTH_ROUTES = [
+    "/",
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+] as const;
 let refreshPromise: Promise<void> | null = null;
 
 function normalizeRoleName(role: string): string {
@@ -71,13 +79,36 @@ function clearLocalSession(): void {
         authMock.clearMockSessionState();
     }
 
+    clearCsrfToken();
     authStore.clearSession();
+}
+
+function isClientAuthRoute(pathname: string): boolean {
+    if (pathname === "/") {
+        return true;
+    }
+
+    return CLIENT_AUTH_ROUTES.some(
+        (route) => route !== "/" && pathname.startsWith(route)
+    );
+}
+
+function shouldRedirectToLogin(pathname: string): boolean {
+    return !isClientAuthRoute(pathname);
+}
+
+function shouldRetryRestoreSessionOnUnauthorized(): boolean {
+    if (typeof window === "undefined") {
+        return true;
+    }
+
+    return !isClientAuthRoute(window.location.pathname);
 }
 
 function redirectToLogin(): void {
     if (typeof window === "undefined") return;
 
-    if (window.location.pathname === "/login") {
+    if (!shouldRedirectToLogin(window.location.pathname)) {
         return;
     }
 
@@ -161,7 +192,9 @@ export async function restoreSession(): Promise<User | null> {
     }
 
     try {
-        return await getCurrentUser();
+        return await getCurrentUser({
+            retryOnUnauthorized: shouldRetryRestoreSessionOnUnauthorized(),
+        });
     } catch (error) {
         if (isUnauthorized(error)) {
             clearLocalSession();
