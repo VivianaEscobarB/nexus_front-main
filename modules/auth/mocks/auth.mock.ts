@@ -5,7 +5,12 @@ import type {
     RegisterResponse,
     ResetPasswordRequest,
 } from "@/modules/auth/api/authTypes";
-import type { AuthSession, LoginCredentials, User } from "@/types";
+import type { LoginCredentials, User } from "@/types";
+
+const MOCK_ROLE_KEY = "mock_user_role";
+const MOCK_FIRST_NAME_KEY = "mock_user_fname";
+const MOCK_LAST_NAME_KEY = "mock_user_lname";
+const MOCK_EMAIL_KEY = "mock_user_email";
 
 function persistMockUser(
     roleName: string,
@@ -15,18 +20,22 @@ function persistMockUser(
 ): void {
     if (typeof window === "undefined") return;
 
-    window.localStorage.setItem("mock_user_role", roleName);
-    window.localStorage.setItem("mock_user_fname", firstName);
-    window.localStorage.setItem("mock_user_lname", lastName);
-    window.localStorage.setItem("mock_user_email", email);
+    window.localStorage.setItem(MOCK_ROLE_KEY, roleName);
+    window.localStorage.setItem(MOCK_FIRST_NAME_KEY, firstName);
+    window.localStorage.setItem(MOCK_LAST_NAME_KEY, lastName);
+    window.localStorage.setItem(MOCK_EMAIL_KEY, email);
+}
+
+export function hasMockSessionState(): boolean {
+    if (typeof window === "undefined") return false;
+
+    return Boolean(window.localStorage.getItem(MOCK_EMAIL_KEY));
 }
 
 export async function login(
     credentials: LoginCredentials
-): Promise<AuthSession> {
+): Promise<User> {
     await new Promise((resolve) => setTimeout(resolve, 800));
-
-    const fakeToken = "mockHeader.eyJleHAiOjk5OTk5OTk5OTl9.mockSignature";
 
     const emailLower = credentials.email.toLowerCase();
     let roleName = "WAREHOUSE_OPERATOR";
@@ -64,38 +73,26 @@ export async function login(
         lastName = "VIP";
     }
 
-    const mockSession: AuthSession = {
-        userId: `usr_${roleName.toLowerCase()}`,
-        username: `${firstName} ${lastName}`.trim(),
-        roles: [roleName],
-        permissions: [],
-        token: fakeToken,
-        refreshToken: "fake_refresh_token",
-        tokens: {
-            accessToken: fakeToken,
-            refreshToken: "fake_refresh_token",
-        },
-        user: {
-            user_id: `usr_${roleName.toLowerCase()}`,
-            first_name: firstName,
-            last_name: lastName,
-            email: credentials.email,
-            status: "ACTIVE",
-            roles: [
-                {
-                    role_id: roleId,
-                    role_name: roleName,
-                    role_description: null,
-                },
-            ],
-            lastLoginAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-        },
+    const mockUser: User = {
+        user_id: `usr_${roleName.toLowerCase()}`,
+        first_name: firstName,
+        last_name: lastName,
+        email: credentials.email,
+        status: "ACTIVE",
+        roles: [
+            {
+                role_id: roleId,
+                role_name: roleName,
+                role_description: null,
+            },
+        ],
+        lastLoginAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
     };
 
     persistMockUser(roleName, firstName, lastName, credentials.email);
 
-    return mockSession;
+    return mockUser;
 }
 
 export async function logout(): Promise<void> {
@@ -105,14 +102,18 @@ export async function logout(): Promise<void> {
 export function clearMockSessionState(): void {
     if (typeof window === "undefined") return;
 
-    window.localStorage.removeItem("mock_user_role");
-    window.localStorage.removeItem("mock_user_fname");
-    window.localStorage.removeItem("mock_user_lname");
-    window.localStorage.removeItem("mock_user_email");
+    window.localStorage.removeItem(MOCK_ROLE_KEY);
+    window.localStorage.removeItem(MOCK_FIRST_NAME_KEY);
+    window.localStorage.removeItem(MOCK_LAST_NAME_KEY);
+    window.localStorage.removeItem(MOCK_EMAIL_KEY);
 }
 
 export async function getMe(): Promise<User> {
     await new Promise((resolve) => setTimeout(resolve, 300));
+
+    if (!hasMockSessionState()) {
+        throw new Error("No hay una sesion mock activa.");
+    }
 
     let roleName = "ADMIN";
     let firstName = "Administrador";
@@ -120,16 +121,16 @@ export async function getMe(): Promise<User> {
     let email = "admin@empresa.com";
 
     if (typeof window !== "undefined") {
-        roleName = window.localStorage.getItem("mock_user_role") || "ADMIN";
+        roleName = window.localStorage.getItem(MOCK_ROLE_KEY) || "ADMIN";
         if (roleName === "MANAGER") {
             roleName = "ADMIN";
         }
-        firstName = window.localStorage.getItem("mock_user_fname") || "Usuario";
+        firstName = window.localStorage.getItem(MOCK_FIRST_NAME_KEY) || "Usuario";
         lastName =
-            window.localStorage.getItem("mock_user_lname") ||
+            window.localStorage.getItem(MOCK_LAST_NAME_KEY) ||
             "Demo (Recarga)";
         email =
-            window.localStorage.getItem("mock_user_email") ||
+            window.localStorage.getItem(MOCK_EMAIL_KEY) ||
             "demo@empresa.com";
     }
 

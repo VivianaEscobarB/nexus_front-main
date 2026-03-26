@@ -1,5 +1,6 @@
 import { appEnv } from "@/lib/config/env";
 import { ApiError, buildApiError } from "@/shared/api/apiError";
+import { CSRF_HEADER_NAME, getCsrfToken, isMutatingMethod } from "@/shared/api/csrf";
 
 type QueryValue = string | number | boolean | null | undefined;
 
@@ -14,9 +15,7 @@ export interface HttpRequestOptions {
 }
 
 interface HttpClientAuthHandlers {
-    getAccessToken: () => string | null;
-    isAccessTokenExpired: (token: string) => boolean;
-    refreshAccessToken: () => Promise<void>;
+    refreshSession: () => void | Promise<void>;
     onAuthFailure: () => void | Promise<void>;
     onForbidden: (error: ApiError) => void | Promise<void>;
 }
@@ -36,12 +35,6 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     return url.toString();
 }
 
-function isSafeAccessToken(value: string | null): value is string {
-    if (!value) return false;
-    const normalized = value.trim();
-    return normalized.length > 0 && normalized !== "undefined" && normalized !== "null";
-}
-
 async function parsePayload<T>(response: Response): Promise<T> {
     const text = await response.text();
 
@@ -54,6 +47,26 @@ async function parsePayload<T>(response: Response): Promise<T> {
     } catch {
         return text as T;
     }
+}
+
+function enrichForbiddenError(error: ApiError, method: string): ApiError {
+    if (!isMutatingMethod(method)) {
+        return error;
+    }
+
+    if (/csrf|xsrf/i.test(error.message)) {
+        return error;
+    }
+
+    return new ApiError({
+        timestamp: error.timestamp,
+        status: error.status,
+        error: error.error,
+        path: error.path,
+        message:
+            "La solicitud fue rechazada por seguridad (CSRF). " +
+            "Recarga la pagina e intenta nuevamente. Si el problema continua, inicia sesion de nuevo.",
+    });
 }
 
 async function request<T>(
@@ -86,36 +99,10 @@ async function request<T>(
         }
     }
 
-    if (auth) {
-        let accessToken = authHandlers.getAccessToken?.() ?? null;
-
-        if (
-            accessToken &&
-            authHandlers.isAccessTokenExpired?.(accessToken) &&
-            authHandlers.refreshAccessToken
-        ) {
-            try {
-                await authHandlers.refreshAccessToken();
-                accessToken = authHandlers.getAccessToken?.() ?? null;
-            } catch (refreshError) {
-                await authHandlers.onAuthFailure?.();
-
-                if (refreshError instanceof Error) {
-                    throw refreshError;
-                }
-
-                throw new ApiError({
-                    timestamp: new Date().toISOString(),
-                    status: 401,
-                    error: "Unauthorized",
-                    message: "La sesion expiro. Vuelve a iniciar sesion.",
-                    path,
-                });
-            }
-        }
-
-        if (isSafeAccessToken(accessToken)) {
-            requestHeaders.set("Authorization", `Bearer ${accessToken}`);
+    if (isMutatingMethod(method) && !requestHeaders.has(CSRF_HEADER_NAME)) {
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+            requestHeaders.set(CSRF_HEADER_NAME, csrfToken);
         }
     }
 
@@ -132,10 +119,10 @@ async function request<T>(
         auth &&
         retryOnUnauthorized &&
         !retried &&
-        authHandlers.refreshAccessToken
+        authHandlers.refreshSession
     ) {
         try {
-            await authHandlers.refreshAccessToken();
+            await authHandlers.refreshSession();
             return await request<T>(path, options, true);
         } catch (refreshError) {
             await authHandlers.onAuthFailure?.();
@@ -157,7 +144,15 @@ async function request<T>(
     const payload = await parsePayload<unknown>(response);
 
     if (!response.ok) {
-        const apiError = buildApiError(payload, response.status, path);
+        const baseApiError = buildApiError(payload, response.status, path);
+        const apiError =
+            response.status === 403
+                ? enrichForbiddenError(baseApiError, method)
+                : baseApiError;
+
+        if (response.status === 401 && auth && retryOnUnauthorized) {
+            await authHandlers.onAuthFailure?.();
+        }
 
         if (response.status === 403) {
             await authHandlers.onForbidden?.(apiError);

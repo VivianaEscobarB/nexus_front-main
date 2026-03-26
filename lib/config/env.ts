@@ -1,11 +1,47 @@
 type ProviderMode = "mock" | "api";
 type ApiTarget = "deployed" | "local";
 
-function parseProviderMode(
+function parseString(
+    value: string | undefined,
+    fallback: string
+): string {
+    return typeof value === "string" && value.trim().length > 0
+        ? value.trim()
+        : fallback;
+}
+
+function parseOptionalProviderMode(
     value: string | undefined,
     fallback: ProviderMode
 ): ProviderMode {
     return value === "api" || value === "mock" ? value : fallback;
+}
+
+function parseRequiredAuthProvider(
+    value: string | undefined,
+    nodeEnv: string
+): ProviderMode {
+    const normalized = value?.trim();
+
+    if (!normalized) {
+        throw new Error(
+            "Missing NEXT_PUBLIC_AUTH_PROVIDER. Set it explicitly to 'api' or 'mock'."
+        );
+    }
+
+    if (normalized !== "api" && normalized !== "mock") {
+        throw new Error(
+            `Invalid NEXT_PUBLIC_AUTH_PROVIDER='${normalized}'. Use 'api' or 'mock'.`
+        );
+    }
+
+    if (normalized === "mock" && nodeEnv !== "development") {
+        throw new Error(
+            "NEXT_PUBLIC_AUTH_PROVIDER=mock is only allowed when NODE_ENV=development."
+        );
+    }
+
+    return normalized;
 }
 
 function parseApiTarget(
@@ -34,6 +70,25 @@ const localApiBaseUrl =
     process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL ??
     "http://localhost:8080";
 
+const nodeEnv = parseString(process.env.NODE_ENV, "development");
+const isDevelopment = nodeEnv === "development";
+
+const sessionCookieName = parseString(
+    process.env.AUTH_SESSION_COOKIE_NAME ??
+        process.env.NEXT_PUBLIC_AUTH_SESSION_COOKIE_NAME,
+    "access_token"
+);
+
+const csrfCookieName = parseString(
+    process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME,
+    "XSRF-TOKEN"
+);
+
+const csrfHeaderName = parseString(
+    process.env.NEXT_PUBLIC_CSRF_HEADER_NAME,
+    "X-CSRF-TOKEN"
+);
+
 export const appEnv = {
     apiBaseUrl: normalizeUrl(
         apiTarget === "local" ? localApiBaseUrl : deployedApiBaseUrl
@@ -41,14 +96,19 @@ export const appEnv = {
     apiTarget,
     deployedApiBaseUrl: normalizeUrl(deployedApiBaseUrl),
     localApiBaseUrl: normalizeUrl(localApiBaseUrl),
-    authProvider: parseProviderMode(
+    nodeEnv,
+    isDevelopment,
+    authProvider: parseRequiredAuthProvider(
         process.env.NEXT_PUBLIC_AUTH_PROVIDER,
-        "mock"
+        nodeEnv
     ),
-    stockProvider: parseProviderMode(
+    stockProvider: parseOptionalProviderMode(
         process.env.NEXT_PUBLIC_STOCK_PROVIDER,
         "api"
     ),
+    sessionCookieName,
+    csrfCookieName,
+    csrfHeaderName,
 } as const;
 
 export type { ApiTarget, ProviderMode };

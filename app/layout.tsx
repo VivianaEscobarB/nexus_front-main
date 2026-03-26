@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/providers/Providers";
 import { ThemeScript } from "@/hooks/useTheme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const fontVariables = {
+  "--font-geist-sans":
+    'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  "--font-geist-mono":
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+} as React.CSSProperties &
+  Record<"--font-geist-sans" | "--font-geist-mono", string>;
 
 export const metadata: Metadata = {
   title: "Nexus — Gestión de Bodegas e Inventario",
@@ -32,7 +29,8 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className="antialiased"
+        style={fontVariables}
       >
         <Providers>{children}</Providers>
       </body>

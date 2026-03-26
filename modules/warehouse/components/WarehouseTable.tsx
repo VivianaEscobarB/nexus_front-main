@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import { Warehouse } from '../types';
-import { warehouseService } from '../services/warehouseService';
 import { WarehouseDeleteDialog } from './WarehouseDeleteDialog';
 import { Button } from '@/components/ui';
+import { httpClient } from '@/shared/api/httpClient';
 
 export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initialData }) => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>(initialData);
   const [warehouseToDelete, setWarehouseToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDeleteConfirm = async () => {
     if (!warehouseToDelete) return;
     try {
       setIsDeleting(true);
-      await warehouseService.deleteWarehouse(warehouseToDelete);
+      setDeleteError(null);
+      await httpClient.delete<void>(`/api/warehouses/${warehouseToDelete}`);
       // UI Optimista: Actualizamos el estado local para que aparezca inactiva
       setWarehouses(prev => prev.map(w => w.id === warehouseToDelete ? { ...w, isActive: false } : w));
-    } catch (error) {
-      console.error(error);
+    } catch {
+      setDeleteError('No fue posible eliminar la bodega.');
     } finally {
       setIsDeleting(false);
       setWarehouseToDelete(null);
@@ -26,6 +28,11 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+      {deleteError ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {deleteError}
+        </div>
+      ) : null}
       <table className="w-full text-left text-sm text-slate-600">
         <thead className="bg-slate-50 border-b border-slate-200 text-slate-800">
           <tr><th className="p-4">Nombre</th><th className="p-4">Dirección</th><th className="p-4">Estado</th><th className="p-4"></th></tr>

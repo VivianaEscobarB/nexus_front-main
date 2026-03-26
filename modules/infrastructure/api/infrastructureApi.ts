@@ -1,6 +1,7 @@
 import { httpClient } from "@/shared/api/httpClient";
 import type {
     CreateSectorInput,
+    CreateStatusCatalogInput,
     CreateSpaceInput,
     CreateWarehouseInput,
     InfrastructureStatus,
@@ -9,6 +10,7 @@ import type {
     ManagedSector,
     ManagedSpace,
     ManagedWarehouse,
+    StatusCatalog,
     UpdateSectorInput,
     UpdateSpaceInput,
     UpdateWarehouseInput,
@@ -43,6 +45,29 @@ function getNumber(value: unknown): number | null {
     if (typeof value === "string" && value.trim().length > 0) {
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function getBoolean(value: unknown): boolean | null {
+    if (typeof value === "boolean") {
+        return value;
+    }
+
+    if (typeof value === "number") {
+        if (value === 1) return true;
+        if (value === 0) return false;
+    }
+
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === "true" || normalized === "1") {
+            return true;
+        }
+        if (normalized === "false" || normalized === "0") {
+            return false;
+        }
     }
 
     return null;
@@ -219,7 +244,10 @@ function mapApiSector(payload: unknown): ManagedSector {
             getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "ACTIVE"),
             "ACTIVE"
         ),
-        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
+        statusCatalogId:
+            getNumber(payload.statusCatalogId) ??
+            getNumber(payload.status_catalog_id) ??
+            undefined,
     };
 }
 
@@ -230,15 +258,28 @@ function mapApiSpace(payload: unknown): ManagedSpace {
 
     const id = payload.id ?? payload.space_id ?? payload.spaceId;
     const code = getString(payload.code) ?? getString(payload.space_code) ?? getString(payload.spaceCode);
+    const nestedSector = isObject(payload.sector) ? payload.sector : null;
+    const nestedWarehouse = isObject(payload.warehouse) ? payload.warehouse : null;
     const sectorId =
         getString(payload.sectorId) ??
         getString(payload.sector_id) ??
-        String(payload.sectorId ?? payload.sector_id ?? payload.sector?.id ?? "");
+        String(payload.sectorId ?? payload.sector_id ?? nestedSector?.id ?? "");
+    const aisle = getString(payload.aisle);
+    const row = getString(payload.row);
+    const level = getString(payload.level);
+    const position = getString(payload.position);
+    const description =
+        getString(payload.description) ??
+        (
+            [aisle, row, level, position]
+                .filter((segment): segment is string => Boolean(segment))
+                .join("/") || null
+        );
 
     const name =
         getString(payload.name) ??
         code ??
-        getString(payload.description) ??
+        description ??
         "Espacio";
 
     if (!id || !code) {
@@ -249,22 +290,47 @@ function mapApiSpace(payload: unknown): ManagedSpace {
         id: String(id),
         code,
         name,
-        warehouseId: getString(payload.warehouseId) ?? "",
-        warehouseName: getString(payload.warehouseName) ?? null,
+        warehouseId:
+            getString(payload.warehouseId) ??
+            getString(payload.warehouse_id) ??
+            String(payload.warehouseId ?? payload.warehouse_id ?? nestedWarehouse?.id ?? ""),
+        warehouseName:
+            getString(payload.warehouseName) ??
+            getString(payload.warehouse_name) ??
+            (nestedWarehouse ? getString(nestedWarehouse.name) : null) ??
+            null,
         sectorId: sectorId ?? "",
-        sectorName: getString(payload.sectorName) ?? null,
-        description: (
-            getString(payload.description) ??
-            [getString(payload.aisle), getString(payload.row), getString(payload.level), getString(payload.position)]
-                .filter(Boolean)
-                .join("/")
-        ) || null,
+        sectorName:
+            getString(payload.sectorName) ??
+            getString(payload.sector_name) ??
+            (nestedSector ? getString(nestedSector.name) : null) ??
+            null,
+        description,
+        aisle,
+        row,
+        level,
+        position,
         capacityM2: getNumber(payload.capacityM2) ?? null,
+        temperatureControl:
+            getBoolean(payload.temperatureControl) ??
+            getBoolean(payload.temperature_control) ??
+            null,
+        humidityControl:
+            getBoolean(payload.humidityControl) ??
+            getBoolean(payload.humidity_control) ??
+            null,
+        storageSpaceTypeId:
+            getNumber(payload.storageSpaceTypeId) ??
+            getNumber(payload.storage_space_type_id) ??
+            undefined,
         status: normalizeStatus(
             getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "AVAILABLE"),
             "AVAILABLE"
         ),
-        statusCatalogId: getNumber(payload.statusCatalogId) ?? getNumber(payload.status_catalog_id) ?? null,
+        statusCatalogId:
+            getNumber(payload.statusCatalogId) ??
+            getNumber(payload.status_catalog_id) ??
+            undefined,
     };
 }
 
@@ -282,16 +348,18 @@ function buildWarehousePayload(input: CreateWarehouseInput | UpdateWarehouseInpu
 
 function buildSectorPayload(input: CreateSectorInput | UpdateSectorInput) {
     return compactRecord({
-        warehouseId: Number(input.warehouseId),
+        warehouseId: input.warehouseId ? Number(input.warehouseId) : undefined,
         code: input.code?.trim(),
+        name: input.name?.trim(),
         description: input.description?.trim(),
+        capacityM2: input.capacityM2,
         statusCatalogId: input.statusCatalogId,
     });
 }
 
 function buildSpacePayload(input: CreateSpaceInput | UpdateSpaceInput) {
     return compactRecord({
-        sectorId: Number(input.sectorId),
+        sectorId: input.sectorId ? Number(input.sectorId) : undefined,
         aisle: input.aisle?.trim(),
         row: input.row?.trim(),
         level: input.level?.trim(),
@@ -319,8 +387,8 @@ export async function listStatusCatalogsByEntityType(
             name:
                 getString(item.name) ?? getString(item.statusName) ??
                 getString(item.description) ?? "",
-            code: getString(item.code) ?? null,
-            description: getString(item.description) ?? null,
+            code: getString(item.code) ?? undefined,
+            description: getString(item.description) ?? undefined,
         }))
         .filter((item) => Number.isFinite(item.id));
 }
@@ -348,8 +416,8 @@ export async function createStatusCatalog(
         name:
             getString(payload.name) ?? getString(payload.statusName) ??
             getString(payload.description) ?? "",
-        code: getString(payload.code) ?? null,
-        description: getString(payload.description) ?? null,
+        code: getString(payload.code) ?? undefined,
+        description: getString(payload.description) ?? undefined,
     };
 }
 

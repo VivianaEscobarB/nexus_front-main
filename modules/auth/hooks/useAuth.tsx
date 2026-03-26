@@ -63,8 +63,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             authStore.startSignIn();
 
             try {
-                const session = await login(credentials);
-                authStore.finishSignIn(session.user);
+                const user = await login(credentials);
+                authStore.finishSignIn(user);
                 router.push("/dashboard");
             } catch (error) {
                 authStore.finishSignIn(null);
