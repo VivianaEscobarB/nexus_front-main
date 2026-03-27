@@ -1,34 +1,27 @@
 import { appEnv } from "@/lib/config/env";
 import { ApiError, buildApiError } from "@/shared/api/apiError";
 
-const CSRF_COOKIE_NAME = appEnv.csrfCookieName;
 const DEFAULT_CSRF_HEADER_NAME = appEnv.csrfHeaderName;
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const CSRF_ENDPOINT_PATH = "/api/csrf";
 
 interface CsrfBootstrapResponse {
     headerName?: string;
-    parameterName?: string;
     token?: string;
 }
 
-interface CsrfState {
+export interface CsrfState {
     token: string | null;
     headerName: string;
-    parameterName: string | null;
 }
 
 const csrfState: CsrfState = {
     token: null,
     headerName: DEFAULT_CSRF_HEADER_NAME,
-    parameterName: null,
 };
 
 let csrfBootstrapPromise: Promise<CsrfState> | null = null;
-
-function canReadDocumentCookies(): boolean {
-    return typeof document !== "undefined";
-}
+let csrfRefreshPromise: Promise<CsrfState> | null = null;
 
 function getString(value: unknown): string | null {
     return typeof value === "string" && value.trim().length > 0
@@ -61,81 +54,94 @@ function normalizeCsrfPayload(payload: unknown): CsrfBootstrapResponse {
 
     return {
         headerName: getString(payload.headerName) ?? undefined,
-        parameterName: getString(payload.parameterName) ?? undefined,
         token: getString(payload.token) ?? undefined,
     };
 }
 
+function maskTokenForLog(token: string | null): string | null {
+    if (!token) {
+        return null;
+    }
+
+    if (token.length <= 12) {
+        return token;
+    }
+
+    return `${token.slice(0, 8)}...${token.slice(-4)}`;
+}
+
+function logCsrfBootstrap(nextState: CsrfState, forceRefresh: boolean): void {
+    if (!appEnv.isDevelopment) {
+        return;
+    }
+
+    console.info("[csrf] token initialized", {
+        reason: forceRefresh ? "refresh" : "bootstrap",
+        headerName: nextState.headerName,
+        tokenPreview: maskTokenForLog(nextState.token),
+    });
+}
+
+function logCsrfRefresh(): void {
+    if (!appEnv.isDevelopment) {
+        return;
+    }
+
+    console.info("[csrf] refreshing token after 403");
+}
+
+async function waitForCookieSynchronization(): Promise<void> {
+    await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+    });
+}
+
 function updateCsrfState(payload: CsrfBootstrapResponse): CsrfState {
-    const cookieToken = readCookie(CSRF_COOKIE_NAME);
-    const nextToken = payload.token ?? cookieToken ?? null;
-
-    csrfState.token = nextToken;
+    csrfState.token = payload.token ?? null;
     csrfState.headerName = payload.headerName ?? DEFAULT_CSRF_HEADER_NAME;
-    csrfState.parameterName = payload.parameterName ?? null;
 
-    return {
-        token: csrfState.token,
-        headerName: csrfState.headerName,
-        parameterName: csrfState.parameterName,
-    };
+    return getCsrfStateSnapshot();
 }
 
 export function isMutatingMethod(method: string): boolean {
     return MUTATING_METHODS.has(method.toUpperCase());
 }
 
-export function readCookie(name: string): string | null {
-    if (!canReadDocumentCookies() || !document.cookie) {
-        return null;
-    }
-
-    const encodedName = `${encodeURIComponent(name)}=`;
-    const cookies = document.cookie.split(";");
-
-    for (const rawCookie of cookies) {
-        const cookie = rawCookie.trim();
-
-        if (!cookie.startsWith(encodedName)) {
-            continue;
-        }
-
-        const value = cookie.slice(encodedName.length);
-        return value.length > 0 ? decodeURIComponent(value) : null;
-    }
-
-    return null;
-}
-
-export function getCsrfToken(): string | null {
-    return csrfState.token ?? readCookie(CSRF_COOKIE_NAME);
-}
-
 export function getCsrfHeaderName(): string {
     return csrfState.headerName || DEFAULT_CSRF_HEADER_NAME;
 }
 
-export function clearCsrfToken(): void {
+function resetCsrfState(): void {
     csrfState.token = null;
     csrfState.headerName = DEFAULT_CSRF_HEADER_NAME;
-    csrfState.parameterName = null;
 }
 
 function getCsrfStateSnapshot(): CsrfState {
     return {
         token: csrfState.token,
         headerName: csrfState.headerName,
-        parameterName: csrfState.parameterName,
     };
 }
 
-export async function ensureCsrfToken(): Promise<CsrfState> {
-    if (csrfState.token) {
+interface EnsureCsrfTokenOptions {
+    forceRefresh?: boolean;
+}
+
+export async function ensureCsrfToken(
+    options: EnsureCsrfTokenOptions = {}
+): Promise<CsrfState> {
+    const { forceRefresh = false } = options;
+
+    if (!forceRefresh && csrfState.token) {
         return getCsrfStateSnapshot();
     }
 
     if (csrfBootstrapPromise) {
         return csrfBootstrapPromise;
+    }
+
+    if (forceRefresh) {
+        resetCsrfState();
     }
 
     const url = new URL(CSRF_ENDPOINT_PATH, appEnv.apiBaseUrl).toString();
@@ -155,6 +161,9 @@ export async function ensureCsrfToken(): Promise<CsrfState> {
             throw buildApiError(payload, response.status, CSRF_ENDPOINT_PATH);
         }
 
+        // Allow the browser event loop to apply Set-Cookie before any mutating request continues.
+        await waitForCookieSynchronization();
+
         const normalizedPayload = normalizeCsrfPayload(payload);
         const nextState = updateCsrfState(normalizedPayload);
 
@@ -169,6 +178,7 @@ export async function ensureCsrfToken(): Promise<CsrfState> {
             });
         }
 
+        logCsrfBootstrap(nextState, forceRefresh);
         return nextState;
     })().finally(() => {
         csrfBootstrapPromise = null;
@@ -179,12 +189,6 @@ export async function ensureCsrfToken(): Promise<CsrfState> {
 
 export async function waitForCsrfToken(): Promise<CsrfState> {
     if (csrfState.token) {
-        return getCsrfStateSnapshot();
-    }
-
-    const cookieToken = readCookie(CSRF_COOKIE_NAME);
-    if (cookieToken) {
-        csrfState.token = cookieToken;
         return getCsrfStateSnapshot();
     }
 
@@ -200,4 +204,16 @@ export async function waitForCsrfToken(): Promise<CsrfState> {
             "El token CSRF aun no esta inicializado. La aplicacion debe bootstrappear /api/csrf antes de enviar solicitudes mutantes.",
         path: CSRF_ENDPOINT_PATH,
     });
+}
+
+export async function refreshCsrfToken(): Promise<CsrfState> {
+    if (!csrfRefreshPromise) {
+        logCsrfRefresh();
+
+        csrfRefreshPromise = ensureCsrfToken({ forceRefresh: true }).finally(() => {
+            csrfRefreshPromise = null;
+        });
+    }
+
+    return csrfRefreshPromise;
 }
