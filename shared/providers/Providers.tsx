@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { appEnv } from "@/lib/config/env";
 import { queryClient } from "@/lib/query/query-client";
 import { AuthProvider } from "@/modules/auth/hooks/useAuth";
 import { ensureCsrfToken } from "@/shared/api/csrf";
@@ -19,7 +20,11 @@ export function Providers({ children }: ProvidersProps) {
         let isMounted = true;
 
         ensureCsrfToken()
-            .catch(() => undefined)
+            .catch((error) => {
+                if (appEnv.isDevelopment) {
+                    console.error("[csrf] initial bootstrap failed", error);
+                }
+            })
             .finally(() => {
                 if (isMounted) {
                     setIsCsrfReady(true);

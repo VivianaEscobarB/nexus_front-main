@@ -1,7 +1,8 @@
 import { appEnv } from "@/lib/config/env";
 import { ApiError, buildApiError } from "@/shared/api/apiError";
 import {
-    getCsrfHeaderName,
+    ensureCsrfToken,
+    refreshCsrfToken,
     isMutatingMethod,
     waitForCsrfToken,
 } from "@/shared/api/csrf";
@@ -25,6 +26,11 @@ interface HttpClientAuthHandlers {
 }
 
 let authHandlers: Partial<HttpClientAuthHandlers> = {};
+
+interface InternalRequestOptions {
+    authRetried?: boolean;
+    csrfRetried?: boolean;
+}
 
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     const url = new URL(path, appEnv.apiBaseUrl);
@@ -73,10 +79,54 @@ function enrichForbiddenError(error: ApiError, method: string): ApiError {
     });
 }
 
+function shouldRetryCsrfRequest(
+    method: string,
+    status: number,
+    csrfRetried: boolean
+): boolean {
+    return status === 403 && isMutatingMethod(method) && !csrfRetried;
+}
+
+function logCsrfRetry(method: string, path: string): void {
+    if (!appEnv.isDevelopment) {
+        return;
+    }
+
+    console.info("[csrf] retrying request after 403", {
+        method,
+        path,
+    });
+}
+
+async function waitForCookieSynchronization(): Promise<void> {
+    await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+    });
+}
+
+async function resolveCsrfState() {
+    try {
+        const csrfState = await waitForCsrfToken();
+
+        if (csrfState.token) {
+            return csrfState;
+        }
+    } catch {
+        // Fall through to bootstrap from /api/csrf when the token has not been initialized yet.
+    }
+
+    const nextState = await ensureCsrfToken();
+    if (nextState.token) {
+        return nextState;
+    }
+
+    return ensureCsrfToken({ forceRefresh: true });
+}
+
 async function request<T>(
     path: string,
     options: HttpRequestOptions = {},
-    retried: boolean = false
+    internal: InternalRequestOptions = {}
 ): Promise<T> {
     const {
         method = "GET",
@@ -87,6 +137,7 @@ async function request<T>(
         retryOnUnauthorized = true,
         signal,
     } = options;
+    const { authRetried = false, csrfRetried = false } = internal;
 
     const url = buildUrl(path, query);
     const requestHeaders = new Headers(headers);
@@ -104,11 +155,11 @@ async function request<T>(
     }
 
     if (isMutatingMethod(method)) {
-        const csrfState = await waitForCsrfToken();
-        const csrfHeaderName = csrfState.headerName || getCsrfHeaderName();
+        const csrfState = await resolveCsrfState();
+        const csrfHeaderName = csrfState.headerName;
         const csrfToken = csrfState.token;
 
-        if (!csrfToken) {
+        if (!csrfHeaderName || !csrfToken) {
             throw new ApiError({
                 timestamp: new Date().toISOString(),
                 status: 500,
@@ -136,12 +187,15 @@ async function request<T>(
         response.status === 401 &&
         auth &&
         retryOnUnauthorized &&
-        !retried &&
+        !authRetried &&
         authHandlers.refreshSession
     ) {
         try {
             await authHandlers.refreshSession();
-            return await request<T>(path, options, true);
+            return await request<T>(path, options, {
+                ...internal,
+                authRetried: true,
+            });
         } catch (refreshError) {
             await authHandlers.onAuthFailure?.();
 
@@ -160,6 +214,16 @@ async function request<T>(
     }
 
     const payload = await parsePayload<unknown>(response);
+
+    if (shouldRetryCsrfRequest(method, response.status, csrfRetried)) {
+        logCsrfRetry(method, path);
+        await refreshCsrfToken();
+        await waitForCookieSynchronization();
+        return request<T>(path, options, {
+            ...internal,
+            csrfRetried: true,
+        });
+    }
 
     if (!response.ok) {
         const baseApiError = buildApiError(payload, response.status, path);
