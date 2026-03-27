@@ -42,21 +42,12 @@ function isAuthRoute(pathname: string): boolean {
 export function proxy(request: NextRequest): NextResponse {
     const { pathname } = request.nextUrl;
 
-    // El backend valida la sesion real y administra su renovacion.
-    // En el proxy solo usamos la presencia de la cookie HttpOnly.
-    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-    const isAuthenticated = Boolean(sessionCookie);
-
-    if (isProtectedRoute(pathname) && !isAuthenticated) {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("callbackUrl", pathname);
-        return NextResponse.redirect(loginUrl);
-    }
-
-    if (isAuthRoute(pathname) && isAuthenticated) {
-        const dashboardUrl = new URL("/dashboard", request.url);
-        return NextResponse.redirect(dashboardUrl);
-    }
+    // En despliegues cross-domain la sesion real vive en el backend y no puede
+    // validarse de forma confiable desde este proxy del frontend. La proteccion
+    // efectiva queda delegada al cliente y a la API.
+    void SESSION_COOKIE_NAME;
+    void isProtectedRoute(pathname);
+    void isAuthRoute(pathname);
 
     return NextResponse.next();
 }
