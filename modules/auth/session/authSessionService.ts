@@ -10,7 +10,6 @@ import type {
 } from "@/modules/auth/api/authTypes";
 import * as authMock from "@/modules/auth/mocks/auth.mock";
 import { authStore } from "@/modules/auth/state/authStore";
-import { clearCsrfToken } from "@/shared/api/csrf";
 import { configureHttpClientAuth } from "@/shared/api/httpClient";
 import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
@@ -79,7 +78,6 @@ function clearLocalSession(): void {
         authMock.clearMockSessionState();
     }
 
-    clearCsrfToken();
     authStore.clearSession();
 }
 

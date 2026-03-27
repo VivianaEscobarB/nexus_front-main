@@ -1,9 +1,9 @@
 import { appEnv } from "@/lib/config/env";
 import { ApiError, buildApiError } from "@/shared/api/apiError";
 import {
-    bootstrapCsrfToken,
     getCsrfHeaderName,
     isMutatingMethod,
+    waitForCsrfToken,
 } from "@/shared/api/csrf";
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -104,7 +104,7 @@ async function request<T>(
     }
 
     if (isMutatingMethod(method)) {
-        const csrfState = await bootstrapCsrfToken(retried);
+        const csrfState = await waitForCsrfToken();
         const csrfHeaderName = csrfState.headerName || getCsrfHeaderName();
         const csrfToken = csrfState.token;
 
@@ -167,15 +167,6 @@ async function request<T>(
             response.status === 403
                 ? enrichForbiddenError(baseApiError, method)
                 : baseApiError;
-
-        if (
-            response.status === 403 &&
-            isMutatingMethod(method) &&
-            !retried
-        ) {
-            await bootstrapCsrfToken(true);
-            return request<T>(path, options, true);
-        }
 
         if (response.status === 401 && auth && retryOnUnauthorized) {
             await authHandlers.onAuthFailure?.();
