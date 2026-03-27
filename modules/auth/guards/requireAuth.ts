@@ -9,12 +9,21 @@ export function useRequireAuth(redirectTo: string = "/login") {
     const router = useRouter();
     const pathname = usePathname();
     const auth = useAuthStore();
+    const isAuthReady = auth.initialized && !auth.isLoading;
 
     useEffect(() => {
-        if (!auth.isLoading && !auth.isAuthenticated) {
+        if (isAuthReady && !auth.isAuthenticated) {
             router.replace(buildLoginRedirectUrl(redirectTo, pathname));
         }
-    }, [auth.isAuthenticated, auth.isLoading, pathname, redirectTo, router]);
+    }, [
+        auth.isAuthenticated,
+        auth.initialized,
+        auth.isLoading,
+        isAuthReady,
+        pathname,
+        redirectTo,
+        router,
+    ]);
 
     return auth;
 }

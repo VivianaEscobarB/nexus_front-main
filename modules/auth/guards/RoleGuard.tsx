@@ -39,13 +39,14 @@ export function RoleGuard({
 }: RoleGuardProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, isLoading, isAuthenticated } = useAuth();
+    const { user, initialized, isLoading, isAuthenticated } = useAuth();
+    const isAuthReady = initialized && !isLoading;
 
     const currentRoles = user?.roles?.map((role) => role.role_name) ?? [];
     const isAllowed = hasAllowedRole(currentRoles, allowedRoles);
 
     useEffect(() => {
-        if (isLoading) return;
+        if (!isAuthReady) return;
 
         if (!isAuthenticated) {
             router.replace(buildLoginRedirectUrl("/login", pathname));
@@ -56,16 +57,18 @@ export function RoleGuard({
             router.replace(redirectTo);
         }
     }, [
+        initialized,
         isAllowed,
         isAuthenticated,
         isLoading,
+        isAuthReady,
         pathname,
         redirectTo,
         router,
         unauthorizedMode,
     ]);
 
-    if (isLoading) {
+    if (!isAuthReady) {
         return loadingFallback ?? null;
     }
 

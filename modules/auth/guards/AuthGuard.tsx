@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { appEnv } from "@/lib/config/env";
 import { useAuthStore } from "@/modules/auth/state/authStore";
 import { buildLoginRedirectUrl } from "@/modules/auth/guards/guardUtils";
 
@@ -20,18 +21,36 @@ export function AuthGuard({
     const router = useRouter();
     const pathname = usePathname();
     const auth = useAuthStore();
+    const isAuthReady = auth.initialized && !auth.isLoading;
 
     useEffect(() => {
-        if (auth.isLoading) {
+        if (!isAuthReady) {
             return;
         }
 
         if (!auth.isAuthenticated) {
+            if (appEnv.isDevelopment) {
+                console.log("[auth] guard:redirect-to-login", {
+                    initialized: auth.initialized,
+                    isAuthenticated: auth.isAuthenticated,
+                    isLoading: auth.isLoading,
+                    pathname,
+                });
+            }
+
             router.replace(buildLoginRedirectUrl(redirectTo, pathname));
         }
-    }, [auth.isAuthenticated, auth.isLoading, pathname, redirectTo, router]);
+    }, [
+        auth.initialized,
+        auth.isAuthenticated,
+        auth.isLoading,
+        isAuthReady,
+        pathname,
+        redirectTo,
+        router,
+    ]);
 
-    if (auth.isLoading) {
+    if (!isAuthReady) {
         return fallback ?? null;
     }
 
