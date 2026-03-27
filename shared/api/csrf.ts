@@ -121,15 +121,17 @@ export function clearCsrfToken(): void {
     csrfState.parameterName = null;
 }
 
-export async function bootstrapCsrfToken(
-    forceRefresh: boolean = false
-): Promise<CsrfState> {
-    if (!forceRefresh && csrfState.token) {
-        return {
-            token: csrfState.token,
-            headerName: csrfState.headerName,
-            parameterName: csrfState.parameterName,
-        };
+function getCsrfStateSnapshot(): CsrfState {
+    return {
+        token: csrfState.token,
+        headerName: csrfState.headerName,
+        parameterName: csrfState.parameterName,
+    };
+}
+
+export async function ensureCsrfToken(): Promise<CsrfState> {
+    if (csrfState.token) {
+        return getCsrfStateSnapshot();
     }
 
     if (csrfBootstrapPromise) {
@@ -173,4 +175,29 @@ export async function bootstrapCsrfToken(
     });
 
     return csrfBootstrapPromise;
+}
+
+export async function waitForCsrfToken(): Promise<CsrfState> {
+    if (csrfState.token) {
+        return getCsrfStateSnapshot();
+    }
+
+    const cookieToken = readCookie(CSRF_COOKIE_NAME);
+    if (cookieToken) {
+        csrfState.token = cookieToken;
+        return getCsrfStateSnapshot();
+    }
+
+    if (csrfBootstrapPromise) {
+        return csrfBootstrapPromise;
+    }
+
+    throw new ApiError({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        error: "CSRF Initialization Error",
+        message:
+            "El token CSRF aun no esta inicializado. La aplicacion debe bootstrappear /api/csrf antes de enviar solicitudes mutantes.",
+        path: CSRF_ENDPOINT_PATH,
+    });
 }
