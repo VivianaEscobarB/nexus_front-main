@@ -28,18 +28,22 @@ export function AuthGuard({
             return;
         }
 
-        if (!auth.isAuthenticated) {
-            if (appEnv.isDevelopment) {
-                console.log("[auth] guard:redirect-to-login", {
-                    initialized: auth.initialized,
-                    isAuthenticated: auth.isAuthenticated,
-                    isLoading: auth.isLoading,
-                    pathname,
-                });
-            }
+        const timeout = window.setTimeout(() => {
+            if (!auth.isAuthenticated) {
+                if (appEnv.isDevelopment) {
+                    console.log("[auth] guard:redirect-to-login", {
+                        initialized: auth.initialized,
+                        isAuthenticated: auth.isAuthenticated,
+                        isLoading: auth.isLoading,
+                        pathname,
+                    });
+                }
 
-            router.replace(buildLoginRedirectUrl(redirectTo, pathname));
-        }
+                router.replace(buildLoginRedirectUrl(redirectTo, pathname));
+            }
+        }, 50);
+
+        return () => window.clearTimeout(timeout);
     }, [
         auth.initialized,
         auth.isAuthenticated,
