@@ -11,20 +11,25 @@ import Link from "next/link";
 import { resetPassword } from "@/services/auth.service";
 
 const resetSchema = z.object({
+    email: z
+        .string()
+        .min(1, "El correo es requerido")
+        .email("Ingresa un correo valido"),
     code: z
         .string()
-        .min(6, "El código de verificación debe tener 6 caracteres")
-        .max(6, "El código es de exactamente 6 caracteres"),
+        .min(6, "El codigo de verificacion debe tener 6 caracteres")
+        .max(6, "El codigo es de exactamente 6 caracteres"),
     password: z
         .string()
         .min(8, "Al menos 8 caracteres requeridos")
-        .regex(/[A-Z]/, "Debe incluir al menos una mayúscula")
-        .regex(/[0-9]/, "Debe incluir al menos un número"),
+        .regex(/[A-Z]/, "Debe incluir al menos una mayuscula")
+        .regex(/[0-9]/, "Debe incluir al menos un numero")
+        .regex(/[^A-Za-z0-9]/, "Debe incluir al menos un caracter especial"),
     confirmPassword: z
         .string()
-        .min(1, "Confirma la nueva contraseña"),
+        .min(1, "Confirma la nueva contrasena"),
 }).refine((data) => data.password === data.confirmPassword, {
-    message: "Las contraseñas no coinciden",
+    message: "Las contrasenas no coinciden",
     path: ["confirmPassword"],
 });
 
@@ -37,6 +42,16 @@ function LockIcon() {
             <path fillRule="evenodd"
                 d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z"
                 clipRule="evenodd" />
+        </svg>
+    );
+}
+
+function MailIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+            className="w-4 h-4" aria-hidden="true">
+            <path d="M3 4a2 2 0 0 0-2 2v1.161l8.441 4.221a1.25 1.25 0 0 0 1.118 0L19 7.162V6a2 2 0 0 0-2-2H3Z" />
+            <path d="m19 8.839-7.77 3.885a2.75 2.75 0 0 1-2.46 0L1 8.839V14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.839Z" />
         </svg>
     );
 }
@@ -82,6 +97,12 @@ export function ResetPasswordForm() {
 
     const { register, handleSubmit, formState: { errors } } = useForm<ResetFormValues>({
         resolver: zodResolver(resetSchema),
+        defaultValues: {
+            email: emailHint ?? "",
+            code: "",
+            password: "",
+            confirmPassword: "",
+        },
     });
 
     async function onSubmit(values: ResetFormValues) {
@@ -90,7 +111,8 @@ export function ResetPasswordForm() {
 
         try {
             await resetPassword({
-                token: values.code,
+                email: values.email,
+                code: values.code,
                 newPassword: values.password,
             });
             setSuccess(true);
@@ -113,10 +135,10 @@ export function ResetPasswordForm() {
                     <CheckCircleLgIcon />
                 </div>
                 <h3 className="text-xl font-bold tracking-tight mb-2" style={{ color: "var(--color-text-primary)" }}>
-                    ¡Contraseña actualizada!
+                    Contrasena actualizada
                 </h3>
                 <p className="text-sm mb-6" style={{ color: "var(--color-text-secondary)" }}>
-                    Tu nueva contraseña se guardó correctamente y tu cuenta está segura. Ya puedes volver a entrar al sistema.
+                    Tu nueva contrasena se guardo correctamente y ya puedes volver a entrar al sistema.
                 </p>
                 <div className="w-full flex">
                     <Button
@@ -124,7 +146,7 @@ export function ResetPasswordForm() {
                         fullWidth
                         onClick={() => router.push("/login")}
                     >
-                        Ir al panel de inicio de sesión
+                        Ir al inicio de sesion
                     </Button>
                 </div>
             </div>
@@ -145,18 +167,19 @@ export function ResetPasswordForm() {
                 </div>
             )}
 
-            {/* Email contextual para orientación (Opcional, visualmente no editable) */}
-            {emailHint && (
-                <div className="text-sm rounded-md px-3 py-2 border flex items-center gap-2"
-                    style={{ background: "var(--color-surface-hover)", borderColor: "var(--color-border-default)", color: "var(--color-text-secondary)" }}>
-                    <span className="opacity-50 text-xs">A cuenta:</span> <span className="font-semibold">{emailHint}</span>
-                </div>
-            )}
+            <Input
+                label="Correo electronico asociado"
+                type="email"
+                placeholder="usuario@empresa.com"
+                autoComplete="email"
+                leadingIcon={<MailIcon />}
+                error={errors.email?.message}
+                {...register("email")}
+            />
 
-            {/* Code */}
             <div className="flex flex-col gap-1.5">
                 <Input
-                    label="Código de seguridad de 6 dígitos"
+                    label="Codigo de seguridad de 6 digitos"
                     type="text"
                     placeholder="123456"
                     maxLength={6}
@@ -168,17 +191,16 @@ export function ResetPasswordForm() {
                         style={{ color: "var(--color-text-brand)" }}
                         onMouseOver={(e) => e.currentTarget.style.color = "var(--color-brand-stronger)"}
                         onMouseOut={(e) => e.currentTarget.style.color = "var(--color-text-brand)"}>
-                        ¿No recibiste el código?
+                        No recibiste el codigo?
                     </Link>
                 </div>
             </div>
 
-            {/* Nuevas Contraseñas */}
             <div className="flex flex-col gap-4 border-t pt-4" style={{ borderColor: "var(--color-border-subtle)" }}>
                 <Input
-                    label="Nueva contraseña"
+                    label="Nueva contrasena"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Min. 8 caracteres, 1 mayús., 1 núm."
+                    placeholder="Min. 8 caracteres, 1 mayus., 1 num., 1 especial"
                     leadingIcon={<LockIcon />}
                     trailingIcon={
                         <button type="button" onClick={() => setShowPassword((p) => !p)}
@@ -195,9 +217,9 @@ export function ResetPasswordForm() {
                 />
 
                 <Input
-                    label="Confirmar contraseña nueva"
+                    label="Confirmar contrasena nueva"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Repita la contraseña"
+                    placeholder="Repite la contrasena"
                     leadingIcon={<LockIcon />}
                     trailingIcon={
                         <button type="button" onClick={() => setShowConfirmPassword((p) => !p)}
@@ -214,10 +236,9 @@ export function ResetPasswordForm() {
                 />
             </div>
 
-            {/* Acciones */}
             <div className="flex flex-col gap-3 mt-4">
                 <Button type="submit" variant="primary" fullWidth size="lg" isLoading={isLoading}>
-                    Guardar nueva contraseña
+                    Guardar nueva contrasena
                 </Button>
 
                 <Link href="/login" className="text-sm font-medium text-center hover:underline transition-colors py-2" style={{ color: "var(--color-text-tertiary)" }}>

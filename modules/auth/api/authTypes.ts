@@ -8,7 +8,11 @@ export type RegisterRequest = {
     cityId: number;
 };
 export type ForgotPasswordRequest = { email: string };
-export type ResetPasswordRequest = { token: string; newPassword: string };
+export type ResetPasswordRequest = {
+    email: string;
+    code: string;
+    newPassword: string;
+};
 
 export type CurrentUser = {
     id: number;

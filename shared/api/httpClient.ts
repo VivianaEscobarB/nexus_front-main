@@ -1,6 +1,10 @@
 import { appEnv } from "@/lib/config/env";
 import { ApiError, buildApiError } from "@/shared/api/apiError";
-import { CSRF_HEADER_NAME, getCsrfToken, isMutatingMethod } from "@/shared/api/csrf";
+import {
+    bootstrapCsrfToken,
+    getCsrfHeaderName,
+    isMutatingMethod,
+} from "@/shared/api/csrf";
 
 type QueryValue = string | number | boolean | null | undefined;
 
@@ -99,10 +103,24 @@ async function request<T>(
         }
     }
 
-    if (isMutatingMethod(method) && !requestHeaders.has(CSRF_HEADER_NAME)) {
-        const csrfToken = getCsrfToken();
-        if (csrfToken) {
-            requestHeaders.set(CSRF_HEADER_NAME, csrfToken);
+    if (isMutatingMethod(method)) {
+        const csrfState = await bootstrapCsrfToken(retried);
+        const csrfHeaderName = csrfState.headerName || getCsrfHeaderName();
+        const csrfToken = csrfState.token;
+
+        if (!csrfToken) {
+            throw new ApiError({
+                timestamp: new Date().toISOString(),
+                status: 500,
+                error: "CSRF Bootstrap Error",
+                message:
+                    "No fue posible preparar el token CSRF para la solicitud.",
+                path,
+            });
+        }
+
+        if (!requestHeaders.has(csrfHeaderName)) {
+            requestHeaders.set(csrfHeaderName, csrfToken);
         }
     }
 
@@ -149,6 +167,15 @@ async function request<T>(
             response.status === 403
                 ? enrichForbiddenError(baseApiError, method)
                 : baseApiError;
+
+        if (
+            response.status === 403 &&
+            isMutatingMethod(method) &&
+            !retried
+        ) {
+            await bootstrapCsrfToken(true);
+            return request<T>(path, options, true);
+        }
 
         if (response.status === 401 && auth && retryOnUnauthorized) {
             await authHandlers.onAuthFailure?.();
