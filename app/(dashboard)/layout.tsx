@@ -51,7 +51,7 @@ export default function DashboardLayout({
                 : []),
             ...(isBusinessProcessVisible("userManagement")
                 ? [{
-                    name: "Gestion de Usuarios",
+                    name: "Gestión de usuarios",
                     href: "/dashboard/users",
                     icon: ClipboardIcon,
                 }]
@@ -59,7 +59,7 @@ export default function DashboardLayout({
         ];
 
         navGroups.push({
-            title: "ADMINISTRACION",
+            title: "ADMINISTRACIÓN",
             items: adminItems,
         });
     } else if (role === UserRole.WAREHOUSE_SUPERVISOR) {
@@ -80,7 +80,7 @@ export default function DashboardLayout({
             ...(isBusinessProcessVisible("warehouseStructure")
                 ? [
                     {
-                        name: "Catalogo de Disponibilidad",
+                        name: "Catálogo de disponibilidad",
                         href: "/dashboard/sales/catalog",
                         icon: BoxIcon,
                     },
@@ -117,7 +117,7 @@ export default function DashboardLayout({
                 : []),
             ...(isBusinessProcessVisible("contracts")
                 ? [{
-                    name: "Historial Contratos",
+                    name: "Historial de contratos",
                     href: "/dashboard/contracts",
                     icon: CurrencyDollarIcon,
                 }]
@@ -126,7 +126,7 @@ export default function DashboardLayout({
 
         if (salesManagementItems.length > 0) {
             navGroups.push({
-                title: "GESTION Y CARTERA",
+                title: "GESTIÓN Y CARTERA",
                 items: salesManagementItems,
             });
         }
@@ -261,7 +261,7 @@ export default function DashboardLayout({
                         <div
                             className="flex items-center gap-3 px-3 py-3 rounded-xl transition-colors group cursor-pointer hover:bg-[var(--color-sidebar-item-hover)]"
                             onClick={() => signOut()}
-                            title="Cerrar sesion"
+                            title="Cerrar sesión"
                         >
                             <div
                                 className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-transform group-hover:scale-105"
@@ -293,7 +293,7 @@ export default function DashboardLayout({
                                     event.stopPropagation();
                                     signOut();
                                 }}
-                                title="Cerrar sesion"
+                                title="Cerrar sesión"
                             >
                                 <LogoutIcon className="w-5 h-5" />
                             </button>
@@ -335,7 +335,7 @@ export default function DashboardLayout({
                                 <button
                                     onClick={() => signOut()}
                                     className="p-1.5 rounded-md bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
-                                    title="Cerrar sesion"
+                                    title="Cerrar sesión"
                                 >
                                     <LogoutIcon className="w-5 h-5" />
                                 </button>

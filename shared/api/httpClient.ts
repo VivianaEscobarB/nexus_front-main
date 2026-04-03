@@ -16,6 +16,7 @@ export interface HttpRequestOptions {
     query?: Record<string, QueryValue>;
     auth?: boolean;
     retryOnUnauthorized?: boolean;
+    preserveForbiddenErrors?: boolean;
     signal?: AbortSignal;
 }
 
@@ -82,9 +83,15 @@ function enrichForbiddenError(error: ApiError, method: string): ApiError {
 function shouldRetryCsrfRequest(
     method: string,
     status: number,
-    csrfRetried: boolean
+    csrfRetried: boolean,
+    preserveForbiddenErrors: boolean
 ): boolean {
-    return status === 403 && isMutatingMethod(method) && !csrfRetried;
+    return (
+        status === 403 &&
+        isMutatingMethod(method) &&
+        !csrfRetried &&
+        !preserveForbiddenErrors
+    );
 }
 
 function logCsrfRetry(method: string, path: string): void {
@@ -135,6 +142,7 @@ async function request<T>(
         query,
         auth = true,
         retryOnUnauthorized = true,
+        preserveForbiddenErrors = false,
         signal,
     } = options;
     const { authRetried = false, csrfRetried = false } = internal;
@@ -215,7 +223,14 @@ async function request<T>(
 
     const payload = await parsePayload<unknown>(response);
 
-    if (shouldRetryCsrfRequest(method, response.status, csrfRetried)) {
+    if (
+        shouldRetryCsrfRequest(
+            method,
+            response.status,
+            csrfRetried,
+            preserveForbiddenErrors
+        )
+    ) {
         logCsrfRetry(method, path);
         await refreshCsrfToken();
         await waitForCookieSynchronization();
@@ -228,7 +243,7 @@ async function request<T>(
     if (!response.ok) {
         const baseApiError = buildApiError(payload, response.status, path);
         const apiError =
-            response.status === 403
+            response.status === 403 && !preserveForbiddenErrors
                 ? enrichForbiddenError(baseApiError, method)
                 : baseApiError;
 
@@ -236,7 +251,7 @@ async function request<T>(
             await authHandlers.onAuthFailure?.();
         }
 
-        if (response.status === 403) {
+        if (response.status === 403 && !preserveForbiddenErrors) {
             await authHandlers.onForbidden?.(apiError);
         }
 

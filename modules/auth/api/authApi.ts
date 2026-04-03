@@ -1,9 +1,12 @@
 import { httpClient } from "@/shared/api/httpClient";
 import type {
+    ActivateAccountRequest,
+    ActivateAccountResponse,
     CurrentUser,
     ForgotPasswordRequest,
     LoginRequest,
     PasswordActionResponse,
+    ResendActivationRequest,
     RegisterRequest,
     RegisterResponse,
     ResetPasswordRequest,
@@ -12,6 +15,7 @@ import type {
 export function login(data: LoginRequest): Promise<void> {
     return httpClient.post<void>("/api/auth/login", data, {
         auth: false,
+        preserveForbiddenErrors: true,
         retryOnUnauthorized: false,
     });
 }
@@ -54,11 +58,37 @@ export function forgotPassword(
     );
 }
 
+export function resendActivation(
+    data: ResendActivationRequest
+): Promise<PasswordActionResponse> {
+    return httpClient.post<PasswordActionResponse>(
+        "/api/auth/resend-activation",
+        data,
+        {
+            auth: false,
+            retryOnUnauthorized: false,
+        }
+    );
+}
+
 export function resetPassword(
     data: ResetPasswordRequest
 ): Promise<PasswordActionResponse> {
     return httpClient.post<PasswordActionResponse>(
         "/api/auth/password/reset",
+        data,
+        {
+            auth: false,
+            retryOnUnauthorized: false,
+        }
+    );
+}
+
+export function activateAccount(
+    data: ActivateAccountRequest
+): Promise<ActivateAccountResponse> {
+    return httpClient.post<ActivateAccountResponse>(
+        "/api/auth/activate-account",
         data,
         {
             auth: false,

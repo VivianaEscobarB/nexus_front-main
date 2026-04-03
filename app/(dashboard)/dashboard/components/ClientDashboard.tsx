@@ -15,10 +15,10 @@ export function ClientDashboard() {
         <div className="mx-auto max-w-5xl space-y-8 animate-in fade-in duration-500">
             <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
                 <h1 className="text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    Portal de consulta
+                    Consulta de disponibilidad
                 </h1>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--color-text-secondary)]">
-                    Bienvenido, {user?.first_name || "cliente"}. En este sprint tu acceso queda enfocado en consultar disponibilidad de bodegas y espacios en modo solo lectura.
+                    Bienvenido, {user?.first_name || "cliente"}. Consulta la disponibilidad de bodegas y espacios de forma rápida y clara.
                 </p>
                 <div className="mt-6">
                     <Link href="/dashboard/my-inventory">
@@ -35,10 +35,10 @@ export function ClientDashboard() {
                     Consulta de bodegas y espacios
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                    Revisa disponibilidad general sin habilitar acciones de contratacion, inventario o pagos. Es un acceso de consulta alineado al alcance actual del portal cliente.
+                    Revisa la disponibilidad general de bodegas y espacios desde un acceso pensado para consulta.
                 </p>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                    Solo lectura
+                    Consulta
                 </p>
             </section>
         </div>

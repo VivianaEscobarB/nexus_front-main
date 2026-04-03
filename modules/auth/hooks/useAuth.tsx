@@ -17,6 +17,10 @@ import {
     restoreSession,
 } from "@/modules/auth/services/auth.service";
 import { authStore, useAuthStore } from "@/modules/auth/state/authStore";
+import {
+    AccountActivationRequiredError,
+    normalizeLoginError,
+} from "@/modules/auth/utils/loginError";
 import type { LoginCredentials, User } from "@/types";
 
 interface AuthContextValue {
@@ -26,6 +30,7 @@ interface AuthContextValue {
     initialized: boolean;
     signIn: (credentials: LoginCredentials) => Promise<void>;
     signOut: () => Promise<void>;
+    refreshSession: () => Promise<User | null>;
     isSigningIn: boolean;
 }
 
@@ -204,17 +209,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     return;
                 }
 
-                authStore.finishSignIn(null);
-                authStore.setError(getAuthErrorMessage(
+                const normalizedError = normalizeLoginError(
                     error,
                     "No fue posible iniciar sesion."
-                ));
-                logAuthError("sign-in:failed", { requestId, error });
-                throw error;
+                );
+
+                authStore.finishSignIn(null);
+                authStore.setError(normalizedError.message);
+                logAuthError("sign-in:failed", {
+                    requestId,
+                    error,
+                    normalizedMessage: normalizedError.message,
+                    requiresActivation:
+                        normalizedError instanceof AccountActivationRequiredError,
+                });
+                throw normalizedError;
             }
         },
         [beginTrackedRequest, isActiveRequest, router]
     );
+
+    const refreshSession = useCallback(async (): Promise<User | null> => {
+        const requestId = beginTrackedRequest("refresh-session");
+        authStore.startRestore();
+
+        try {
+            const restoredUser = await restoreSession();
+
+            if (!isActiveRequest(requestId)) {
+                logAuthDebug("refresh-session:ignored", { requestId });
+                return authStore.getState().user;
+            }
+
+            authStore.finishRestore(restoredUser);
+            logAuthDebug("refresh-session:resolved", {
+                requestId,
+                isAuthenticated: Boolean(restoredUser),
+                user: restoredUser
+                    ? {
+                        email: restoredUser.email,
+                        userId: restoredUser.user_id,
+                    }
+                    : null,
+            });
+
+            return restoredUser;
+        } catch (error) {
+            if (!isActiveRequest(requestId)) {
+                logAuthDebug("refresh-session:error-ignored", { requestId });
+                return authStore.getState().user;
+            }
+
+            authStore.finishRestore(null);
+            authStore.setError(getAuthErrorMessage(
+                error,
+                "No fue posible sincronizar la sesion."
+            ));
+            logAuthError("refresh-session:failed", { requestId, error });
+            throw error;
+        }
+    }, [beginTrackedRequest, isActiveRequest]);
 
     const signOut = useCallback(async (): Promise<void> => {
         const requestId = beginTrackedRequest("sign-out");
@@ -241,6 +295,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             initialized: state.initialized,
             signIn,
             signOut,
+            refreshSession,
             isSigningIn: state.isSigningIn,
         }),
         [
@@ -251,6 +306,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             state.isSigningIn,
             signIn,
             signOut,
+            refreshSession,
         ]
     );
 

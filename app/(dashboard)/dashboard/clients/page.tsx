@@ -4,7 +4,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, CardBody, Input } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
-import { listClients } from "@/modules/clients";
+import {
+    consumeClientCreateSuccessMessage,
+    listClients,
+} from "@/modules/clients";
+import { isApiError } from "@/shared/api/apiError";
 import type { ManagedClient } from "@/modules/clients";
 import { UserRole } from "@/types";
 
@@ -13,6 +17,10 @@ function PlusIcon() {
 }
 
 function getErrorMessage(error: unknown): string {
+    if (isApiError(error)) {
+        return error.message;
+    }
+
     if (error instanceof Error && error.message) {
         return error.message;
     }
@@ -26,6 +34,15 @@ export default function ClientDirectoryPage() {
     const [clients, setClients] = useState<ManagedClient[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
+    const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        const flashMessage = consumeClientCreateSuccessMessage();
+
+        if (flashMessage) {
+            setFeedbackMessage(flashMessage);
+        }
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -90,8 +107,20 @@ export default function ClientDirectoryPage() {
                     </Button>
                 </div>
 
+                {feedbackMessage ? (
+                    <div
+                        role="status"
+                        className="rounded-lg border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]"
+                    >
+                        {feedbackMessage}
+                    </div>
+                ) : null}
+
                 {pageError ? (
-                    <div className="rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <div
+                        role="alert"
+                        className="rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
+                    >
                         {pageError}
                     </div>
                 ) : null}
@@ -135,21 +164,21 @@ export default function ClientDirectoryPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="font-semibold text-[var(--color-text-primary)]">{client.businessName}</div>
                                                     <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                                                        {client.address || "Sin direccion registrada"}
+                                                        {client.address || "Sin dirección registrada"}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div>{client.name}</div>
                                                     <div className="text-[var(--color-text-secondary)] text-xs mt-0.5">{client.email}</div>
                                                     <div className="text-[var(--color-text-tertiary)] text-xs mt-0.5">
-                                                        {client.phone || "Sin telefono"}
+                                                        {client.phone || "Sin teléfono"}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <span className="text-[var(--color-text-secondary)] text-xs font-bold mr-1">
                                                         {client.documentType || "DOC"}
                                                     </span>
-                                                    {client.documentNumber || "Sin numero"}
+                                                    {client.documentNumber || "Sin número"}
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${

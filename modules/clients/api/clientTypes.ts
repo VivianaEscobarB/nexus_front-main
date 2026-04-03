@@ -9,6 +9,7 @@ export interface ManagedClient {
     documentNumber: string | null;
     businessName: string;
     address: string | null;
+    cityId: number | null;
     status: ManagedClientStatus;
     createdAt: string | null;
     updatedAt: string | null;
@@ -22,6 +23,7 @@ export interface CreateClientInput {
     documentNumber: string;
     businessName: string;
     address: string;
+    cityId: number;
     status?: ManagedClientStatus;
 }
 
@@ -33,5 +35,6 @@ export interface UpdateClientInput {
     documentNumber?: string;
     businessName?: string;
     address?: string;
+    cityId?: number;
     status?: ManagedClientStatus;
 }

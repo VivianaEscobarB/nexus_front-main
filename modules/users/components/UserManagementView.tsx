@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
-import { listClients } from "@/modules/clients";
 import {
     createUser,
     deleteUser,
@@ -15,13 +14,13 @@ import {
     updateUser,
     updateUserStatus,
 } from "@/modules/users/api/usersApi";
+import { listRoles, type ApiRole } from "@/modules/users/api/rolesApi";
 import type {
     CreateUserInput,
     ManagedUser,
     ManagedUserStatus,
     UpdateUserInput,
 } from "@/modules/users/api/userTypes";
-import type { ManagedClient } from "@/modules/clients";
 import {
     listCitiesByRegion,
     listCountries,
@@ -39,19 +38,55 @@ interface UserManagementViewProps {
     initialMode?: UserManagementViewMode;
 }
 
-const ROLE_OPTIONS = [
-    { value: UserRole.ADMIN, label: "Administrador" },
-    { value: UserRole.WAREHOUSE_SUPERVISOR, label: "Supervisor de Bodega" },
-    { value: UserRole.WAREHOUSE_OPERATOR, label: "Operador de Bodega" },
-    { value: UserRole.SALES_AGENT, label: "Agente de Ventas" },
-    { value: UserRole.CLIENT, label: "Cliente" },
-] as const;
+const CREATE_USER_SUCCESS_FLASH_KEY = "nexus.users.create-success";
+const NON_EMPLOYEE_ROLE_NAMES = new Set<string>([UserRole.CLIENT]);
+const ROLE_LABELS: Record<string, string> = {
+    [UserRole.ADMIN]: "Administrador",
+    [UserRole.WAREHOUSE_SUPERVISOR]: "Supervisor de Bodega",
+    [UserRole.WAREHOUSE_OPERATOR]: "Operador de Bodega",
+    [UserRole.SALES_AGENT]: "Agente de Ventas",
+    [UserRole.CLIENT]: "Cliente",
+};
 
 const STATUS_OPTIONS = [
     { value: "ACTIVE", label: "Activo" },
     { value: "INACTIVE", label: "Inactivo" },
     { value: "SUSPENDED", label: "Suspendido" },
 ] as const;
+
+function getRoleLabel(roleName: string): string {
+    return ROLE_LABELS[roleName] ?? roleName;
+}
+
+function mapRoleToSelectOption(role: ApiRole) {
+    return {
+        value: role.name,
+        label: getRoleLabel(role.name),
+    };
+}
+
+function persistCreateSuccessMessage(message: string): void {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.sessionStorage.setItem(CREATE_USER_SUCCESS_FLASH_KEY, message);
+}
+
+function consumeCreateSuccessMessage(): string | null {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    const message = window.sessionStorage.getItem(CREATE_USER_SUCCESS_FLASH_KEY);
+
+    if (!message) {
+        return null;
+    }
+
+    window.sessionStorage.removeItem(CREATE_USER_SUCCESS_FLASH_KEY);
+    return message;
+}
 
 function getStatusVariant(status: ManagedUserStatus) {
     switch (status) {
@@ -79,90 +114,50 @@ function getStatusLabel(status: ManagedUserStatus): string {
     }
 }
 
-/**
- * Esquema estable: el resolver de RHF no se actualiza si el objeto Zod cambia de referencia.
- * `getIsEditing` permite exigir cityId y password solo al crear.
- */
-function buildUserFormSchema(getIsEditing: () => boolean) {
+function buildUserFormSchema(getAllowedRoles: () => readonly string[]) {
     return z
         .object({
             username: z
                 .string()
-                .min(3, "El nombre de usuario debe tener al menos 3 caracteres"),
+                .trim()
+                .min(1, "El nombre de usuario es obligatorio"),
             email: z
                 .string()
                 .min(1, "El correo es obligatorio")
                 .email("Debes ingresar un correo valido"),
-            role: z.nativeEnum(UserRole, { message: "Selecciona un rol valido" }),
+            role: z
+                .string()
+                .trim()
+                .min(1, "Selecciona un rol valido"),
             status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"], {
                 message: "Selecciona un estado valido",
             }),
-            clientId: z.string().optional(),
             countryId: z.string().optional(),
             regionId: z.string().optional(),
-            cityId: z.string().optional(),
-            password: z.string().optional(),
+            cityId: z
+                .string()
+                .trim()
+                .min(
+                    1,
+                    "Selecciona país, región y ciudad."
+                ),
         })
         .superRefine((values, ctx) => {
-            const editing = getIsEditing();
-
-            if (
-                values.role === UserRole.CLIENT &&
-                (!values.clientId || values.clientId.trim().length === 0)
-            ) {
+            if (!Number.isFinite(Number(values.cityId))) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ["clientId"],
-                    message: "Debes asociar el usuario a un cliente existente.",
+                    path: ["cityId"],
+                    message: "Ciudad inválida. Vuelve a seleccionar.",
                 });
             }
 
-            if (!editing) {
-                if (!values.cityId || values.cityId.trim().length === 0) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ["cityId"],
-                        message:
-                            "Selecciona pais, region y ciudad. El API exige cityId numerico.",
-                    });
-                } else if (!Number.isFinite(Number(values.cityId))) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ["cityId"],
-                        message: "Ciudad invalida. Vuelve a seleccionar.",
-                    });
-                }
-                if (!values.password || values.password.length < 8) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ["password"],
-                        message: "La contrasena debe tener al menos 8 caracteres",
-                    });
-                }
-            } else if (
-                values.password &&
-                values.password.length > 0 &&
-                values.password.length < 8
-            ) {
+            const allowedRoles = getAllowedRoles();
+            if (allowedRoles.length > 0 && !allowedRoles.includes(values.role)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ["password"],
-                    message: "La contrasena debe tener al menos 8 caracteres",
+                    path: ["role"],
+                    message: "Selecciona un rol valido para empleados.",
                 });
-            }
-
-            if (editing) {
-                const hasLocation =
-                    (values.countryId && values.countryId.trim().length > 0) ||
-                    (values.regionId && values.regionId.trim().length > 0) ||
-                    (values.cityId && values.cityId.trim().length > 0);
-                if (hasLocation && (!values.cityId || !Number.isFinite(Number(values.cityId)))) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ["cityId"],
-                        message: "Completa pais, region y ciudad o deja la ubicacion vacia.",
-                    });
-                }
             }
         });
 }
@@ -173,13 +168,11 @@ function buildDefaultValues(user?: ManagedUser): UserFormValues {
     return {
         username: user?.username ?? "",
         email: user?.email ?? "",
-        role: (user?.roles[0] as UserRole) ?? UserRole.WAREHOUSE_OPERATOR,
+        role: user?.roles[0] ?? UserRole.WAREHOUSE_OPERATOR,
         status: user?.status ?? "ACTIVE",
-        clientId: user?.clientId ?? "",
         countryId: "",
         regionId: "",
         cityId: "",
-        password: "",
     };
 }
 
@@ -209,7 +202,7 @@ function getErrorMessage(error: unknown): string {
         return error.message;
     }
 
-    return "No fue posible completar la operacion.";
+    return "No fue posible completar la operación.";
 }
 
 function UsersTableSkeleton() {
@@ -230,7 +223,7 @@ export function UserManagementView({
 }: UserManagementViewProps) {
     const router = useRouter();
     const [users, setUsers] = React.useState<ManagedUser[]>([]);
-    const [clients, setClients] = React.useState<ManagedClient[]>([]);
+    const [availableRoles, setAvailableRoles] = React.useState<ApiRole[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isModalOpen, setIsModalOpen] = React.useState(
         initialMode === "create"
@@ -247,7 +240,7 @@ export function UserManagementView({
     const [pageError, setPageError] = React.useState<string | null>(null);
     const [actionError, setActionError] = React.useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
+    const submitLockRef = React.useRef(false);
     const [countries, setCountries] = React.useState<
         { id: number; name: string }[]
     >([]);
@@ -258,13 +251,60 @@ export function UserManagementView({
     );
 
     const isEditing = Boolean(editingUser);
-    const isEditingRef = React.useRef(isEditing);
+    const allowedEmployeeRoleNames = React.useMemo(
+        () =>
+            availableRoles
+                .map((role) => role.name)
+                .filter((roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName)),
+        [availableRoles]
+    );
+    const allowedEmployeeRoleNamesRef = React.useRef<readonly string[]>(
+        allowedEmployeeRoleNames
+    );
     React.useLayoutEffect(() => {
-        isEditingRef.current = isEditing;
-    }, [isEditing]);
+        allowedEmployeeRoleNamesRef.current = allowedEmployeeRoleNames;
+    }, [allowedEmployeeRoleNames]);
+
+    const roleFilterOptions = React.useMemo(() => {
+        const seen = new Set<string>();
+        const sourceRoles =
+            availableRoles.length > 0
+                ? availableRoles.map((role) => role.name)
+                : users.flatMap((user) => user.roles);
+
+        return sourceRoles
+            .filter((roleName) => {
+                if (!roleName || seen.has(roleName)) {
+                    return false;
+                }
+
+                seen.add(roleName);
+                return true;
+            })
+            .sort((a, b) => getRoleLabel(a).localeCompare(getRoleLabel(b), "es"))
+            .map((roleName) => ({
+                value: roleName,
+                label: getRoleLabel(roleName),
+            }));
+    }, [availableRoles, users]);
+
+    const employeeRoleOptions = React.useMemo(
+        () =>
+            availableRoles
+                .filter((role) => !NON_EMPLOYEE_ROLE_NAMES.has(role.name))
+                .sort((a, b) =>
+                    getRoleLabel(a.name).localeCompare(getRoleLabel(b.name), "es")
+                )
+                .map(mapRoleToSelectOption),
+        [availableRoles]
+    );
+    const hasCreatedByColumn = React.useMemo(
+        () => users.some((user) => Boolean(user.createdByName)),
+        [users]
+    );
 
     const userFormSchema = React.useMemo(
-        () => buildUserFormSchema(() => isEditingRef.current),
+        () => buildUserFormSchema(() => allowedEmployeeRoleNamesRef.current),
         []
     );
 
@@ -274,14 +314,13 @@ export function UserManagementView({
         reset,
         watch,
         setValue,
-        formState: { errors },
+        formState: { errors, isValid },
     } = useForm<UserFormValues>({
         resolver: zodResolver(userFormSchema),
         mode: "onChange",
         defaultValues: buildDefaultValues(),
     });
 
-    const selectedRole = watch("role");
     const selectedCountryId = watch("countryId");
     const selectedRegionId = watch("regionId");
 
@@ -292,6 +331,14 @@ export function UserManagementView({
         setValue("regionId", "");
         setValue("cityId", "");
     }
+
+    React.useEffect(() => {
+        const flashMessage = consumeCreateSuccessMessage();
+
+        if (flashMessage) {
+            setFeedbackMessage(flashMessage);
+        }
+    }, []);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -351,12 +398,12 @@ export function UserManagementView({
                     shouldValidate: false,
                 });
                 setValue("cityId", String(hierarchy.cityId), {
-                    shouldValidate: false,
+                    shouldValidate: true,
                 });
             } catch {
                 if (!cancelled) {
                     setLocationsError(
-                        "No se pudo cargar la ciudad del usuario para edicion."
+                        "No se pudo cargar la ciudad del usuario para edición."
                     );
                 }
             }
@@ -372,12 +419,12 @@ export function UserManagementView({
         setPageError(null);
 
         try {
-            const [usersData, clientsData] = await Promise.all([
+            const [usersData, rolesData] = await Promise.all([
                 listUsers(),
-                listClients(),
+                listRoles(),
             ]);
             setUsers(usersData);
-            setClients(clientsData);
+            setAvailableRoles(rolesData);
         } catch (error) {
             setPageError(getErrorMessage(error));
         } finally {
@@ -395,12 +442,6 @@ export function UserManagementView({
             reset(buildDefaultValues());
         }
     }, [initialMode, reset]);
-
-    React.useEffect(() => {
-        if (selectedRole !== UserRole.CLIENT) {
-            setValue("clientId", "");
-        }
-    }, [selectedRole, setValue]);
 
     const filteredUsers = React.useMemo(() => {
         const search = searchTerm.trim().toLowerCase();
@@ -429,14 +470,20 @@ export function UserManagementView({
         };
     }, [users]);
 
-    function closeModal() {
-        setIsModalOpen(false);
+    function resetModalState() {
         setEditingUser(null);
         setActionError(null);
-        setIsPasswordVisible(false);
+        setLocationsError(null);
+        submitLockRef.current = false;
+        setIsSubmitting(false);
         setRegions([]);
         setCities([]);
         reset(buildDefaultValues());
+    }
+
+    function closeModal() {
+        setIsModalOpen(false);
+        resetModalState();
 
         if (initialMode === "create") {
             router.replace("/dashboard/users");
@@ -444,19 +491,14 @@ export function UserManagementView({
     }
 
     function openCreateModal() {
-        setEditingUser(null);
-        setActionError(null);
-        setIsPasswordVisible(false);
-        setRegions([]);
-        setCities([]);
-        reset(buildDefaultValues());
+        resetModalState();
         setIsModalOpen(true);
     }
 
     function openEditModal(user: ManagedUser) {
         setEditingUser(user);
         setActionError(null);
-        setIsPasswordVisible(false);
+        setLocationsError(null);
         setRegions([]);
         setCities([]);
         reset(buildDefaultValues(user));
@@ -464,14 +506,16 @@ export function UserManagementView({
     }
 
     async function onSubmit(values: UserFormValues) {
+        if (submitLockRef.current) {
+            return;
+        }
+
+        submitLockRef.current = true;
         setIsSubmitting(true);
         setActionError(null);
 
         const rolesPayload = [values.role];
-        const clientId =
-            values.role === UserRole.CLIENT
-                ? values.clientId?.trim() || null
-                : null;
+        const cityId = Number(values.cityId);
 
         try {
             if (editingUser) {
@@ -480,42 +524,47 @@ export function UserManagementView({
                     email: values.email.trim().toLowerCase(),
                     status: values.status,
                     roles: rolesPayload,
-                    clientId,
-                    password: values.password?.trim() || undefined,
+                    cityId,
                 };
-
-                const cityNum = Number(values.cityId);
-                if (values.cityId && Number.isFinite(cityNum)) {
-                    updatePayload.cityId = cityNum;
-                }
 
                 await updateUser(editingUser.id, updatePayload);
                 setFeedbackMessage(
                     `Usuario ${values.username} actualizado correctamente.`
                 );
+                setIsModalOpen(false);
+                resetModalState();
+                await loadUsers();
             } else {
-                const cityNum = Number(values.cityId);
                 const createPayload: CreateUserInput = {
                     username: values.username.trim(),
                     email: values.email.trim().toLowerCase(),
-                    password: values.password!.trim(),
                     status: values.status,
                     roles: rolesPayload,
-                    cityId: cityNum,
-                    clientId,
+                    cityId,
                 };
 
                 await createUser(createPayload);
-                setFeedbackMessage(
-                    `Usuario ${values.username} creado correctamente.`
-                );
-            }
+                const successMessage =
+                    "Usuario creado correctamente. El empleado debe activar su cuenta desde el correo.";
 
-            closeModal();
-            await loadUsers();
+                if (initialMode === "create") {
+                    persistCreateSuccessMessage(successMessage);
+                    setIsModalOpen(false);
+                    resetModalState();
+                    router.replace("/dashboard/users");
+                    return;
+                }
+
+                setFeedbackMessage(successMessage);
+                setIsModalOpen(false);
+                resetModalState();
+                await loadUsers();
+                router.replace("/dashboard/users");
+            }
         } catch (error) {
             setActionError(getErrorMessage(error));
         } finally {
+            submitLockRef.current = false;
             setIsSubmitting(false);
         }
     }
@@ -575,10 +624,10 @@ export function UserManagementView({
                 <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                            Gestion de usuarios
+                            Gestión de usuarios
                         </h1>
                         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                            Administra altas, cambios de rol, activacion y bajas del equipo interno.
+                            Crea, actualiza y administra los accesos del equipo.
                         </p>
                     </div>
                     <div className="flex gap-3">
@@ -633,7 +682,7 @@ export function UserManagementView({
                                 onChange={(event) => setRoleFilter(event.target.value)}
                                 options={[
                                     { value: "ALL", label: "Todos los roles" },
-                                    ...ROLE_OPTIONS,
+                                    ...roleFilterOptions,
                                 ]}
                             />
                         </div>
@@ -658,8 +707,13 @@ export function UserManagementView({
                                             <th className="px-4 py-3 font-semibold">
                                                 Estado
                                             </th>
+                                            {hasCreatedByColumn ? (
+                                                <th className="px-4 py-3 font-semibold">
+                                                    Creado por
+                                                </th>
+                                            ) : null}
                                             <th className="px-4 py-3 font-semibold">
-                                                Creado
+                                                Fecha de creación
                                             </th>
                                             <th className="px-4 py-3 font-semibold text-right">
                                                 Acciones
@@ -685,7 +739,7 @@ export function UserManagementView({
                                                         </div>
                                                     ) : null}
                                                     <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                                                        Ultimo acceso: {formatDate(user.lastLoginAt)}
+                                                        Último acceso: {formatDate(user.lastLoginAt)}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
@@ -721,6 +775,11 @@ export function UserManagementView({
                                                         variant={getStatusVariant(user.status)}
                                                     />
                                                 </td>
+                                                {hasCreatedByColumn ? (
+                                                    <td className="px-4 py-4 text-[var(--color-text-secondary)]">
+                                                        {user.createdByName || "Sin registro"}
+                                                    </td>
+                                                ) : null}
                                                 <td className="px-4 py-4 text-[var(--color-text-secondary)]">
                                                     {formatDate(user.createdAt)}
                                                 </td>
@@ -729,7 +788,19 @@ export function UserManagementView({
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            disabled={user.status === "INACTIVE"}
+                                                            disabled={
+                                                                user.status === "INACTIVE" ||
+                                                                user.roles.includes(
+                                                                    UserRole.CLIENT
+                                                                )
+                                                            }
+                                                            title={
+                                                                user.roles.includes(
+                                                                    UserRole.CLIENT
+                                                                )
+                                                                    ? "Las cuentas de clientes se administran desde el módulo de clientes."
+                                                                    : undefined
+                                                            }
                                                             onClick={() => openEditModal(user)}
                                                         >
                                                             Editar
@@ -768,22 +839,29 @@ export function UserManagementView({
                     description={
                         isEditing
                             ? "Actualiza los datos y permisos del usuario."
-                            : "Registra un nuevo usuario del sistema."
+                            : "Registra un nuevo usuario. El acceso se enviará por correo."
                     }
                     size="lg"
                 >
                     <form
                         onSubmit={handleSubmit(onSubmit)}
                         className="space-y-5"
+                        aria-busy={isSubmitting}
                     >
                         {actionError ? (
-                            <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                            <div
+                                role="alert"
+                                className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
+                            >
                                 {actionError}
                             </div>
                         ) : null}
 
                         {locationsError ? (
-                            <div className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning-strong)]">
+                            <div
+                                role="alert"
+                                className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning-strong)]"
+                            >
                                 {locationsError}
                                 <button
                                     type="button"
@@ -793,7 +871,7 @@ export function UserManagementView({
                                         resetLocationPickers();
                                     }}
                                 >
-                                    Limpiar ubicacion
+                                    Limpiar ubicación
                                 </button>
                             </div>
                         ) : null}
@@ -801,7 +879,7 @@ export function UserManagementView({
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Input
                                 label="Nombre de usuario"
-                                placeholder="Ej. Juan Perez"
+                                placeholder="Ej. Juan Pérez"
                                 error={errors.username?.message}
                                 {...register("username")}
                             />
@@ -816,13 +894,13 @@ export function UserManagementView({
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <Select
-                                label="Pais"
+                                label="País"
                                 options={countries.map((c) => ({
                                     value: String(c.id),
                                     label: c.name,
                                 }))}
                                 disabled={countries.length === 0}
-                                hint="Catálogo /api/locations/countries"
+                                hint="Selecciona el país del usuario."
                                 {...register("countryId", {
                                     onChange: async (e) => {
                                         const v = e.target.value;
@@ -847,13 +925,13 @@ export function UserManagementView({
                                 })}
                             />
                             <Select
-                                label="Region"
+                                label="Región"
                                 options={regions.map((r) => ({
                                     value: String(r.id),
                                     label: r.name,
                                 }))}
                                 disabled={!selectedCountryId}
-                                hint="Regiones del pais seleccionado"
+                                hint="Selecciona la región correspondiente."
                                 {...register("regionId", {
                                     onChange: async (e) => {
                                         const v = e.target.value;
@@ -883,11 +961,7 @@ export function UserManagementView({
                                 }))}
                                 disabled={!selectedRegionId}
                                 error={errors.cityId?.message}
-                                hint={
-                                    isEditing
-                                        ? "Opcional: solo se envia cityId si eliges una ciudad."
-                                        : "Obligatorio: se envia cityId numerico en el POST."
-                                }
+                                hint="Selecciona la ciudad del usuario."
                                 {...register("cityId")}
                             />
                         </div>
@@ -895,12 +969,10 @@ export function UserManagementView({
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Select
                                 label="Rol"
-                                options={ROLE_OPTIONS.map((role) => ({
-                                    value: role.value,
-                                    label: role.label,
-                                }))}
+                                options={employeeRoleOptions}
+                                disabled={employeeRoleOptions.length === 0}
                                 error={errors.role?.message}
-                                hint='El API espera roles como arreglo; aqui se envia un rol, p. ej. ["SALES_AGENT"].'
+                                hint="Selecciona el rol que tendrá este usuario."
                                 {...register("role")}
                             />
                             <Select
@@ -914,36 +986,8 @@ export function UserManagementView({
                             />
                         </div>
 
-                        {selectedRole === UserRole.CLIENT ? (
-                            <Select
-                                label="Cliente asociado"
-                                options={[
-                                    { value: "", label: "Selecciona un cliente..." },
-                                    ...clients.map((client) => ({
-                                        value: client.id,
-                                        label: `${client.businessName} (${client.email})`,
-                                    })),
-                                ]}
-                                error={errors.clientId?.message}
-                                hint="La cuenta CLIENT quedara vinculada al registro comercial existente."
-                                {...register("clientId")}
-                            />
-                        ) : null}
-
-                        <div className="relative">
-                            <Input
-                                label={
-                                    isEditing
-                                        ? "Nueva contrasena (opcional)"
-                                        : "Contrasena inicial"
-                                }
-                                type={isPasswordVisible ? "text" : "password"}
-                                placeholder="Minimo 8 caracteres"
-                                error={errors.password?.message}
-                                trailingIcon={<span className="h-5 w-5" />}
-                                {...register("password")}
-                            />
-                            <button
+                        {/*
+                            
                                 type="button"
                                 aria-label={
                                     isPasswordVisible
@@ -989,11 +1033,13 @@ export function UserManagementView({
                             </button>
                         </div>
 
+                        */}
                         <div className="flex justify-end gap-3 border-t border-[var(--color-border-subtle)] pt-5">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={closeModal}
+                                disabled={isSubmitting}
                             >
                                 Cancelar
                             </Button>
@@ -1001,9 +1047,15 @@ export function UserManagementView({
                                 type="submit"
                                 variant="primary"
                                 isLoading={isSubmitting}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || !isValid}
                             >
-                                {isEditing ? "Guardar cambios" : "Crear usuario"}
+                                {isSubmitting
+                                    ? isEditing
+                                        ? "Guardando cambios..."
+                                        : "Creando usuario..."
+                                    : isEditing
+                                        ? "Guardar cambios"
+                                        : "Crear usuario"}
                             </Button>
                         </div>
                     </form>

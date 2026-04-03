@@ -15,6 +15,7 @@ const AUTH_ROUTES = [
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/activate-account",
 ] as const;
 
 /** Nombre de la cookie HttpOnly que indica una sesion potencialmente activa. */

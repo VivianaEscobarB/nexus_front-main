@@ -34,14 +34,14 @@ export function SupervisorDashboard() {
         <div className="mx-auto max-w-6xl space-y-8 animate-in fade-in duration-500">
             <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
                 <h1 className="text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    Operacion estructural de bodega
+                    Operación de bodega
                 </h1>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--color-text-secondary)]">
-                    Tu alcance en este sprint se concentra en la estructura interna: puedes consultar bodegas y administrar sectores y espacios, sin modificar datos principales de la bodega ni gestionar usuarios.
+                    Supervisa la estructura operativa de la bodega y mantén actualizados sus sectores y espacios.
                 </p>
                 <div className="mt-6">
                     <Link href="/dashboard/infrastructure">
-                        <Button variant="primary">Ir a estructura interna</Button>
+                        <Button variant="primary">Abrir infraestructura</Button>
                     </Link>
                 </div>
             </section>
@@ -53,7 +53,7 @@ export function SupervisorDashboard() {
                 />
                 <SectionCard
                     title="Gestionar sectores"
-                    description="Crea, ajusta o retira sectores segun la organizacion interna de la instalacion."
+                    description="Crea, ajusta o retira sectores según la organización de la instalación."
                 />
                 <SectionCard
                     title="Gestionar espacios"
