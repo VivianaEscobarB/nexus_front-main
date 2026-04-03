@@ -1,9 +1,12 @@
 import { appEnv } from "@/lib/config/env";
 import * as authApi from "@/modules/auth/api/authApi";
 import type {
+    ActivateAccountRequest,
+    ActivateAccountResponse,
     CurrentUser,
     ForgotPasswordRequest,
     PasswordActionResponse,
+    ResendActivationRequest,
     RegisterRequest,
     RegisterResponse,
     ResetPasswordRequest,
@@ -24,6 +27,7 @@ const CLIENT_AUTH_ROUTES = [
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/activate-account",
 ] as const;
 let refreshPromise: Promise<void> | null = null;
 
@@ -236,6 +240,16 @@ export async function forgotPassword(
     return authApi.forgotPassword(payload);
 }
 
+export async function resendActivation(
+    payload: ResendActivationRequest
+): Promise<PasswordActionResponse> {
+    if (isMockAuthEnabled) {
+        return authMock.resendActivation(payload);
+    }
+
+    return authApi.resendActivation(payload);
+}
+
 export async function resetPassword(
     payload: ResetPasswordRequest
 ): Promise<PasswordActionResponse> {
@@ -244,6 +258,16 @@ export async function resetPassword(
     }
 
     return authApi.resetPassword(payload);
+}
+
+export async function activateAccount(
+    payload: ActivateAccountRequest
+): Promise<ActivateAccountResponse> {
+    if (isMockAuthEnabled) {
+        return authMock.activateAccount(payload);
+    }
+
+    return authApi.activateAccount(payload);
 }
 
 configureHttpClientAuth({

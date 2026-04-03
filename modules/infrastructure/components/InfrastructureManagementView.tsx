@@ -126,9 +126,9 @@ const optionalNumberField = z
 
 const warehouseSchema = z
     .object({
-        code: z.string().min(2, "El codigo debe tener al menos 2 caracteres"),
+        code: z.string().min(2, "El código debe tener al menos 2 caracteres"),
         name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-        location: z.string().min(5, "La ubicacion debe tener al menos 5 caracteres"),
+        location: z.string().min(5, "La ubicación debe tener al menos 5 caracteres"),
         countryId: z.string().optional(),
         regionId: z.string().optional(),
         cityId: z.string().optional(),
@@ -139,7 +139,7 @@ const warehouseSchema = z
 
 const sectorSchema = z.object({
     warehouseId: z.string().min(1, "Selecciona una bodega"),
-    code: z.string().min(2, "El codigo debe tener al menos 2 caracteres"),
+    code: z.string().min(2, "El código debe tener al menos 2 caracteres"),
     name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
     description: z.string().optional(),
     capacityM2: optionalNumberField,
@@ -178,7 +178,7 @@ function getErrorMessage(error: unknown): string {
         return error.message;
     }
 
-    return "No fue posible completar la operacion.";
+    return "No fue posible completar la operación.";
 }
 
 function formatCapacity(value: number | null): string {
@@ -377,7 +377,7 @@ function WarehouseFormModal({
                 setLocationsError(
                     error instanceof Error
                         ? error.message
-                        : "No fue posible cargar los catalogos de ubicacion."
+                        : "No fue posible cargar los catálogos de ubicación."
                 );
             } finally {
                 if (isMounted) {
@@ -519,7 +519,7 @@ function WarehouseFormModal({
                     </p>
                     <div className="grid gap-4 md:grid-cols-2">
                         <Input
-                            label="Codigo interno"
+                            label="Código interno"
                             hint="Usa un identificador corto y consistente, por ejemplo BOG-ALM-01."
                             error={errors.code?.message}
                             {...register("code")}
@@ -538,10 +538,10 @@ function WarehouseFormModal({
                         Ubicación física
                     </h3>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                        Selecciona país, departamento o región y ciudad para normalizar la dirección y facilitar reportes geográficos.
+                        Selecciona país, departamento o región y ciudad para completar la dirección de la bodega.
                     </p>
                     <Input
-                        label="Direccion detallada"
+                        label="Dirección detallada"
                         hint="Calle, número, referencias internas o parque industrial."
                         error={errors.location?.message}
                         {...register("location")}
@@ -624,7 +624,7 @@ function WarehouseFormModal({
                                           })),
                                       ]
                             }
-                            hint="Ejemplo: refrigerada, seca, industrial. Se usa para filtrar bodegas en procesos comerciales."
+                            hint="Ejemplo: refrigerada, seca o industrial."
                             error={errors.warehouseTypeId?.message}
                             {...register("warehouseTypeId")}
                         />
@@ -775,7 +775,7 @@ function SectorFormModal({
                 />
                 <div className="grid gap-4 md:grid-cols-2">
                     <Input
-                        label="Codigo"
+                            label="Código"
                         error={errors.code?.message}
                         {...register("code")}
                     />
@@ -1133,7 +1133,7 @@ function StatusCatalogFormModal({
                         {...register("entityTypeId", { valueAsNumber: true })}
                     />
                     <Select
-                        label="Operacional"
+                        label="Operativa"
                         options={
                             [
                                 { value: "true", label: "Sí" },
@@ -1453,19 +1453,19 @@ export function InfrastructureManagementView() {
                             style={{ color: "var(--color-text-secondary)" }}
                         >
                             {isClientViewer
-                                ? "Consulta bodegas y espacios disponibles para tu operacion. "
+                                ? "Consulta bodegas y espacios disponibles para tu operación. "
                                 : isSalesViewer
                                     ? "Consulta la disponibilidad real de bodegas, sectores y espacios antes de ofertar. "
-                                    : "Gestiona la estructura fisica de la operacion. "}
+                                    : "Gestiona la estructura física de la operación. "}
                             {canManageWarehouses
-                                ? "Administracion puede modificar bodegas, sectores y espacios."
+                                ? "Administración puede modificar bodegas, sectores y espacios."
                                 : canManageStructure
-                                    ? "Supervision puede operar sectores y espacios, pero no modificar bodegas."
+                                    ? "Supervisión puede operar sectores y espacios, pero no modificar bodegas."
                                     : isSalesViewer
-                                        ? "Ventas puede consultar bodegas, sectores y espacios sin capacidad de edicion."
+                                        ? "Ventas puede consultar bodegas, sectores y espacios sin capacidad de edición."
                                         : isClientViewer
-                                            ? "Cliente puede consultar bodegas y espacios sin capacidad de edicion."
-                                            : "Operacion puede consultar bodegas, sectores y espacios sin capacidad de edicion."}
+                                            ? "Cliente puede consultar bodegas y espacios sin capacidad de edición."
+                                            : "Operación puede consultar bodegas, sectores y espacios sin capacidad de edición."}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -1474,7 +1474,7 @@ export function InfrastructureManagementView() {
                                 canManageWarehouses
                                     ? "Control total"
                                     : canManageStructure
-                                        ? "Bodegas en solo lectura"
+                                        ? "Consulta de bodegas"
                                         : isSalesViewer
                                             ? "Consulta comercial"
                                             : isClientViewer
@@ -1808,7 +1808,7 @@ export function InfrastructureManagementView() {
                                 <Card>
                                 <CardHeader
                                     title="Sectores"
-                                    description="Gestiona la segmentacion interna por bodega."
+                                    description="Gestiona la segmentación interna de cada bodega."
                                     action={
                                         canManageStructure ? (
                                             <Button
@@ -1959,7 +1959,7 @@ export function InfrastructureManagementView() {
                                     description={
                                         isClientViewer
                                             ? "Consulta espacios disponibles dentro de la bodega seleccionada."
-                                            : "Administra la ocupacion fina de cada sector."
+                                                    : "Administra la ocupación detallada de cada sector."
                                     }
                                     action={
                                         canManageStructure ? (

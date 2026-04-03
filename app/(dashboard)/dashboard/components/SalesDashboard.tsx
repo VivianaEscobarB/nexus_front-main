@@ -51,10 +51,10 @@ export function SalesDashboard() {
         <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
             <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
                 <h1 className="text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    Proceso comercial activo
+                    Gestión comercial
                 </h1>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--color-text-secondary)]">
-                    En este sprint el rol comercial se concentra en registrar clientes y consultar disponibilidad real de bodegas, sectores y espacios. Los contratos y pagos quedan reservados para el siguiente sprint.
+                    Gestiona clientes y consulta disponibilidad para preparar propuestas comerciales con información actualizada.
                 </p>
             </section>
 
@@ -62,7 +62,7 @@ export function SalesDashboard() {
                 {isBusinessProcessVisible("clientManagement") ? (
                     <SalesActionCard
                         title="Registrar cliente"
-                        description="Crea la ficha comercial del cliente y deja trazada la necesidad de acceso al portal para administracion."
+                        description="Crea la ficha del cliente para iniciar su gestión comercial."
                         href="/dashboard/clients/create"
                         cta="Registrar cliente"
                         icon={<ClientIcon />}
@@ -71,7 +71,7 @@ export function SalesDashboard() {
                 {isBusinessProcessVisible("clientManagement") ? (
                     <SalesActionCard
                         title="Directorio comercial"
-                        description="Consulta clientes ya registrados para seguimiento comercial y preparacion de proximas fases."
+                        description="Consulta y da seguimiento a los clientes registrados."
                         href="/dashboard/clients"
                         cta="Abrir directorio"
                         icon={<ClientIcon />}
@@ -80,7 +80,7 @@ export function SalesDashboard() {
                 {isBusinessProcessVisible("warehouseStructure") ? (
                     <SalesActionCard
                         title="Disponibilidad detallada"
-                        description="Consulta bodegas, sectores y espacios disponibles para orientar la propuesta comercial."
+                        description="Revisa bodegas, sectores y espacios disponibles para orientar cada oportunidad."
                         href="/dashboard/infrastructure"
                         cta="Ver disponibilidad"
                         icon={<WarehouseIcon />}
