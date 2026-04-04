@@ -62,3 +62,5 @@ export type {
 
 export { ThemeToggle } from "./ThemeToggle";
 export type { ThemeToggleProps } from "./ThemeToggle";
+
+export { AccessibilityMenu } from "./AccessibilityMenu";
