@@ -11,7 +11,13 @@ function AccessibilityIcon() {
     );
 }
 
-export function AccessibilityMenu() {
+export interface AccessibilityMenuProps {
+    /** @default "floating" */
+    variant?: "floating" | "header";
+}
+
+export function AccessibilityMenu({ variant = "floating" }: AccessibilityMenuProps) {
+    const isFloating = variant === "floating";
     const {
         state,
         increaseFontSize,
@@ -36,9 +42,13 @@ export function AccessibilityMenu() {
     }, []);
 
     return (
-        <div ref={menuRef} className="fixed bottom-6 right-6 z-50">
+        <div ref={menuRef} className={isFloating ? "fixed bottom-6 right-6 z-50" : "relative shrink-0"}>
             {isOpen && (
-                <div className="absolute bottom-[calc(100%+16px)] right-0 w-72 rounded-2xl bg-surface-raised border border-border shadow-2xl p-5 flex flex-col gap-5 text-text-primary opacity-100 transition-opacity">
+                <div className={`${
+                    isFloating 
+                        ? "absolute bottom-[calc(100%+16px)] right-0" 
+                        : "absolute top-[calc(100%+8px)] right-0"
+                } w-72 rounded-2xl bg-surface-raised border border-border shadow-2xl p-5 flex flex-col gap-5 text-text-primary z-50 opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2 duration-200`}>
                     <div className="flex items-center justify-between border-b border-border pb-3">
                         <h3 className="font-semibold text-lg text-text-primary">Accesibilidad</h3>
                         <button
@@ -126,11 +136,16 @@ export function AccessibilityMenu() {
 
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform duration-200 hover:scale-105"
+                className={isFloating 
+                    ? "flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform duration-200 hover:scale-105"
+                    : "inline-flex items-center justify-center rounded-full w-9 h-9 bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                }
                 aria-label={isOpen ? "Cerrar menú de accesibilidad" : "Abrir menú de accesibilidad"}
                 aria-expanded={isOpen}
             >
-                <AccessibilityIcon />
+                <div className={isFloating ? "" : "w-5 h-5 flex items-center justify-center translate-y-[0.5px]"}>
+                    <AccessibilityIcon />
+                </div>
             </button>
         </div>
     );
