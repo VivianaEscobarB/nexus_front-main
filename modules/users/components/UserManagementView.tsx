@@ -8,11 +8,11 @@ import { z } from "zod";
 import { Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import {
+    activateUser,
     createUser,
     deleteUser,
     listUsers,
     updateUser,
-    updateUserStatus,
 } from "@/modules/users/api/usersApi";
 import { listRoles, type ApiRole } from "@/modules/users/api/rolesApi";
 import type {
@@ -112,6 +112,16 @@ function getStatusLabel(status: ManagedUserStatus): string {
         default:
             return status;
     }
+}
+
+/** Activos y demás estados primero; INACTIVE al final. Mismo criterio secundario que el listado API (nombre). */
+function compareUsersByActiveThenName(a: ManagedUser, b: ManagedUser): number {
+    const aInactive = a.status === "INACTIVE" ? 1 : 0;
+    const bInactive = b.status === "INACTIVE" ? 1 : 0;
+    if (aInactive !== bInactive) {
+        return aInactive - bInactive;
+    }
+    return a.username.localeCompare(b.username, "es", { sensitivity: "base" });
 }
 
 function buildUserFormSchema(getAllowedRoles: () => readonly string[]) {
@@ -446,7 +456,7 @@ export function UserManagementView({
     const filteredUsers = React.useMemo(() => {
         const search = searchTerm.trim().toLowerCase();
 
-        return users.filter((user) => {
+        const filtered = users.filter((user) => {
             const matchesSearch =
                 search.length === 0 ||
                 user.username.toLowerCase().includes(search) ||
@@ -460,6 +470,8 @@ export function UserManagementView({
 
             return matchesSearch && matchesStatus && matchesRole;
         });
+
+        return [...filtered].sort(compareUsersByActiveThenName);
     }, [roleFilter, searchTerm, statusFilter, users]);
 
     const totals = React.useMemo(() => {
@@ -569,15 +581,12 @@ export function UserManagementView({
         }
     }
 
-    async function handleStatusChange(user: ManagedUser) {
-        const targetStatus: ManagedUserStatus =
-            user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-        const confirmationMessage =
-            targetStatus === "INACTIVE"
-                ? `Vas a desactivar a ${user.username}.`
-                : `Vas a reactivar a ${user.username}.`;
-
-        if (!window.confirm(confirmationMessage)) {
+    async function handleReactivate(user: ManagedUser) {
+        if (
+            !window.confirm(
+                `Vas a reactivar a ${user.username}.`
+            )
+        ) {
             return;
         }
 
@@ -585,12 +594,8 @@ export function UserManagementView({
         setPageError(null);
 
         try {
-            await updateUserStatus(user.id, targetStatus);
-            setFeedbackMessage(
-                targetStatus === "INACTIVE"
-                    ? `Usuario ${user.username} desactivado.`
-                    : `Usuario ${user.username} reactivado.`
-            );
+            await activateUser(user.id);
+            setFeedbackMessage(`Usuario ${user.username} reactivado.`);
             await loadUsers();
         } catch (error) {
             setPageError(getErrorMessage(error));
@@ -805,22 +810,24 @@ export function UserManagementView({
                                                         >
                                                             Editar
                                                         </Button>
-                                                        <Button
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            onClick={() => handleStatusChange(user)}
-                                                        >
-                                                            {user.status === "ACTIVE"
-                                                                ? "Desactivar"
-                                                                : "Reactivar"}
-                                                        </Button>
-                                                        <Button
-                                                            variant="danger"
-                                                            size="sm"
-                                                            onClick={() => handleDelete(user)}
-                                                        >
-                                                            Eliminar
-                                                        </Button>
+                                                        {user.status !== "ACTIVE" ? (
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                onClick={() => handleReactivate(user)}
+                                                            >
+                                                                Reactivar
+                                                            </Button>
+                                                        ) : null}
+                                                        {user.status !== "INACTIVE" ? (
+                                                            <Button
+                                                                variant="danger"
+                                                                size="sm"
+                                                                onClick={() => handleDelete(user)}
+                                                            >
+                                                                Eliminar
+                                                            </Button>
+                                                        ) : null}
                                                     </div>
                                                 </td>
                                             </tr>

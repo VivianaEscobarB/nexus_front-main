@@ -227,13 +227,12 @@ export async function updateUser(
     return mapApiUser(payload);
 }
 
-export async function updateUserStatus(
-    id: string,
-    status: ManagedUserStatus
-): Promise<ManagedUser> {
-    const payload = await httpClient.patch<unknown>(`${USERS_BASE_PATH}/${id}`, {
-        status,
-    });
+/** INACTIVE → ACTIVE (Spring: `PUT /api/users/{id}/activate`). */
+export async function activateUser(id: string): Promise<ManagedUser> {
+    const payload = await httpClient.put<unknown>(
+        `${USERS_BASE_PATH}/${id}/activate`,
+        {}
+    );
 
     return mapApiUser(payload);
 }
