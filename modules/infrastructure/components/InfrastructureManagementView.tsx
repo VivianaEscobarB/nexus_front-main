@@ -1226,6 +1226,17 @@ export function InfrastructureManagementView() {
         loadInfrastructure();
     }, [loadInfrastructure]);
 
+    const sortedWarehouses = React.useMemo(() => {
+        return [...warehouses].sort((a, b) => {
+            const aIn = isWarehouseInactive(a) ? 1 : 0;
+            const bIn = isWarehouseInactive(b) ? 1 : 0;
+            if (aIn !== bIn) {
+                return aIn - bIn;
+            }
+            return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+        });
+    }, [warehouses]);
+
     const refreshStatusOptions = React.useCallback(async () => {
         try {
             const warehouseStatuses = await listStatusCatalogsByEntityType(
@@ -1266,19 +1277,22 @@ export function InfrastructureManagementView() {
     }, [refreshStatusOptions]);
 
     React.useEffect(() => {
-        if (warehouses.length === 0) {
+        if (sortedWarehouses.length === 0) {
             setSelectedWarehouseId(null);
             return;
         }
 
         setSelectedWarehouseId((current) => {
-            if (current && warehouses.some((warehouse) => warehouse.id === current)) {
+            if (
+                current &&
+                sortedWarehouses.some((warehouse) => warehouse.id === current)
+            ) {
                 return current;
             }
 
-            return warehouses[0]?.id ?? null;
+            return sortedWarehouses[0]?.id ?? null;
         });
-    }, [warehouses]);
+    }, [sortedWarehouses]);
 
     const filteredSectors = React.useMemo(() => {
         if (!selectedWarehouseId) {
@@ -1623,8 +1637,8 @@ export function InfrastructureManagementView() {
                                                 className="h-28 animate-pulse rounded-2xl bg-[var(--color-surface-hover)]"
                                             />
                                         ))
-                                    ) : warehouses.length > 0 ? (
-                                        warehouses.map((warehouse) => {
+                                    ) : sortedWarehouses.length > 0 ? (
+                                        sortedWarehouses.map((warehouse) => {
                                             const isSelected =
                                                 warehouse.id === selectedWarehouseId;
                                             const warehouseInactive =
@@ -2198,7 +2212,7 @@ export function InfrastructureManagementView() {
                     isOpen={editor?.entity === "sector"}
                     mode={editor?.entity === "sector" ? editor.mode : "create"}
                     sector={editor?.entity === "sector" ? editor.sector : undefined}
-                    warehouses={warehouses}
+                    warehouses={sortedWarehouses}
                     defaultWarehouseId={selectedWarehouseId}
                     sectorStatusOptions={sectorStatusOptions}
                     isSubmitting={isSubmitting}
@@ -2232,7 +2246,7 @@ export function InfrastructureManagementView() {
                     isOpen={editor?.entity === "space"}
                     mode={editor?.entity === "space" ? editor.mode : "create"}
                     space={editor?.entity === "space" ? editor.space : undefined}
-                    warehouses={warehouses}
+                    warehouses={sortedWarehouses}
                     sectors={filteredSectors}
                     defaultWarehouseId={selectedWarehouseId}
                     defaultSectorId={selectedSectorId}

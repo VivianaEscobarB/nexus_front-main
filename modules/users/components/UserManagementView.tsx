@@ -114,6 +114,16 @@ function getStatusLabel(status: ManagedUserStatus): string {
     }
 }
 
+/** Activos y demás estados primero; INACTIVE al final. Mismo criterio secundario que el listado API (nombre). */
+function compareUsersByActiveThenName(a: ManagedUser, b: ManagedUser): number {
+    const aInactive = a.status === "INACTIVE" ? 1 : 0;
+    const bInactive = b.status === "INACTIVE" ? 1 : 0;
+    if (aInactive !== bInactive) {
+        return aInactive - bInactive;
+    }
+    return a.username.localeCompare(b.username, "es", { sensitivity: "base" });
+}
+
 function buildUserFormSchema(getAllowedRoles: () => readonly string[]) {
     return z
         .object({
@@ -446,7 +456,7 @@ export function UserManagementView({
     const filteredUsers = React.useMemo(() => {
         const search = searchTerm.trim().toLowerCase();
 
-        return users.filter((user) => {
+        const filtered = users.filter((user) => {
             const matchesSearch =
                 search.length === 0 ||
                 user.username.toLowerCase().includes(search) ||
@@ -460,6 +470,8 @@ export function UserManagementView({
 
             return matchesSearch && matchesStatus && matchesRole;
         });
+
+        return [...filtered].sort(compareUsersByActiveThenName);
     }, [roleFilter, searchTerm, statusFilter, users]);
 
     const totals = React.useMemo(() => {
