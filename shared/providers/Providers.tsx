@@ -8,6 +8,7 @@ import { queryClient } from "@/lib/query/query-client";
 import { AuthProvider } from "@/modules/auth/hooks/useAuth";
 import { ensureCsrfToken } from "@/shared/api/csrf";
 import { ThemeProvider } from "@/shared/hooks/useTheme";
+import { AccessibilityProvider } from "@/shared/hooks/useAccessibility";
 
 interface ProvidersProps {
     children: ReactNode;
@@ -38,10 +39,12 @@ export function Providers({ children }: ProvidersProps) {
 
     return (
         <ThemeProvider>
-            <QueryClientProvider client={queryClient}>
-                {isCsrfReady ? <AuthProvider>{children}</AuthProvider> : null}
-                <ReactQueryDevtools initialIsOpen={false} />
-            </QueryClientProvider>
+            <AccessibilityProvider>
+                <QueryClientProvider client={queryClient}>
+                    {isCsrfReady ? <AuthProvider>{children}</AuthProvider> : null}
+                    <ReactQueryDevtools initialIsOpen={false} />
+                </QueryClientProvider>
+            </AccessibilityProvider>
         </ThemeProvider>
     );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Providers } from "@/providers/Providers";
 import { ThemeScript } from "@/hooks/useTheme";
+
 import "./globals.css";
 
 const fontVariables = {
@@ -32,7 +33,9 @@ export default function RootLayout({
         className="antialiased"
         style={fontVariables}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+            {children}
+        </Providers>
       </body>
     </html>
   );
