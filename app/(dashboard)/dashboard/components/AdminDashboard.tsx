@@ -53,16 +53,16 @@ function AdminActionCard({
 export function AdminDashboard() {
     const activeProcesses = [
         isBusinessProcessVisible("authentication")
-            ? "Autenticacion y control de sesion"
+            ? "Acceso y seguridad"
             : null,
         isBusinessProcessVisible("userManagement")
-            ? "Gestion de usuarios"
+            ? "Gestión de usuarios"
             : null,
         isBusinessProcessVisible("warehouseStructure")
-            ? "Estructura de bodega"
+            ? "Infraestructura de bodegas"
             : null,
         isBusinessProcessVisible("clientManagement")
-            ? "Relacion comercial con clientes"
+            ? "Gestión de clientes"
             : null,
     ].filter(Boolean);
 
@@ -71,20 +71,20 @@ export function AdminDashboard() {
             <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-3xl">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-brand-strong)]">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-brand-strong)]">
                             <ShieldIcon />
-                            Sprint activo
-                        </span>
+                            Administración
+                        </div>
                         <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
                             Panel administrativo
                         </h1>
                         <p className="mt-3 text-base leading-7 text-[var(--color-text-secondary)]">
-                            Este entorno expone solo los procesos priorizados del sprint actual: autenticacion, administracion de usuarios, estructura de bodegas y gestion de clientes.
+                            Administra usuarios, clientes e infraestructura desde un solo lugar.
                         </p>
                     </div>
                     <div className="rounded-2xl bg-[var(--color-surface-hover)] px-5 py-4 text-sm text-[var(--color-text-secondary)]">
                         <p className="font-semibold text-[var(--color-text-primary)]">
-                            Procesos visibles
+                            Módulos disponibles
                         </p>
                         <ul className="mt-2 space-y-1">
                             {activeProcesses.map((process) => (
@@ -98,19 +98,19 @@ export function AdminDashboard() {
             <section className="grid gap-6 md:grid-cols-2">
                 {isBusinessProcessVisible("userManagement") ? (
                     <AdminActionCard
-                        title="Gestion de usuarios"
-                        description="Crea, edita, desactiva o elimina usuarios internos y cuentas CLIENT asociadas a registros comerciales."
+                        title="Gestión de usuarios"
+                        description="Crea, edita, activa o desactiva usuarios según las necesidades de tu operación."
                         href="/dashboard/users"
-                        cta="Abrir gestion de usuarios"
+                        cta="Abrir usuarios"
                         icon={<UsersIcon />}
                     />
                 ) : null}
                 {isBusinessProcessVisible("warehouseStructure") ? (
                     <AdminActionCard
-                        title="Estructura de bodegas"
-                        description="Administra bodegas, sectores y espacios desde un unico modulo centralizado con permisos completos."
+                        title="Infraestructura de bodegas"
+                        description="Organiza bodegas, sectores y espacios para mantener la operación actualizada."
                         href="/dashboard/infrastructure"
-                        cta="Administrar infraestructura"
+                        cta="Abrir infraestructura"
                         icon={<WarehouseIcon />}
                     />
                 ) : null}

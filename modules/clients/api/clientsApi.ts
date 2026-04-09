@@ -17,6 +17,10 @@ function getString(value: unknown): string | null {
     return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function getNumber(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function normalizeStatus(value: unknown): ManagedClientStatus {
     if (typeof value === "string") {
         const normalized = value.trim().toUpperCase() as ManagedClientStatus;
@@ -95,6 +99,10 @@ function mapApiClient(payload: unknown): ManagedClient {
             getString(payload.document_number),
         businessName,
         address: getString(payload.address),
+        cityId:
+            getNumber(payload.cityId) ??
+            getNumber(payload.city_id) ??
+            (isObject(payload.city) ? getNumber(payload.city.id) : null),
         status: normalizeStatus(payload.status),
         createdAt:
             getString(payload.createdAt) ??
@@ -106,7 +114,7 @@ function mapApiClient(payload: unknown): ManagedClient {
 }
 
 function buildClientPayload(input: CreateClientInput | UpdateClientInput) {
-    return compactRecord({
+    const payload = compactRecord({
         name: input.name?.trim(),
         email: input.email?.trim().toLowerCase(),
         phone: input.phone?.trim(),
@@ -116,6 +124,19 @@ function buildClientPayload(input: CreateClientInput | UpdateClientInput) {
         address: input.address?.trim(),
         status: input.status,
     });
+
+    if (
+        "cityId" in input &&
+        typeof input.cityId === "number" &&
+        Number.isFinite(input.cityId)
+    ) {
+        return {
+            ...payload,
+            cityId: input.cityId,
+        };
+    }
+
+    return payload;
 }
 
 export async function listClients(): Promise<ManagedClient[]> {

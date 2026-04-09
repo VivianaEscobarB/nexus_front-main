@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -9,34 +9,34 @@ import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
-import { resetPassword } from "@/services/auth.service";
+import { activateAccount } from "@/services/auth.service";
+import { isApiError } from "@/shared/api/apiError";
 
-const resetSchema = z
+const INVALID_TOKEN_MESSAGE = "El enlace no es válido o ha expirado.";
+const MISSING_TOKEN_MESSAGE =
+    "Este enlace de activación está incompleto o ya no es válido.";
+const GENERIC_ERROR_MESSAGE =
+    "No fue posible activar tu cuenta. Intenta nuevamente.";
+
+const activateAccountSchema = z
     .object({
-        email: z
-            .string()
-            .min(1, "El correo es requerido")
-            .email("Ingresa un correo válido"),
-        code: z
-            .string()
-            .min(6, "El código de verificación debe tener 6 caracteres")
-            .max(6, "El código es de exactamente 6 caracteres"),
         password: z
             .string()
             .min(8, "Al menos 8 caracteres requeridos")
             .regex(/[A-Z]/, "Debe incluir al menos una mayúscula")
             .regex(/[0-9]/, "Debe incluir al menos un número")
-            .regex(/[^A-Za-z0-9]/, "Debe incluir al menos un carácter especial"),
-        confirmPassword: z
-            .string()
-            .min(1, "Confirma la nueva contraseña"),
+            .regex(
+                /[^A-Za-z0-9]/,
+                "Debe incluir al menos un carácter especial"
+            ),
+        confirmPassword: z.string().min(1, "Confirma tu contraseña"),
     })
     .refine((data) => data.password === data.confirmPassword, {
         message: "Las contraseñas no coinciden",
         path: ["confirmPassword"],
     });
 
-type ResetFormValues = z.infer<typeof resetSchema>;
+type ActivateAccountFormValues = z.infer<typeof activateAccountSchema>;
 
 function LockIcon() {
     return (
@@ -52,21 +52,6 @@ function LockIcon() {
                 d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z"
                 clipRule="evenodd"
             />
-        </svg>
-    );
-}
-
-function MailIcon() {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-4 h-4"
-            aria-hidden="true"
-        >
-            <path d="M3 4a2 2 0 0 0-2 2v1.161l8.441 4.221a1.25 1.25 0 0 0 1.118 0L19 7.162V6a2 2 0 0 0-2-2H3Z" />
-            <path d="m19 8.839-7.77 3.885a2.75 2.75 0 0 1-2.46 0L1 8.839V14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.839Z" />
         </svg>
     );
 }
@@ -100,6 +85,7 @@ function EyeIcon({ show }: { show: boolean }) {
                 d="M3.28 2.22a.75.75 0 0 0-1.06 1.06l14.5 14.5a.75.75 0 1 0 1.06-1.06l-1.745-1.745a10.029 10.029 0 0 0 3.3-4.38 1.651 1.651 0 0 0 0-1.185A10.004 10.004 0 0 0 9.999 3a9.956 9.956 0 0 0-4.744 1.194L3.28 2.22ZM7.752 6.69l1.092 1.092a2.5 2.5 0 0 1 3.374 3.373l1.091 1.092a4 4 0 0 0-5.557-5.557Z"
                 clipRule="evenodd"
             />
+            <path d="m10.748 13.93 2.523 2.523a10.003 10.003 0 0 1-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 0 1 0-1.186A10.007 10.007 0 0 1 2.839 6.02L6.07 9.252a4 4 0 0 0 4.678 4.678Z" />
         </svg>
     );
 }
@@ -123,42 +109,106 @@ function CheckCircleLgIcon() {
     );
 }
 
-export function ResetPasswordForm() {
+function isTokenMessage(message: string): boolean {
+    return /(token|enlace|link)/i.test(message);
+}
+
+function isInvalidOrExpiredMessage(message: string): boolean {
+    return /invalid|not valid|expired|expir|inválid|invalido|vencid/i.test(
+        message
+    );
+}
+
+function isInvalidTokenError(error: unknown): boolean {
+    if (!isApiError(error)) {
+        return false;
+    }
+
+    if (error.status === 404 || error.status === 410) {
+        return true;
+    }
+
+    const message = error.message.trim();
+    if (isTokenMessage(message) && isInvalidOrExpiredMessage(message)) {
+        return true;
+    }
+
+    return error.status === 400 && !extractPasswordValidationMessage(error);
+}
+
+function extractPasswordValidationMessage(error: unknown): string | null {
+    if (!isApiError(error)) {
+        return null;
+    }
+
+    const message = error.message.trim();
+    const fieldMatch = message.match(/password\s*:\s*(.+)$/i);
+
+    if (fieldMatch?.[1]) {
+        return fieldMatch[1].trim();
+    }
+
+    if (/password|contraseña|contrasena/i.test(message) && !isTokenMessage(message)) {
+        return message;
+    }
+
+    return null;
+}
+
+function getErrorMessage(error: unknown): string {
+    if (isInvalidTokenError(error)) {
+        return INVALID_TOKEN_MESSAGE;
+    }
+
+    if (error instanceof Error && error.message.trim()) {
+        return error.message.trim();
+    }
+
+    return GENERIC_ERROR_MESSAGE;
+}
+
+export function ActivateAccountForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { refreshSession } = useAuth();
-    const emailHint = searchParams.get("email");
+    const activationToken = searchParams.get("token")?.trim() ?? "";
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [serverError, setServerError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [serverError, setServerError] = React.useState<string | null>(null);
+    const [success, setSuccess] = React.useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
     const {
         register,
         handleSubmit,
+        setError,
+        clearErrors,
         formState: { errors },
-    } = useForm<ResetFormValues>({
-        resolver: zodResolver(resetSchema),
+    } = useForm<ActivateAccountFormValues>({
+        resolver: zodResolver(activateAccountSchema),
         defaultValues: {
-            email: emailHint ?? "",
-            code: "",
             password: "",
             confirmPassword: "",
         },
     });
 
-    async function onSubmit(values: ResetFormValues) {
-        setIsLoading(true);
+    async function onSubmit(values: ActivateAccountFormValues) {
+        clearErrors();
         setServerError(null);
+
+        if (!activationToken) {
+            setServerError(MISSING_TOKEN_MESSAGE);
+            return;
+        }
+
+        setIsLoading(true);
         let shouldStopLoading = true;
 
         try {
-            await resetPassword({
-                email: values.email,
-                code: values.code,
-                newPassword: values.password,
+            await activateAccount({
+                token: activationToken,
+                password: values.password,
             });
             setSuccess(true);
 
@@ -174,16 +224,62 @@ export function ResetPasswordForm() {
             shouldStopLoading = false;
             router.push(hasActiveSession ? "/dashboard" : "/login");
         } catch (error) {
-            setServerError(
-                error instanceof Error
-                    ? error.message
-                    : "El código es incorrecto o expiró. Por favor ingrésalo nuevamente."
-            );
+            const passwordValidationMessage =
+                extractPasswordValidationMessage(error);
+
+            if (passwordValidationMessage) {
+                setError("password", {
+                    type: "server",
+                    message: passwordValidationMessage,
+                });
+                return;
+            }
+
+            if (isInvalidTokenError(error)) {
+                setServerError(INVALID_TOKEN_MESSAGE);
+                return;
+            }
+
+            setServerError(getErrorMessage(error));
         } finally {
             if (shouldStopLoading) {
                 setIsLoading(false);
             }
         }
+    }
+
+    if (!activationToken) {
+        return (
+            <div className="flex flex-col gap-5">
+                <div
+                    role="alert"
+                    className="flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
+                    style={{
+                        background: "var(--color-danger-subtle)",
+                        borderColor: "var(--color-danger-default)",
+                        color: "var(--color-danger-text)",
+                    }}
+                >
+                    <svg
+                        className="mt-0.5 h-4 w-4 flex-shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
+                    </svg>
+                    {MISSING_TOKEN_MESSAGE}
+                </div>
+
+                <Link
+                    href="/login"
+                    className="text-sm font-medium text-center transition-colors hover:underline"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                >
+                    Volver al inicio de sesión
+                </Link>
+            </div>
+        );
     }
 
     if (success) {
@@ -202,7 +298,7 @@ export function ResetPasswordForm() {
                     className="text-xl font-bold tracking-tight mb-2"
                     style={{ color: "var(--color-text-primary)" }}
                 >
-                    Contraseña actualizada correctamente.
+                    Cuenta activada correctamente. Bienvenido.
                 </h3>
                 <p
                     className="text-sm mb-6"
@@ -249,50 +345,7 @@ export function ResetPasswordForm() {
                 </div>
             )}
 
-            <Input
-                label="Correo electrónico asociado"
-                type="email"
-                placeholder="usuario@empresa.com"
-                autoComplete="email"
-                leadingIcon={<MailIcon />}
-                disabled={isLoading}
-                error={errors.email?.message}
-                {...register("email")}
-            />
-
-            <div className="flex flex-col gap-1.5">
-                <Input
-                    label="Código de seguridad de 6 dígitos"
-                    type="text"
-                    placeholder="123456"
-                    maxLength={6}
-                    disabled={isLoading}
-                    error={errors.code?.message}
-                    {...register("code")}
-                />
-                <div className="flex justify-end">
-                    <Link
-                        href="/forgot-password"
-                        className="text-xs font-medium transition-colors"
-                        style={{ color: "var(--color-text-brand)" }}
-                        onMouseOver={(event) => {
-                            event.currentTarget.style.color =
-                                "var(--color-brand-stronger)";
-                        }}
-                        onMouseOut={(event) => {
-                            event.currentTarget.style.color =
-                                "var(--color-text-brand)";
-                        }}
-                    >
-                        ¿No recibiste el código?
-                    </Link>
-                </div>
-            </div>
-
-            <div
-                className="flex flex-col gap-4 border-t pt-4"
-                style={{ borderColor: "var(--color-border-subtle)" }}
-            >
+            <div className="flex flex-col gap-4">
                 <Input
                     label="Nueva contraseña"
                     type={showPassword ? "text" : "password"}
@@ -364,7 +417,7 @@ export function ResetPasswordForm() {
                     size="lg"
                     isLoading={isLoading}
                 >
-                    Guardar nueva contraseña
+                    Activar cuenta
                 </Button>
 
                 <Link

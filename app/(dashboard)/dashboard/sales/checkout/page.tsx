@@ -15,7 +15,7 @@ function CheckCircle() {
 
 export default function CheckoutSimulationPage() {
     return (
-        <Suspense fallback={<div className="p-12 text-center text-[var(--color-text-secondary)]">Inicializando pasarela de pagos segura...</div>}>
+        <Suspense fallback={<div className="p-12 text-center text-[var(--color-text-secondary)]">Preparando el pago...</div>}>
             <CheckoutContent />
         </Suspense>
     );
@@ -70,10 +70,9 @@ function CheckoutContent() {
                         <CardBody className="flex flex-col items-center justify-center space-y-6">
                             <CheckCircle />
                             <div>
-                                <h2 className="text-3xl font-bold text-[var(--color-text-primary)]">Â¡Pago Aprobado!</h2>
+                                <h2 className="text-3xl font-bold text-[var(--color-text-primary)]">¡Pago aprobado!</h2>
                                 <p className="text-[var(--color-text-secondary)] mt-2">
-                                    El contrato {contractId} ha sido activado.
-                                    La disponibilidad de la bodega ha sido descontada en metros cuadrados satisfactoriamente segÃºn las reglas del sistema.
+                                    El contrato {contractId} ha sido activado. La disponibilidad de la bodega fue actualizada correctamente.
                                 </p>
                             </div>
                             <div className="bg-[var(--color-surface-hover)] w-full p-4 rounded-lg mt-4 grid grid-cols-2 gap-4 text-left">
@@ -82,12 +81,12 @@ function CheckoutContent() {
                                     <p className="font-medium text-sm">{paymentReference}</p>
                                 </div>
                                 <div>
-                                    <span className="text-xs uppercase text-[var(--color-text-secondary)] font-bold">Estado del Contrato</span>
-                                    <p className="font-medium text-sm text-[var(--color-success-strong)]">Vigente (Asignado)</p>
+                                    <span className="text-xs uppercase text-[var(--color-text-secondary)] font-bold">Estado del contrato</span>
+                                    <p className="font-medium text-sm text-[var(--color-success-strong)]">Vigente</p>
                                 </div>
                             </div>
                             <Button variant="primary" onClick={() => router.push("/dashboard/sales/catalog")} className="mt-4 w-full">
-                                Volver al CatÃ¡logo
+                                Volver al catálogo
                             </Button>
                         </CardBody>
                     </Card>
@@ -100,13 +99,13 @@ function CheckoutContent() {
         <ProcessVisibilityGuard process="contracts">
             <div className="max-w-md mx-auto mt-10 space-y-6 animate-in fade-in duration-500">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">Simulador Pasarela de Pagos</h1>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">Este entorno es exclusivo para QA de reglas de negocio.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">Confirmación de pago</h1>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">Revisa los datos y confirma el pago para activar el contrato.</p>
                 </div>
 
                 <Card padding="none" className="overflow-hidden">
                     <div className="bg-[var(--color-surface-hover)] border-b border-[var(--color-border-subtle)] p-6 text-center">
-                        <span className="text-xs uppercase font-bold text-[var(--color-text-secondary)] tracking-wider">Total a Pagar (MENSUAL)</span>
+                        <span className="text-xs uppercase font-bold text-[var(--color-text-secondary)] tracking-wider">Total a pagar</span>
                         <h2 className="text-4xl font-black mt-2 text-[var(--color-text-primary)]">
                             ${Number(amount || 0).toLocaleString()} <span className="text-lg font-medium text-[var(--color-text-secondary)]">COP</span>
                         </h2>
@@ -115,16 +114,16 @@ function CheckoutContent() {
                     <CardBody className="space-y-6 p-6">
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-[var(--color-text-secondary)]">Cliente ID</span>
-                                <span className="font-semibold text-[var(--color-text-primary)]">{client || "Desconocido"}</span>
+                                <span className="text-[var(--color-text-secondary)]">Cliente</span>
+                                <span className="font-semibold text-[var(--color-text-primary)]">{client || "Sin dato"}</span>
                             </div>
                             <div className="flex justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-[var(--color-text-secondary)]">Referencia de Contrato</span>
-                                <span className="font-semibold text-[var(--color-text-primary)]">{contractId || "N/A"}</span>
+                                <span className="text-[var(--color-text-secondary)]">Contrato</span>
+                                <span className="font-semibold text-[var(--color-text-primary)]">{contractId || "Sin dato"}</span>
                             </div>
                             <div className="flex justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-[var(--color-text-secondary)]">MetodologÃ­a de Servicios BÃ¡sicos</span>
-                                <span className="font-semibold text-green-600">Incluido en total</span>
+                                <span className="text-[var(--color-text-secondary)]">Servicios básicos</span>
+                                <span className="font-semibold text-green-600">Incluidos</span>
                             </div>
                         </div>
 
@@ -133,8 +132,8 @@ function CheckoutContent() {
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0 1 18 0z" /></svg>
                             </div>
                             <div>
-                                <h4 className="text-sm font-bold text-amber-800 dark:text-amber-400">Vigencia del Link (Regla)</h4>
-                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">Este contrato expirarÃ¡ y liberarÃ¡ el bloqueo preventivo si no es pagado antes de acabar el tiempo.</p>
+                                <h4 className="text-sm font-bold text-amber-800 dark:text-amber-400">Tiempo disponible para pagar</h4>
+                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">Si no se completa el pago a tiempo, la reserva se liberará automáticamente.</p>
                                 <p className="text-lg font-mono font-bold text-amber-800 dark:text-amber-400 mt-2">{formatTime(secondsLeft)}</p>
                             </div>
                         </div>
@@ -147,10 +146,10 @@ function CheckoutContent() {
                             isLoading={status === "PROCESSING"}
                             disabled={secondsLeft === 0}
                         >
-                            <LockIcon /> {status === "PROCESSING" ? "Autorizando TransacciÃ³n..." : "Simular AprobaciÃ³n de Pago"}
+                            <LockIcon /> {status === "PROCESSING" ? "Procesando pago..." : "Confirmar pago"}
                         </Button>
                         <p className="text-[10px] text-center text-[var(--color-text-secondary)] pt-2">
-                            Al aprobar certifÃ­cas que la transacciÃ³n externa dio cÃ³digo 200 y se procederÃ¡ al enganche del contrato a la bodega.
+                            Al confirmar el pago, el contrato quedará activo y la disponibilidad se actualizará automáticamente.
                         </p>
                     </CardBody>
                 </Card>

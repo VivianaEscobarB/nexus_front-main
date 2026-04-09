@@ -1,10 +1,14 @@
 import type {
+    ActivateAccountRequest,
+    ActivateAccountResponse,
     ForgotPasswordRequest,
     PasswordActionResponse,
+    ResendActivationRequest,
     RegisterRequest,
     RegisterResponse,
     ResetPasswordRequest,
 } from "@/modules/auth/api/authTypes";
+import { AccountActivationRequiredError } from "@/modules/auth/utils/loginError";
 import type { LoginCredentials, User } from "@/types";
 
 const MOCK_ROLE_KEY = "mock_user_role";
@@ -38,6 +42,15 @@ export async function login(
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const emailLower = credentials.email.toLowerCase();
+
+    if (
+        emailLower.includes("inactive") ||
+        emailLower.includes("pendiente") ||
+        emailLower.includes("activate")
+    ) {
+        throw new AccountActivationRequiredError();
+    }
+
     let roleName = "WAREHOUSE_OPERATOR";
     let roleId = "rol_04";
     let firstName = "Empleado";
@@ -175,6 +188,17 @@ export async function forgotPassword(
     };
 }
 
+export async function resendActivation(
+    payload: ResendActivationRequest
+): Promise<PasswordActionResponse> {
+    void payload;
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    return {
+        message: "Solicitud simulada de activacion enviada.",
+    };
+}
+
 export async function resetPassword(
     payload: ResetPasswordRequest
 ): Promise<PasswordActionResponse> {
@@ -183,5 +207,16 @@ export async function resetPassword(
 
     return {
         message: "Contrasena simulada actualizada.",
+    };
+}
+
+export async function activateAccount(
+    payload: ActivateAccountRequest
+): Promise<ActivateAccountResponse> {
+    void payload;
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    return {
+        message: "Cuenta simulada activada.",
     };
 }

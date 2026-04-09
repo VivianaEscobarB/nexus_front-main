@@ -5,6 +5,7 @@ export {
     deleteSector,
     deleteSpace,
     deleteWarehouse,
+    enableWarehouse,
     listSectors,
     listSpaces,
     listStatusCatalogsByEntityType,

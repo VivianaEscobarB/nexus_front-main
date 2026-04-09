@@ -8,35 +8,114 @@ import { z } from "zod";
 import { Form, FormActions, FormRow, FormSection } from "@/components/ui/Form";
 import { Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
-import { createClient } from "@/modules/clients";
+import { createClient, persistClientCreateSuccessMessage } from "@/modules/clients";
+import {
+    listCitiesByRegion,
+    listCountries,
+    listRegionsByCountry,
+    type LocationCity,
+    type LocationRegion,
+} from "@/modules/locations";
+import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
 
 function ArrowLeftIcon() {
-    return <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>;
+    return (
+        <svg
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="h-4 w-4"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+            />
+        </svg>
+    );
 }
 
-const createClientSchema = z.object({
-    documentType: z.enum(["NIT", "CC", "CE", "PASSPORT"], {
-        message: "Seleccione un tipo de documento",
-    }),
-    documentNumber: z
-        .string()
-        .min(5, "El numero de documento debe tener al menos 5 caracteres"),
-    businessName: z
-        .string()
-        .min(2, "La razon social o nombre de empresa es obligatorio"),
-    name: z
-        .string()
-        .min(2, "El nombre del contacto debe tener al menos 2 caracteres"),
-    email: z.string().email("Debe ser un correo electronico valido"),
-    phone: z.string().min(7, "El telefono debe ser valido"),
-    address: z.string().min(5, "La direccion es obligatoria"),
-    requiresPortalAccess: z.boolean(),
-});
+const DOCUMENT_TYPE_OPTIONS = [
+    { value: "NIT", label: "NIT" },
+    { value: "CC", label: "Cedula de ciudadania" },
+    { value: "CE", label: "Cedula de extranjeria" },
+    { value: "PASSPORT", label: "Pasaporte" },
+] as const;
+
+const createClientSchema = z
+    .object({
+        documentType: z.enum(["NIT", "CC", "CE", "PASSPORT"], {
+            message: "Seleccione un tipo de documento",
+        }),
+        documentNumber: z
+            .string()
+            .trim()
+        .min(1, "El número de documento es obligatorio"),
+        businessName: z
+            .string()
+            .trim()
+        .min(1, "La razón social o nombre de empresa es obligatoria"),
+        name: z
+            .string()
+            .trim()
+            .min(1, "El nombre del contacto es obligatorio"),
+        email: z
+            .string()
+            .trim()
+            .min(1, "El correo es obligatorio")
+        .email("Debe ser un correo electrónico válido"),
+        phone: z
+            .string()
+            .trim()
+            .min(7, "El teléfono debe ser válido"),
+        address: z
+            .string()
+            .trim()
+            .min(5, "La dirección es obligatoria"),
+        countryId: z.string().optional(),
+        regionId: z.string().optional(),
+        cityId: z
+            .string()
+            .trim()
+            .min(
+                1,
+                "Selecciona país, región y ciudad."
+            ),
+    })
+    .superRefine((values, ctx) => {
+        if (!Number.isFinite(Number(values.cityId))) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["cityId"],
+                message: "Ciudad invalida. Vuelve a seleccionar.",
+            });
+        }
+    });
 
 type CreateClientFormData = z.infer<typeof createClientSchema>;
 
+function buildDefaultValues(): CreateClientFormData {
+    return {
+        documentType: "NIT",
+        documentNumber: "",
+        businessName: "",
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        countryId: "",
+        regionId: "",
+        cityId: "",
+    };
+}
+
 function getErrorMessage(error: unknown): string {
+    if (isApiError(error)) {
+        return error.message;
+    }
+
     if (error instanceof Error && error.message) {
         return error.message;
     }
@@ -47,36 +126,78 @@ function getErrorMessage(error: unknown): string {
 export default function CreateClientPage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+    const submitLockRef = React.useRef(false);
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+    const [countries, setCountries] = React.useState<
+        { id: number; name: string }[]
+    >([]);
+    const [regions, setRegions] = React.useState<LocationRegion[]>([]);
+    const [cities, setCities] = React.useState<LocationCity[]>([]);
+    const [locationsError, setLocationsError] = React.useState<string | null>(
+        null
+    );
 
     const {
         register,
         handleSubmit,
         reset,
+        watch,
+        setValue,
         formState: { errors, isValid },
     } = useForm<CreateClientFormData>({
         resolver: zodResolver(createClientSchema),
         mode: "onChange",
-        defaultValues: {
-            documentType: "NIT",
-            documentNumber: "",
-            businessName: "",
-            name: "",
-            email: "",
-            phone: "",
-            address: "",
-            requiresPortalAccess: false,
-        },
+        defaultValues: buildDefaultValues(),
     });
 
+    const selectedCountryId = watch("countryId");
+    const selectedRegionId = watch("regionId");
+
+    function resetLocationPickers() {
+        setRegions([]);
+        setCities([]);
+        setValue("countryId", "");
+        setValue("regionId", "");
+        setValue("cityId", "");
+    }
+
+    React.useEffect(() => {
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const list = await listCountries();
+                if (!cancelled) {
+                    setCountries(
+                        [...list].sort((a, b) =>
+                            a.name.localeCompare(b.name, "es")
+                        )
+                    );
+                    setLocationsError(null);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setLocationsError(getErrorMessage(error));
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const onSubmit = async (data: CreateClientFormData) => {
+        if (submitLockRef.current) {
+            return;
+        }
+
+        submitLockRef.current = true;
         setIsSubmitting(true);
-        setSuccessMsg(null);
         setErrorMsg(null);
 
         try {
-            const client = await createClient({
+            await createClient({
                 name: data.name,
                 email: data.email,
                 phone: data.phone,
@@ -84,31 +205,33 @@ export default function CreateClientPage() {
                 documentNumber: data.documentNumber,
                 businessName: data.businessName,
                 address: data.address,
+                cityId: Number(data.cityId),
                 status: "ACTIVE",
             });
 
-            setSuccessMsg(
-                data.requiresPortalAccess
-                    ? `Cliente "${client.businessName}" registrado. La cuenta del portal debe ser creada luego por un ADMIN como usuario CLIENT asociado.`
-                    : `Cliente "${client.businessName}" registrado correctamente en el directorio comercial.`
+            persistClientCreateSuccessMessage(
+                "Cliente registrado correctamente. Se ha enviado un correo para activar su cuenta."
             );
-            reset();
+            reset(buildDefaultValues());
+            router.replace("/dashboard/clients");
         } catch (error) {
             setErrorMsg(getErrorMessage(error));
         } finally {
+            submitLockRef.current = false;
             setIsSubmitting(false);
         }
     };
 
     return (
         <RoleGuard allowedRoles={[UserRole.SALES_AGENT]}>
-            <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+            <div className="mx-auto max-w-4xl space-y-6 animate-in fade-in duration-500">
                 <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => router.back()}
-                        className="rounded-full w-10 h-10 p-0 flex items-center justify-center bg-[var(--color-surface-hover)]"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-hover)] p-0"
+                        disabled={isSubmitting}
                     >
                         <ArrowLeftIcon />
                     </Button>
@@ -117,44 +240,60 @@ export default function CreateClientPage() {
                             Registrar nuevo cliente
                         </h1>
                         <p className="text-sm text-[var(--color-text-secondary)]">
-                            Crea la ficha comercial del cliente. El acceso al portal se gestiona despues desde Administracion.
+                            Crea la ficha comercial del cliente. Su acceso se
+                            enviará por correo automáticamente.
                         </p>
                     </div>
                 </div>
 
                 <Card padding="lg">
                     <CardBody>
-                        {successMsg ? (
-                            <div className="mb-6 rounded-lg border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] p-4 text-sm font-medium text-[var(--color-success-strong)]">
-                                {successMsg}
-                            </div>
-                        ) : null}
-
                         {errorMsg ? (
-                            <div className="mb-6 rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-4 text-sm font-medium text-[var(--color-danger-strong)]">
+                            <div
+                                role="alert"
+                                className="mb-6 rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-4 text-sm font-medium text-[var(--color-danger-strong)]"
+                            >
                                 {errorMsg}
                             </div>
                         ) : null}
 
-                        <Form onSubmit={handleSubmit(onSubmit)} gap="lg">
+                        {locationsError ? (
+                            <div
+                                role="alert"
+                                className="mb-6 rounded-lg border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] p-4 text-sm font-medium text-[var(--color-warning-strong)]"
+                            >
+                                {locationsError}
+                                <button
+                                    type="button"
+                                    className="ml-2 underline"
+                                    onClick={() => {
+                                        setLocationsError(null);
+                                        resetLocationPickers();
+                                    }}
+                                >
+                                    Limpiar ubicación
+                                </button>
+                            </div>
+                        ) : null}
+
+                        <Form
+                            onSubmit={handleSubmit(onSubmit)}
+                            gap="lg"
+                            aria-busy={isSubmitting}
+                        >
                             <FormSection
                                 title="Datos comerciales del cliente"
-                                description="Informacion base para crear el registro en la entidad client."
+                                description="Información base para crear el registro y enviar el acceso por correo."
                             >
                                 <FormRow cols={2}>
                                     <Select
                                         label="Tipo de documento"
-                                        options={[
-                                            { value: "NIT", label: "NIT" },
-                                            { value: "CC", label: "Cedula de ciudadania" },
-                                            { value: "CE", label: "Cedula de extranjeria" },
-                                            { value: "PASSPORT", label: "Pasaporte" },
-                                        ]}
+                                        options={[...DOCUMENT_TYPE_OPTIONS]}
                                         error={errors.documentType?.message}
                                         {...register("documentType")}
                                     />
                                     <Input
-                                        label="Numero de documento"
+                                        label="Número de documento"
                                         placeholder="Ej. 900123456-7"
                                         error={errors.documentNumber?.message}
                                         {...register("documentNumber")}
@@ -164,7 +303,7 @@ export default function CreateClientPage() {
                                 <FormRow cols={2}>
                                     <Input
                                         label="Nombre de contacto"
-                                        placeholder="Ej. Juan Perez"
+                                        placeholder="Ej. Juan Pérez"
                                         error={errors.name?.message}
                                         {...register("name")}
                                     />
@@ -179,13 +318,13 @@ export default function CreateClientPage() {
 
                                 <FormRow cols={2}>
                                     <Input
-                                        label="Empresa / razon social"
+                                        label="Empresa / razón social"
                                         placeholder="Ej. Importaciones JP"
                                         error={errors.businessName?.message}
                                         {...register("businessName")}
                                     />
                                     <Input
-                                        label="Telefono"
+                                        label="Teléfono"
                                         placeholder="+57 300 000 0000"
                                         error={errors.phone?.message}
                                         {...register("phone")}
@@ -194,7 +333,7 @@ export default function CreateClientPage() {
 
                                 <FormRow cols={1}>
                                     <Input
-                                        label="Direccion"
+                                        label="Dirección"
                                         placeholder="Cra 12 #34-56, Bodega 5"
                                         error={errors.address?.message}
                                         {...register("address")}
@@ -203,26 +342,107 @@ export default function CreateClientPage() {
                             </FormSection>
 
                             <FormSection
-                                title="Acceso al portal cliente"
-                                description="El agente comercial no crea usuarios. Si el cliente requiere acceso, Administracion debe crear despues un usuario CLIENT asociado."
+                                title="Ubicación"
+                                description="Selecciona la ubicación comercial del cliente."
                             >
-                                <label className="flex items-start gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-hover)] px-4 py-4 text-sm text-[var(--color-text-primary)]">
-                                    <input
-                                        type="checkbox"
-                                        className="mt-1 h-4 w-4 rounded border-[var(--color-border-default)] text-[var(--color-primary-default)]"
-                                        {...register("requiresPortalAccess")}
+                                <FormRow cols={3}>
+                                    <Select
+                                        label="País"
+                                        options={countries.map((country) => ({
+                                            value: String(country.id),
+                                            label: country.name,
+                                        }))}
+                                        disabled={
+                                            countries.length === 0 || isSubmitting
+                                        }
+                                        hint="Selecciona el país del cliente."
+                                        {...register("countryId", {
+                                            onChange: async (event) => {
+                                                const value = event.target.value;
+                                                setValue("regionId", "");
+                                                setValue("cityId", "");
+                                                setCities([]);
+
+                                                if (!value) {
+                                                    setRegions([]);
+                                                    return;
+                                                }
+
+                                                try {
+                                                    const regionList =
+                                                        await listRegionsByCountry(
+                                                            Number(value)
+                                                        );
+                                                    setRegions(regionList);
+                                                    setLocationsError(null);
+                                                } catch (error) {
+                                                    setRegions([]);
+                                                    setLocationsError(
+                                                        getErrorMessage(error)
+                                                    );
+                                                }
+                                            },
+                                        })}
                                     />
-                                    <span>
-                                        Solicitar acceso al portal cliente
-                                        <span className="mt-1 block text-xs text-[var(--color-text-secondary)]">
-                                            El registro comercial se crea ahora. La cuenta de acceso debe ser creada luego por un ADMIN y asociada al `client_id`.
-                                        </span>
-                                    </span>
-                                </label>
+                                    <Select
+                                        label="Región"
+                                        options={regions.map((region) => ({
+                                            value: String(region.id),
+                                            label: region.name,
+                                        }))}
+                                        disabled={
+                                            !selectedCountryId || isSubmitting
+                                        }
+                                        hint="Selecciona la región correspondiente."
+                                        {...register("regionId", {
+                                            onChange: async (event) => {
+                                                const value = event.target.value;
+                                                setValue("cityId", "");
+
+                                                if (!value) {
+                                                    setCities([]);
+                                                    return;
+                                                }
+
+                                                try {
+                                                    const cityList =
+                                                        await listCitiesByRegion(
+                                                            Number(value)
+                                                        );
+                                                    setCities(cityList);
+                                                    setLocationsError(null);
+                                                } catch (error) {
+                                                    setCities([]);
+                                                    setLocationsError(
+                                                        getErrorMessage(error)
+                                                    );
+                                                }
+                                            },
+                                        })}
+                                    />
+                                    <Select
+                                        label="Ciudad"
+                                        options={cities.map((city) => ({
+                                            value: String(city.id),
+                                            label: city.name,
+                                        }))}
+                                        disabled={
+                                            !selectedRegionId || isSubmitting
+                                        }
+                                        error={errors.cityId?.message}
+                                        hint="Selecciona la ciudad del cliente."
+                                        {...register("cityId")}
+                                    />
+                                </FormRow>
                             </FormSection>
 
                             <FormActions align="between">
-                                <Button type="button" variant="outline" onClick={() => router.back()}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => router.back()}
+                                    disabled={isSubmitting}
+                                >
                                     Cancelar
                                 </Button>
                                 <Button
@@ -231,7 +451,9 @@ export default function CreateClientPage() {
                                     isLoading={isSubmitting}
                                     disabled={!isValid || isSubmitting}
                                 >
-                                    {isSubmitting ? "Registrando cliente..." : "Registrar cliente"}
+                                    {isSubmitting
+                                        ? "Registrando cliente..."
+                                        : "Registrar cliente"}
                                 </Button>
                             </FormActions>
                         </Form>

@@ -112,8 +112,25 @@ function mapApiUser(payload: unknown): ManagedUser {
                 getString(payload.client.businessName) ??
                 getString(payload.client.name)
                 : null),
-        createdAt: getString(payload.createdAt),
-        lastLoginAt: getString(payload.lastLoginAt),
+        createdByName:
+            getString(payload.createdByName) ??
+            getString(payload.created_by_name) ??
+            (isObject(payload.createdBy)
+                ? getString(payload.createdBy.username) ??
+                getString(payload.createdBy.name) ??
+                getString(payload.createdBy.email)
+                : null) ??
+            (isObject(payload.created_by)
+                ? getString(payload.created_by.username) ??
+                getString(payload.created_by.name) ??
+                getString(payload.created_by.email)
+                : null),
+        createdAt:
+            getString(payload.createdAt) ??
+            getString(payload.created_at),
+        lastLoginAt:
+            getString(payload.lastLoginAt) ??
+            getString(payload.last_login_at),
     };
 }
 
@@ -148,20 +165,14 @@ function buildMutationPayload(input: CreateUserInput | UpdateUserInput) {
         payload.email = input.email.trim().toLowerCase();
     }
 
-    if (typeof input.password === "string" && input.password.trim().length > 0) {
-        payload.password = input.password;
-    }
-
     if (typeof input.status === "string") {
         payload.status = input.status;
     }
 
     if (Array.isArray(input.roles)) {
-        payload.roles = input.roles;
-    }
-
-    if ("clientId" in input) {
-        payload.clientId = input.clientId?.trim() || null;
+        payload.roles = input.roles
+            .map((role) => role.trim())
+            .filter((role) => role.length > 0);
     }
 
     if (
@@ -216,13 +227,12 @@ export async function updateUser(
     return mapApiUser(payload);
 }
 
-export async function updateUserStatus(
-    id: string,
-    status: ManagedUserStatus
-): Promise<ManagedUser> {
-    const payload = await httpClient.patch<unknown>(`${USERS_BASE_PATH}/${id}`, {
-        status,
-    });
+/** INACTIVE → ACTIVE (Spring: `PUT /api/users/{id}/activate`). */
+export async function activateUser(id: string): Promise<ManagedUser> {
+    const payload = await httpClient.put<unknown>(
+        `${USERS_BASE_PATH}/${id}/activate`,
+        {}
+    );
 
     return mapApiUser(payload);
 }

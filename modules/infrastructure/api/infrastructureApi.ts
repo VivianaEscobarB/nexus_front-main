@@ -441,7 +441,7 @@ export async function updateWarehouse(
     id: string,
     input: UpdateWarehouseInput
 ): Promise<ManagedWarehouse> {
-    const payload = await httpClient.patch<unknown>(
+    const payload = await httpClient.put<unknown>(
         `${WAREHOUSES_BASE_PATH}/${id}`,
         buildWarehousePayload(input)
     );
@@ -451,6 +451,14 @@ export async function updateWarehouse(
 
 export async function deleteWarehouse(id: string): Promise<ManagedWarehouse> {
     const payload = await httpClient.delete<unknown>(`${WAREHOUSES_BASE_PATH}/${id}`);
+    return mapApiWarehouse(payload);
+}
+
+export async function enableWarehouse(id: string): Promise<ManagedWarehouse> {
+    const payload = await httpClient.patch<unknown>(
+        `${WAREHOUSES_BASE_PATH}/${id}/enable`,
+        {}
+    );
     return mapApiWarehouse(payload);
 }
 

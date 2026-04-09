@@ -11,6 +11,7 @@ export interface ManagedUser {
     clientId: string | null;
     cityId: number | null;
     clientName: string | null;
+    createdByName: string | null;
     createdAt: string | null;
     lastLoginAt: string | null;
 }
@@ -24,19 +25,15 @@ export interface ListUsersParams {
 export interface CreateUserInput {
     username: string;
     email: string;
-    password: string;
     status: ManagedUserStatus;
     roles: string[];
     cityId: number;
-    clientId?: string | null;
 }
 
 export interface UpdateUserInput {
     username?: string;
     email?: string;
-    password?: string;
     status?: ManagedUserStatus;
     roles?: string[];
     cityId?: number;
-    clientId?: string | null;
 }

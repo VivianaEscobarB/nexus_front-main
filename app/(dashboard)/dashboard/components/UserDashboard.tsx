@@ -52,15 +52,15 @@ export function UserDashboard() {
             <section className="grid gap-6 md:grid-cols-3">
                 <ReadOnlyCard
                     title="Bodegas"
-                    description="Ubica rapidamente las bodegas activas y su configuracion general."
+                    description="Ubica rápidamente las bodegas activas y su configuración general."
                 />
                 <ReadOnlyCard
                     title="Sectores"
-                    description="Consulta la organizacion interna por sectores para entender la distribucion operativa."
+                    description="Consulta la organización interna por sectores para entender la distribución operativa."
                 />
                 <ReadOnlyCard
                     title="Espacios"
-                    description="Visualiza espacios y su estado sin habilitar acciones de creacion o edicion."
+                    description="Visualiza espacios y su estado sin habilitar acciones de creación o edición."
                 />
             </section>
         </div>

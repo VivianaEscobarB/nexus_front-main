@@ -8,10 +8,15 @@ export type RegisterRequest = {
     cityId: number;
 };
 export type ForgotPasswordRequest = { email: string };
+export type ResendActivationRequest = { email: string };
 export type ResetPasswordRequest = {
     email: string;
     code: string;
     newPassword: string;
+};
+export type ActivateAccountRequest = {
+    token: string;
+    password: string;
 };
 
 export type CurrentUser = {
@@ -26,6 +31,9 @@ export type RegisterResponse = {
     message?: string;
 } & Record<string, unknown>;
 export type PasswordActionResponse = {
+    message?: string;
+} & Record<string, unknown>;
+export type ActivateAccountResponse = {
     message?: string;
 } & Record<string, unknown>;
 
