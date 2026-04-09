@@ -350,3 +350,23 @@ body {
   background-color: var(--color-brand-muted);
   color: var(--color-brand-dark);
 }
+
+/* ---------------------------------------------------------------------------
+   6. Accesibilidad (ISO/IEC 25010)
+   --------------------------------------------------------------------------- */
+
+html[data-accessibility-font="dyslexia"] * {
+  font-family: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+}
+
+html[data-accessibility-font="dyslexia"] body {
+  --font-geist-sans: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+  --font-geist-mono: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+  --font-sans: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+  --font-serif: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+  --font-mono: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
+}
+
+html[data-accessibility-contrast="high"] {
+  filter: contrast(125%) saturate(110%);
+}
