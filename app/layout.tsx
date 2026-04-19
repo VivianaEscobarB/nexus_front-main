@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Providers } from "@/providers/Providers";
 import { ThemeScript } from "@/hooks/useTheme";
+import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
         style={fontVariables}
       >
         <Providers>
+            <AccessibilityMenu />
             {children}
         </Providers>
       </body>
