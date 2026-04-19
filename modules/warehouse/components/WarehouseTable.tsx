@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Warehouse } from '../types';
 import { WarehouseDeleteDialog } from './WarehouseDeleteDialog';
-import { Button } from '@/components/ui';
+import { Button, Pagination } from '@/components/ui';
+import { usePagination } from '@/shared/hooks/usePagination';
 import { httpClient } from '@/shared/api/httpClient';
 
 export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initialData }) => {
@@ -9,6 +10,13 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
   const [warehouseToDelete, setWarehouseToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const {
+      paginatedData: paginatedWarehouses,
+      currentPage,
+      totalPages,
+      goToPage,
+  } = usePagination(warehouses, 5);
 
   const handleDeleteConfirm = async () => {
     if (!warehouseToDelete) return;
@@ -38,7 +46,7 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
           <tr><th className="p-4">Nombre</th><th className="p-4">Dirección</th><th className="p-4">Estado</th><th className="p-4"></th></tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {warehouses.map((w) => (
+          {paginatedWarehouses.map((w) => (
             <tr key={w.id} className={`hover:bg-slate-50 ${!w.isActive ? 'opacity-50 grayscale bg-slate-50/50' : ''}`}>
               <td className="p-4 font-medium">{w.name}</td>
               <td className="p-4">{w.address}</td>
@@ -56,6 +64,14 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
           ))}
         </tbody>
       </table>
+
+      <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          className="bg-slate-50/50 border-t border-slate-100"
+      />
+
       <WarehouseDeleteDialog isOpen={!!warehouseToDelete} isLoading={isDeleting} onClose={() => setWarehouseToDelete(null)} onConfirm={handleDeleteConfirm} />
     </div>
   );
