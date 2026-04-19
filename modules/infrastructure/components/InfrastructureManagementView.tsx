@@ -25,6 +25,7 @@ import {
     deleteSector,
     deleteSpace,
     deleteWarehouse,
+    enableWarehouse,
     listSectors,
     listSpaces,
     listStatusCatalogsByEntityType,
@@ -68,7 +69,7 @@ type EditorState =
 
 const WAREHOUSE_STATUS_OPTIONS = [
     { value: "ACTIVE", label: "Activa" },
-    { value: "INACTIVE", label: "Inactiva" },
+    { value: "INACTIVE", label: "Inactivo" },
     { value: "MAINTENANCE", label: "Mantenimiento" },
 ] as const;
 
@@ -222,6 +223,9 @@ function isWarehouseInactive(warehouse: ManagedWarehouse): boolean {
 }
 
 function getWarehouseStatusLabel(warehouse: ManagedWarehouse): string {
+    if (isWarehouseInactive(warehouse)) {
+        return "Inactivo";
+    }
     if (warehouse.operationalLabel) {
         return warehouse.operationalLabel;
     }
@@ -1222,6 +1226,17 @@ export function InfrastructureManagementView() {
         loadInfrastructure();
     }, [loadInfrastructure]);
 
+    const sortedWarehouses = React.useMemo(() => {
+        return [...warehouses].sort((a, b) => {
+            const aIn = isWarehouseInactive(a) ? 1 : 0;
+            const bIn = isWarehouseInactive(b) ? 1 : 0;
+            if (aIn !== bIn) {
+                return aIn - bIn;
+            }
+            return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+        });
+    }, [warehouses]);
+
     const refreshStatusOptions = React.useCallback(async () => {
         try {
             const warehouseStatuses = await listStatusCatalogsByEntityType(
@@ -1262,19 +1277,22 @@ export function InfrastructureManagementView() {
     }, [refreshStatusOptions]);
 
     React.useEffect(() => {
-        if (warehouses.length === 0) {
+        if (sortedWarehouses.length === 0) {
             setSelectedWarehouseId(null);
             return;
         }
 
         setSelectedWarehouseId((current) => {
-            if (current && warehouses.some((warehouse) => warehouse.id === current)) {
+            if (
+                current &&
+                sortedWarehouses.some((warehouse) => warehouse.id === current)
+            ) {
                 return current;
             }
 
-            return warehouses[0]?.id ?? null;
+            return sortedWarehouses[0]?.id ?? null;
         });
-    }, [warehouses]);
+    }, [sortedWarehouses]);
 
     const filteredSectors = React.useMemo(() => {
         if (!selectedWarehouseId) {
@@ -1367,7 +1385,7 @@ export function InfrastructureManagementView() {
     async function handleDeleteWarehouseAction(warehouse: ManagedWarehouse) {
         if (
             !window.confirm(
-                `Se eliminara la bodega ${warehouse.name}. Esta accion no se puede deshacer.`
+                `¿Eliminar la bodega ${warehouse.name}? Quedará inactiva (baja lógica).`
             )
         ) {
             return;
@@ -1384,6 +1402,33 @@ export function InfrastructureManagementView() {
                 )
             );
             setFeedbackMessage("Bodega eliminada correctamente.");
+        } catch (error) {
+            setActionError(getErrorMessage(error));
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function handleEnableWarehouseAction(warehouse: ManagedWarehouse) {
+        if (
+            !window.confirm(
+                `¿Reactivar la bodega ${warehouse.name}?`
+            )
+        ) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        setActionError(null);
+
+        try {
+            const updatedWarehouse = await enableWarehouse(warehouse.id);
+            setWarehouses((current) =>
+                current.map((item) =>
+                    item.id === updatedWarehouse.id ? updatedWarehouse : item
+                )
+            );
+            setFeedbackMessage("Bodega reactivada correctamente.");
         } catch (error) {
             setActionError(getErrorMessage(error));
         } finally {
@@ -1583,8 +1628,8 @@ export function InfrastructureManagementView() {
                                                 className="h-28 animate-pulse rounded-2xl bg-[var(--color-surface-hover)]"
                                             />
                                         ))
-                                    ) : warehouses.length > 0 ? (
-                                        warehouses.map((warehouse) => {
+                                    ) : sortedWarehouses.length > 0 ? (
+                                        sortedWarehouses.map((warehouse) => {
                                             const isSelected =
                                                 warehouse.id === selectedWarehouseId;
                                             const warehouseInactive =
@@ -1675,18 +1720,33 @@ export function InfrastructureManagementView() {
                                                                     >
                                                                         Editar
                                                                     </Button>
-                                                                    <Button
-                                                                        variant="danger"
-                                                                        size="sm"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            void handleDeleteWarehouseAction(
-                                                                                warehouse
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        Eliminar
-                                                                    </Button>
+                                                                    {warehouseInactive ? (
+                                                                        <Button
+                                                                            variant="secondary"
+                                                                            size="sm"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                void handleEnableWarehouseAction(
+                                                                                    warehouse
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            Reactivar
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            variant="danger"
+                                                                            size="sm"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                void handleDeleteWarehouseAction(
+                                                                                    warehouse
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            Eliminar
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             ) : (
                                                                 <Badge
@@ -2143,7 +2203,7 @@ export function InfrastructureManagementView() {
                     isOpen={editor?.entity === "sector"}
                     mode={editor?.entity === "sector" ? editor.mode : "create"}
                     sector={editor?.entity === "sector" ? editor.sector : undefined}
-                    warehouses={warehouses}
+                    warehouses={sortedWarehouses}
                     defaultWarehouseId={selectedWarehouseId}
                     sectorStatusOptions={sectorStatusOptions}
                     isSubmitting={isSubmitting}
@@ -2177,7 +2237,7 @@ export function InfrastructureManagementView() {
                     isOpen={editor?.entity === "space"}
                     mode={editor?.entity === "space" ? editor.mode : "create"}
                     space={editor?.entity === "space" ? editor.space : undefined}
-                    warehouses={warehouses}
+                    warehouses={sortedWarehouses}
                     sectors={filteredSectors}
                     defaultWarehouseId={selectedWarehouseId}
                     defaultSectorId={selectedSectorId}
