@@ -97,15 +97,7 @@ export default function ClientDirectoryPage() {
     return (
         <RoleGuard allowedRoles={[UserRole.SALES_AGENT]}>
             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                            Directorio comercial
-                        </h1>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                            Consulta los clientes registrados y crea nuevas fichas comerciales.
-                        </p>
-                    </div>
+                <div className="flex flex-col sm:flex-row justify-end items-center gap-4">
                     <Button
                         variant="primary"
                         className="flex items-center gap-2"
