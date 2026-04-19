@@ -30,12 +30,15 @@ const A11Y_STORAGE_KEY = "nexus_accessibility_prefs";
 export function AccessibilityProvider({ children }: { children: ReactNode }) {
     const [state, setState] = useState<AccessibilityState>(defaultState);
 
-    // Initialize from local storage
+    // Initialize from local storage (defer setState to avoid sync setState-in-effect lint)
     useEffect(() => {
         try {
             const stored = localStorage.getItem(A11Y_STORAGE_KEY);
             if (stored) {
-                setState(JSON.parse(stored));
+                const parsed = JSON.parse(stored) as Partial<AccessibilityState>;
+                queueMicrotask(() => {
+                    setState((prev) => ({ ...prev, ...parsed }));
+                });
             }
         } catch (error) {
             console.error("Failed to restore accessibility preferences", error);

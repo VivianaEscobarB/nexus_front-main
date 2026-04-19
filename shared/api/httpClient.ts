@@ -9,6 +9,16 @@ import {
 
 type QueryValue = string | number | boolean | null | undefined;
 
+/**
+ * El API emite JWT en cookies. Entre orígenes distintos (p. ej. localhost:3000 → :8080)
+ * el valor por defecto de fetch (`credentials: "same-origin"`) no envía cookies;
+ * `include` es obligatorio para que JwtAuthenticationFilter reciba el token.
+ */
+const API_CROSS_ORIGIN_FETCH_DEFAULTS = {
+    credentials: "include" as RequestCredentials,
+    mode: "cors" as RequestMode,
+};
+
 export interface HttpRequestOptions {
     method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     headers?: HeadersInit;
@@ -184,11 +194,11 @@ async function request<T>(
     }
 
     const response = await fetch(url, {
+        ...API_CROSS_ORIGIN_FETCH_DEFAULTS,
         method,
         headers: requestHeaders,
         body: requestBody,
         signal,
-        credentials: "include",
     });
 
     if (
@@ -200,6 +210,7 @@ async function request<T>(
     ) {
         try {
             await authHandlers.refreshSession();
+            await waitForCookieSynchronization();
             return await request<T>(path, options, {
                 ...internal,
                 authRetried: true,
@@ -215,7 +226,8 @@ async function request<T>(
                 timestamp: new Date().toISOString(),
                 status: 401,
                 error: "Unauthorized",
-                message: "La sesion expiro. Vuelve a iniciar sesion.",
+                message:
+                    "Sesión expirada o no enviada al API. Vuelva a iniciar sesión (si reinició el backend, el token anterior deja de ser válido).",
                 path,
             });
         }

@@ -56,17 +56,36 @@ export default function DashboardLayout({
     if (role === UserRole.ADMIN) {
         const adminItems: NavItem[] = [
             ...(isBusinessProcessVisible("warehouseStructure")
-                ? [{
-                    name: "Estructura de Bodegas",
-                    href: "/dashboard/infrastructure",
-                    icon: BoxIcon,
-                }]
+                ? [
+                    {
+                        name: "Estructura de Bodegas",
+                        href: "/dashboard/infrastructure",
+                        icon: BoxIcon,
+                    },
+                    {
+                        name: "Unidades de arrendamiento",
+                        href: "/dashboard/sales/rental-units",
+                        icon: CubeIcon,
+                    },
+                    {
+                        name: "Sincronización catálogo",
+                        href: "/dashboard/sales/commercial-sync",
+                        icon: ArrowPathIcon,
+                    },
+                ]
                 : []),
             ...(isBusinessProcessVisible("userManagement")
                 ? [{
                     name: "Gestión de usuarios",
                     href: "/dashboard/users",
                     icon: ClipboardIcon,
+                }]
+                : []),
+            ...(isBusinessProcessVisible("contracts")
+                ? [{
+                    name: "Parametrización comercial",
+                    href: "/dashboard/sales/commercial-pricing",
+                    icon: TagIcon,
                 }]
                 : []),
         ];
@@ -98,6 +117,11 @@ export default function DashboardLayout({
                         icon: BoxIcon,
                     },
                     {
+                        name: "Unidades de arrendamiento",
+                        href: "/dashboard/sales/rental-units",
+                        icon: CubeIcon,
+                    },
+                    {
                         name: "Disponibilidad Detallada",
                         href: "/dashboard/infrastructure",
                         icon: BoxIcon,
@@ -105,11 +129,23 @@ export default function DashboardLayout({
                 ]
                 : []),
             ...(isBusinessProcessVisible("contracts")
-                ? [{
-                    name: "Generar Contrato",
-                    href: "/dashboard/sales/contracts/create",
-                    icon: DocumentTextIcon,
-                }]
+                ? [
+                    {
+                        name: "Parametrización comercial",
+                        href: "/dashboard/sales/commercial-pricing",
+                        icon: TagIcon,
+                    },
+                    {
+                        name: "Gestión de Reservas",
+                        href: "/dashboard/sales/reservations",
+                        icon: ClipboardIcon,
+                    },
+                    {
+                        name: "Consultar contratos",
+                        href: "/dashboard/contracts",
+                        icon: DocumentTextIcon,
+                    }
+                ]
                 : []),
         ];
 
@@ -157,16 +193,26 @@ export default function DashboardLayout({
             });
         }
     } else if (role === UserRole.CLIENT) {
-        if (isBusinessProcessVisible("warehouseStructure")) {
+        const clientItems: NavItem[] = [
+            ...(isBusinessProcessVisible("warehouseStructure")
+                ? [{
+                    name: "Mis bodegas",
+                    href: "/dashboard/my-inventory",
+                    icon: BoxIcon,
+                }]
+                : []),
+            ...(isBusinessProcessVisible("contracts")
+                ? [{
+                    name: "Mis contratos y pagos",
+                    href: "/dashboard/client/contracts",
+                    icon: CurrencyDollarIcon,
+                }]
+                : []),
+        ];
+        if (clientItems.length > 0) {
             navGroups.push({
                 title: "SERVICIOS",
-                items: [
-                    {
-                        name: "Disponibilidad",
-                        href: "/dashboard/my-inventory",
-                        icon: BoxIcon,
-                    },
-                ],
+                items: clientItems,
             });
         }
     }
@@ -247,7 +293,7 @@ export default function DashboardLayout({
                                         {user?.roles?.[0]?.role_name || role || "ADMIN"}
                                     </span>
                                     <span className="text-xs truncate opacity-60 mt-2.5 w-full font-medium" style={{ color: "var(--color-text-inverse)" }}>
-                                        {userProfile?.email || (user as any)?.email || "usuario@nexus.com"}
+                                        {userProfile?.email || user?.email || "usuario@nexus.com"}
                                     </span>
                                 </div>
                             )}
@@ -465,6 +511,31 @@ function DocumentTextIcon({ className, style }: IconProps) {
 
 function CurrencyDollarIcon({ className, style }: IconProps) {
     return <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33" /></svg>;
+}
+
+function TagIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+        </svg>
+    );
+}
+
+function CubeIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>
+    );
+}
+
+function ArrowPathIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+    );
 }
 
 function LogoutIcon({ className, style }: IconProps) {

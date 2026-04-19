@@ -25,6 +25,8 @@ export type CurrentUser = {
     email: string;
     status: string;
     roles: string[];
+    clientId?: number | string | null;
+    client_id?: number | string | null;
 };
 
 export type RegisterResponse = {
