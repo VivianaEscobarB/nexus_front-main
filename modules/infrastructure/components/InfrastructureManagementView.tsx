@@ -1495,19 +1495,43 @@ export function InfrastructureManagementView() {
                 ) : null}
 
                 {pageError ? (
-                    <Card>
-                        <CardBody className="space-y-4">
-                            <div>
-                                <h2 className="text-lg font-semibold text-[var(--color-danger-strong)]">
-                                    No fue posible cargar la infraestructura
+                    <Card className="flex flex-col items-center justify-center py-12 text-center">
+                        <CardBody className="max-w-md space-y-6">
+                            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-danger-subtle)] ring-8 ring-[var(--color-danger-subtle)]/30">
+                                <svg
+                                    className="h-10 w-10 text-[var(--color-danger-strong)]"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="space-y-2">
+                                <h2 className="text-xl font-bold tracking-tight text-[var(--color-text-primary)]">
+                                    No se pudo cargar la infraestructura
                                 </h2>
-                                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                                    {pageError}
+                                <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+                                    Estamos experimentando dificultades para conectar con el servicio. 
+                                    <span className="mt-1 block font-mono text-xs opacity-70">
+                                        Detalle: {pageError}
+                                    </span>
                                 </p>
                             </div>
-                            <Button onClick={() => loadInfrastructure()}>
-                                Intentar nuevamente
-                            </Button>
+                            <div className="pt-2">
+                                <Button 
+                                    size="lg" 
+                                    onClick={() => loadInfrastructure()}
+                                    className="px-8 shadow-lg shadow-[var(--color-brand-default)]/20"
+                                >
+                                    Intentar nuevamente
+                                </Button>
+                            </div>
                         </CardBody>
                     </Card>
                 ) : null}
