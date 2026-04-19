@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardBody, Input } from "@/components/ui";
+import { Button, Card, CardBody, Input, Pagination } from "@/components/ui";
+import { usePagination } from "@/shared/hooks/usePagination";
 import { RoleGuard } from "@/modules/auth";
 import {
     consumeClientCreateSuccessMessage,
@@ -86,6 +87,13 @@ export default function ClientDirectoryPage() {
         );
     }, [clients, searchTerm]);
 
+    const {
+        paginatedData: paginatedClients,
+        currentPage,
+        totalPages,
+        goToPage,
+    } = usePagination(filteredClients, 5);
+
     return (
         <RoleGuard allowedRoles={[UserRole.SALES_AGENT]}>
             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -159,7 +167,7 @@ export default function ClientDirectoryPage() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredClients.map((client) => (
+                                        paginatedClients.map((client) => (
                                             <tr key={client.id} className="hover:bg-[var(--color-surface-hover)]/50 transition-colors">
                                                 <td className="px-4 py-4">
                                                     <div className="font-semibold text-[var(--color-text-primary)]">{client.businessName}</div>
@@ -195,6 +203,12 @@ export default function ClientDirectoryPage() {
                                 </tbody>
                             </table>
                         </div>
+
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={goToPage}
+                        />
                     </CardBody>
                 </Card>
             </div>

@@ -14,6 +14,8 @@ import {
     listUsers,
     updateUser,
 } from "@/modules/users/api/usersApi";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/shared/hooks/usePagination";
 import { listRoles, type ApiRole } from "@/modules/users/api/rolesApi";
 import type {
     CreateUserInput,
@@ -474,6 +476,13 @@ export function UserManagementView({
         return [...filtered].sort(compareUsersByActiveThenName);
     }, [roleFilter, searchTerm, statusFilter, users]);
 
+    const {
+        paginatedData: paginatedUsers,
+        currentPage,
+        totalPages,
+        goToPage,
+    } = usePagination(filteredUsers, 5);
+
     const totals = React.useMemo(() => {
         return {
             total: users.length,
@@ -726,7 +735,7 @@ export function UserManagementView({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredUsers.map((user) => (
+                                        {paginatedUsers.map((user) => (
                                             <tr
                                                 key={user.id}
                                                 className="border-b border-[var(--color-border-subtle)] last:border-0"
@@ -836,6 +845,12 @@ export function UserManagementView({
                                 </table>
                             </div>
                         )}
+
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={goToPage}
+                        />
                     </CardBody>
                 </Card>
 

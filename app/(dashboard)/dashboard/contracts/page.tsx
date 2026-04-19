@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Button, Card, CardBody, Input, Select, Badge } from "@/components/ui";
+import { Button, Card, CardBody, Input, Select, Badge, Pagination } from "@/components/ui";
+import { usePagination } from "@/shared/hooks/usePagination";
 import Link from "next/link";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { Contract } from "@/types";
@@ -118,6 +119,13 @@ export default function ContractsPage() {
         return matchesSearch && matchesStatus;
     });
 
+    const {
+        paginatedData: paginatedContracts,
+        currentPage,
+        totalPages,
+        goToPage,
+    } = usePagination(filteredContracts, 5);
+
     const getStatusInfo = (status: Contract["status"]) => {
         switch (status) {
             case "ACTIVE":
@@ -211,7 +219,7 @@ export default function ContractsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredContracts.map((contract) => {
+                                    paginatedContracts.map((contract) => {
                                         const statusInfo = getStatusInfo(contract.status);
                                         return (
                                             <tr key={contract.contract_id} className="hover:bg-[var(--color-surface-hover)] transition-colors">
@@ -258,6 +266,13 @@ export default function ContractsPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={goToPage}
+                        className="px-4"
+                    />
                 </CardBody>
             </Card>
         </div>
