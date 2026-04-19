@@ -57,8 +57,7 @@ export default function HomePage() {
             <span className="font-bold text-xl tracking-tight" style={{ color: "var(--color-text-primary)" }}>Nexus</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
+          <div className="flex items-center gap-4 mr-16">
             <Link href="/login">
               <Button variant="primary" size="sm" className="hidden sm:flex">
                 Entrar

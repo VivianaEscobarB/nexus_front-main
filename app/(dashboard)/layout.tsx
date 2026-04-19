@@ -357,8 +357,6 @@ export default function DashboardLayout({
                         </h1>
 
                         <div className="flex items-center gap-2 ml-auto">
-                            <ThemeToggle />
-                            <AccessibilityMenu variant="header" />
                             <div className="flex md:hidden items-center gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] overflow-hidden relative">
                                     {userProfile?.avatarUrl ? (
