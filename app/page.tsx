@@ -47,7 +47,7 @@ function LightningIcon({ className }: { className?: string }) {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col font-sans selection:bg-brand-muted selection:text-brand-dark" style={{ background: "var(--color-surface-app)" }}>
+    <div className="min-h-screen flex flex-col font-sans selection:bg-brand-strong selection:text-text-inverse" style={{ background: "var(--color-surface-app)" }}>
 
       {/* 1. Header / Navegación */}
       <header className="sticky top-0 z-50 w-full border-b backdrop-blur-md" style={{ background: "var(--color-surface-app)", borderColor: "var(--color-border-subtle)" }}>
