@@ -178,7 +178,7 @@ export default function DashboardLayout({
                 style={{ background: "var(--color-surface-sunken)" }}
             >
                 <aside
-                    className={`hidden md:flex flex-col border-r transition-all duration-300 ${isSidebarCollapsed ? "w-20" : "w-64"}`}
+                    className={`hidden md:flex flex-col border-r transition-all duration-300 sticky top-0 h-screen ${isSidebarCollapsed ? "w-20" : "w-64"}`}
                     style={{
                         background: "var(--color-sidebar-bg)",
                         borderColor: "var(--color-sidebar-border)",
