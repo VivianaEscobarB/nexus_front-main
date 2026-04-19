@@ -630,15 +630,7 @@ export function UserManagementView({
     return (
         <RoleGuard allowedRoles={[UserRole.ADMIN]}>
             <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
-                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                            Gestión de usuarios
-                        </h1>
-                        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                            Crea, actualiza y administra los accesos del equipo.
-                        </p>
-                    </div>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-end">
                     <div className="flex gap-3">
                         <Button variant="outline" onClick={() => loadUsers()}>
                             Actualizar

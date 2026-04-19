@@ -149,15 +149,7 @@ export default function ContractsPage() {
         <ProcessVisibilityGuard process="contracts">
             <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
             {/* Cabecera */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--color-text-primary)" }}>
-                        Historial de Contratos
-                    </h1>
-                    <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>
-                        Gestiona y supervisa todos los acuerdos comerciales y su estado financiero.
-                    </p>
-                </div>
+            <div className="flex flex-col md:flex-row justify-end items-center gap-4">
                 {user?.roles?.some(r => r.role_name === "SALES_AGENT" || r.role_name === "ADMIN") && (
                     <Link href="/dashboard/sales/contracts/create">
                         <Button variant="primary">

@@ -40,14 +40,57 @@ export default function DashboardLayout({
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [userProfile, setUserProfile] = useState<{name: string, email: string, avatarUrl: string} | null>(null);
 
+    const role = user?.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
+
+    const getRouteMetadata = (path: string) => {
+        if (path === "/dashboard") {
+            return {
+                title: "Inicio",
+                description: "Resumen de operaciones y accesos rápidos."
+            };
+        }
+        if (path.startsWith("/dashboard/users")) {
+            return {
+                title: "Gestión de usuarios",
+                description: "Crea, actualiza y administra los accesos del equipo."
+            };
+        }
+        if (path.startsWith("/dashboard/clients")) {
+            return {
+                title: "Directorio comercial",
+                description: "Consulta los clientes registrados y crea nuevas fichas comerciales."
+            };
+        }
+        if (path.startsWith("/dashboard/contracts")) {
+            return {
+                title: "Historial de contratos",
+                description: "Gestiona y supervisa todos los acuerdos comerciales y su estado financiero."
+            };
+        }
+        if (path.startsWith("/dashboard/infrastructure")) {
+            const isClient = role === UserRole.CLIENT;
+            const isSales = role === UserRole.SALES_AGENT;
+            
+            return {
+                title: isClient ? "Disponibilidad de bodegas" : isSales ? "Disponibilidad operativa" : "Estructura de bodegas",
+                description: isClient 
+                    ? "Consulta bodegas y espacios disponibles para tu operación." 
+                    : isSales 
+                        ? "Consulta la disponibilidad real de bodegas antes de ofertar." 
+                        : "Gestiona la estructura física de la operación."
+            };
+        }
+        return null;
+    };
+
+    const metadata = getRouteMetadata(pathname);
+
     React.useEffect(() => {
         fetch("/api/user")
             .then(res => res.json())
             .then(data => setUserProfile(data))
             .catch(console.error);
     }, []);
-
-    const role = user?.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
 
     const navGroups: NavGroup[] = [
         { items: [{ name: "Inicio", href: "/dashboard", icon: HomeIcon }] },
@@ -333,7 +376,7 @@ export default function DashboardLayout({
 
                 <main className="flex-1 flex flex-col min-w-0">
                     <header
-                        className="h-16 border-b flex items-center justify-between px-6 bg-white/50 backdrop-blur-md sticky top-0 z-40"
+                        className="h-20 border-b flex items-center justify-between px-6 bg-white/50 backdrop-blur-md sticky top-0 z-40"
                         style={{
                             background: "var(--color-surface-app)",
                             borderColor: "var(--color-border-subtle)",
@@ -346,17 +389,23 @@ export default function DashboardLayout({
                             <MenuIcon className="w-6 h-6" />
                         </button>
 
-                        <h1
-                            className="text-lg font-semibold tracking-tight hidden md:block"
-                            style={{ color: "var(--color-text-primary)" }}
-                        >
-                            {navGroups
-                                .flatMap((group) => group.items)
-                                .find((item) => item.href === pathname)?.name ||
-                                "Dashboard"}
-                        </h1>
+                        {metadata && (
+                            <div className="hidden md:flex flex-col">
+                                <h1
+                                    className="text-xl font-bold tracking-tight"
+                                    style={{ color: "var(--color-text-primary)" }}
+                                >
+                                    {metadata.title}
+                                </h1>
+                                <p className="text-xs font-medium" style={{ color: "var(--color-text-tertiary)" }}>
+                                    {metadata.description}
+                                </p>
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-2 ml-auto">
+                            <AccessibilityMenu />
+                            <ThemeToggle />
                             <div className="flex md:hidden items-center gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] overflow-hidden relative">
                                     {userProfile?.avatarUrl ? (

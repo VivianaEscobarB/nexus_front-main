@@ -1436,39 +1436,7 @@ export function InfrastructureManagementView() {
             ]}
         >
             <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <h1
-                            className="text-3xl font-extrabold tracking-tight"
-                            style={{ color: "var(--color-text-primary)" }}
-                        >
-                            {isClientViewer
-                                ? "Disponibilidad de bodegas"
-                                : isSalesViewer
-                                    ? "Disponibilidad operativa"
-                                    : "Infraestructura de bodegas"}
-                        </h1>
-                        <p
-                            className="mt-2 max-w-3xl text-base"
-                            style={{ color: "var(--color-text-secondary)" }}
-                        >
-                            {isClientViewer
-                                ? "Consulta bodegas y espacios disponibles para tu operación. "
-                                : isSalesViewer
-                                    ? "Consulta la disponibilidad real de bodegas, sectores y espacios antes de ofertar. "
-                                    : "Gestiona la estructura física de la operación. "}
-                            {canManageWarehouses
-                                ? "Administración puede modificar bodegas, sectores y espacios."
-                                : canManageStructure
-                                    ? "Supervisión puede operar sectores y espacios, pero no modificar bodegas."
-                                    : isSalesViewer
-                                        ? "Ventas puede consultar bodegas, sectores y espacios sin capacidad de edición."
-                                        : isClientViewer
-                                            ? "Cliente puede consultar bodegas y espacios sin capacidad de edición."
-                                            : "Operación puede consultar bodegas, sectores y espacios sin capacidad de edición."}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-3">
                         <Badge
                             label={
                                 canManageWarehouses
@@ -1519,7 +1487,6 @@ export function InfrastructureManagementView() {
                             Recargar
                         </Button>
                     </div>
-                </div>
 
                 {feedbackMessage ? (
                     <div className="rounded-xl border border-[var(--color-success-strong)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]">
