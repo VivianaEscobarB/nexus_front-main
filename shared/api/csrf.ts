@@ -149,6 +149,7 @@ export async function ensureCsrfToken(
     csrfBootstrapPromise = (async () => {
         const response = await fetch(url, {
             method: "GET",
+            mode: "cors",
             headers: {
                 Accept: "application/json",
             },

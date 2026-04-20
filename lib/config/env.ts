@@ -89,6 +89,11 @@ const csrfHeaderName = parseString(
     "X-CSRF-TOKEN"
 );
 
+const stripePublishableKey = parseString(
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    ""
+);
+
 export const appEnv = {
     apiBaseUrl: normalizeUrl(
         apiTarget === "local" ? localApiBaseUrl : deployedApiBaseUrl
@@ -109,6 +114,8 @@ export const appEnv = {
     sessionCookieName,
     csrfCookieName,
     csrfHeaderName,
+    /** Clave publicable pk_test_… para Stripe.js; vacía si no hay pagos con tarjeta en el navegador. */
+    stripePublishableKey: stripePublishableKey.length > 0 ? stripePublishableKey : null,
 } as const;
 
 export type { ApiTarget, ProviderMode };

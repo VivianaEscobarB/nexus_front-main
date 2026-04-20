@@ -17,6 +17,23 @@ function WarehouseIcon() {
     return <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m16.5 0V4.875c0-.621-.504-1.125-1.125-1.125H4.875c-.621 0-1.125.504-1.125 1.125V7.5m16.5 0h-16.5" /></svg>;
 }
 
+function TagIcon() {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+        </svg>
+    );
+}
+
+function SyncIcon() {
+    return (
+        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+    );
+}
+
 function AdminActionCard({
     title,
     description,
@@ -112,6 +129,33 @@ export function AdminDashboard() {
                         href="/dashboard/infrastructure"
                         cta="Abrir infraestructura"
                         icon={<WarehouseIcon />}
+                    />
+                ) : null}
+                {isBusinessProcessVisible("warehouseStructure") ? (
+                    <AdminActionCard
+                        title="Unidades de arrendamiento"
+                        description="Consulta IDs y vínculos a bodega, sector o espacio. Las filas provienen de la infraestructura y del sync del catálogo."
+                        href="/dashboard/sales/rental-units"
+                        cta="Ver listado"
+                        icon={<WarehouseIcon />}
+                    />
+                ) : null}
+                {isBusinessProcessVisible("warehouseStructure") ? (
+                    <AdminActionCard
+                        title="Sincronización catálogo"
+                        description="Ejecuta un resync masivo físico → rental units si hubo datos previos a los eventos de sincronización."
+                        href="/dashboard/sales/commercial-sync"
+                        cta="Abrir sincronización"
+                        icon={<SyncIcon />}
+                    />
+                ) : null}
+                {isBusinessProcessVisible("contracts") ? (
+                    <AdminActionCard
+                        title="Parametrización comercial"
+                        description="Asigna precio base, moneda y estado comercial a cada unidad de arrendamiento del catálogo."
+                        href="/dashboard/sales/commercial-pricing"
+                        cta="Abrir parametrización"
+                        icon={<TagIcon />}
                     />
                 ) : null}
             </section>

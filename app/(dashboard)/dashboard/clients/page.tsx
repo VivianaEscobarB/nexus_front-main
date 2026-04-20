@@ -103,7 +103,7 @@ export default function ClientDirectoryPage() {
                         className="flex items-center gap-2"
                         onClick={() => router.push("/dashboard/clients/create")}
                     >
-                        <PlusIcon /> Registrar nuevo cliente
+                        <PlusIcon /> Registrar nuevo prospecto
                     </Button>
                 </div>
 
