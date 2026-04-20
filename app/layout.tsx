@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Providers } from "@/providers/Providers";
 import { ThemeScript } from "@/hooks/useTheme";
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
+import { Chatbot } from "@/components/ui/Chatbot";
 
 import "./globals.css";
 
@@ -38,6 +39,7 @@ export default function RootLayout({
         <Providers>
             <AccessibilityMenu />
             {children}
+            <Chatbot />
         </Providers>
       </body>
     </html>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 /**
  * usePagination — Una utilidad simple para manejar paginación del lado del cliente.
@@ -15,7 +15,7 @@ export function usePagination<T>(data: T[], pageSize: number = 5) {
     }, [data, currentPage, pageSize]);
 
     // Reset a la página 1 si los datos cambian (ej. por filtros)
-    useMemo(() => {
+    useEffect(() => {
         setCurrentPage(1);
     }, [data.length]);
 
