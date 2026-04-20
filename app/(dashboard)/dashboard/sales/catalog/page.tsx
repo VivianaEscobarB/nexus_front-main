@@ -89,15 +89,6 @@ export default function SalesCatalogPage() {
                 </div>
             </div>
 
-            {/* Capacity KPI Info */}
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-info-subtle)] p-3 rounded-lg border border-[var(--color-info-default)]/30">
-                <CheckBadgeIcon />
-                <span>
-                    Mostrando <strong>{filteredBodegas.length}</strong> opciones de almacenamiento.
-                    Tenga en cuenta que no puede ofertar áreas superiores a la capacidad disponible (<strong>available_capacity_m2</strong>).
-                </span>
-            </div>
-
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredBodegas.map(bodega => {

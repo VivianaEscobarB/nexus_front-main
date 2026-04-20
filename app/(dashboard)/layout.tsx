@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/modules/auth";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
+import { LegalFooter } from "@/components/ui/LegalFooter";
 import { useAuthStore, authStore } from "@/modules/auth/state/authStore";
 import { isBusinessProcessVisible } from "@/shared/config/processVisibility";
 import { UserRole } from "@/types";
@@ -451,8 +452,11 @@ export default function DashboardLayout({
                         </div>
                     ) : null}
 
-                    <div className="p-6 md:p-8 flex-1 overflow-auto">
-                        {children}
+                    <div className="p-6 md:p-8 flex-1 overflow-auto flex flex-col">
+                        <div className="flex-1">
+                            {children}
+                        </div>
+                        <LegalFooter />
                     </div>
                 </main>
             </div>

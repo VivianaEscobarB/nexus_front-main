@@ -33,6 +33,7 @@ export default function RootLayout({
       <body
         className="antialiased"
         style={fontVariables}
+        suppressHydrationWarning
       >
         <Providers>
             <AccessibilityMenu />
