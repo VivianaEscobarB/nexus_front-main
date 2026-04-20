@@ -13,9 +13,11 @@ import {
     Input,
     Modal,
     Select,
+    Pagination,
     StatCard,
 } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import { usePagination } from "@/shared/hooks/usePagination";
 import { RoleGuard } from "@/modules/auth";
 import {
     createSector,
@@ -1237,6 +1239,13 @@ export function InfrastructureManagementView() {
         });
     }, [warehouses]);
 
+    const {
+        paginatedData: paginatedWarehouses,
+        currentPage: warehousePage,
+        totalPages: warehouseTotalPages,
+        goToPage: goToWarehousePage,
+    } = usePagination(sortedWarehouses, 5);
+
     const refreshStatusOptions = React.useCallback(async () => {
         try {
             const warehouseStatuses = await listStatusCatalogsByEntityType(
@@ -1629,136 +1638,105 @@ export function InfrastructureManagementView() {
                                             />
                                         ))
                                     ) : sortedWarehouses.length > 0 ? (
-                                        sortedWarehouses.map((warehouse) => {
-                                            const isSelected =
-                                                warehouse.id === selectedWarehouseId;
-                                            const warehouseInactive =
-                                                isWarehouseInactive(warehouse);
+                                        <div className="flex flex-col gap-4">
+                                            {paginatedWarehouses.map((warehouse) => {
+                                                const isSelected =
+                                                    warehouse.id === selectedWarehouseId;
+                                                const warehouseInactive =
+                                                    isWarehouseInactive(warehouse);
 
-                                            return (
-                                                <Card
-                                                    key={warehouse.id}
-                                                    clickable
-                                                    variant={isSelected ? "outlined" : "default"}
-                                                    className={[
-                                                        "border",
-                                                        isSelected
-                                                            ? "border-[var(--color-brand-strong)] bg-[var(--color-brand-subtle)]"
-                                                            : "border-[var(--color-border-subtle)]",
-                                                        warehouseInactive
-                                                            ? "opacity-80"
-                                                            : "",
-                                                    ].join(" ")}
-                                                    onClick={() => {
-                                                        setSelectedWarehouseId(warehouse.id);
-                                                        setFeedbackMessage(null);
-                                                    }}
-                                                >
-                                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                                        <div className="space-y-2">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                                                                    {warehouse.name}
-                                                                </h3>
-                                                                <Badge
-                                                                    label={warehouse.code}
-                                                                    variant="brand"
-                                                                />
-                                                                <Badge
-                                                                    label={getWarehouseStatusLabel(warehouse)}
-                                                                    variant={
-                                                                        warehouseInactive
-                                                                            ? "neutral"
-                                                                            : "success"
-                                                                    }
-                                                                />
-                                                            </div>
-                                                            <p className="text-sm text-[var(--color-text-secondary)]">
-                                                                {warehouse.address}
-                                                            </p>
-                                                            <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)]">
-                                                                <span>
-                                                                    Total:{" "}
-                                                                    {formatCapacity(
-                                                                        warehouse.totalCapacityM2
-                                                                    )}
-                                                                </span>
-                                                                <span>
-                                                                    Disponible:{" "}
-                                                                    {formatCapacity(
-                                                                        warehouse.availableCapacityM2
-                                                                    )}
-                                                                </span>
-                                                                {warehouse.cityName ? (
+                                                return (
+                                                    <Card
+                                                        key={warehouse.id}
+                                                        clickable
+                                                        variant={isSelected ? "outlined" : "default"}
+                                                        className={[
+                                                            "border",
+                                                            isSelected
+                                                                ? "border-[var(--color-brand-strong)] bg-[var(--color-brand-subtle)]"
+                                                                : "border-[var(--color-border-subtle)]",
+                                                            warehouseInactive
+                                                                ? "opacity-80"
+                                                                : "",
+                                                        ].join(" ")}
+                                                        onClick={() => {
+                                                            setSelectedWarehouseId(warehouse.id);
+                                                            setFeedbackMessage(null);
+                                                        }}
+                                                    >
+                                                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                                            <div className="space-y-2">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                                                                        {warehouse.name}
+                                                                    </h3>
+                                                                    <Badge
+                                                                        label={warehouse.code}
+                                                                        variant="brand"
+                                                                    />
+                                                                    <Badge
+                                                                        label={getWarehouseStatusLabel(warehouse)}
+                                                                        variant={
+                                                                            warehouseInactive
+                                                                                ? "neutral"
+                                                                                : "success"
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                                <p className="text-sm text-[var(--color-text-secondary)]">
+                                                                    {warehouse.address}
+                                                                </p>
+                                                                <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)]">
                                                                     <span>
-                                                                        Ciudad: {warehouse.cityName}
+                                                                        Total:{" "}
+                                                                        {formatCapacity(
+                                                                            warehouse.totalCapacityM2
+                                                                        )}
                                                                     </span>
-                                                                ) : null}
-                                                                {warehouse.typeName ? (
                                                                     <span>
-                                                                        Tipo: {warehouse.typeName}
+                                                                        Disponible:{" "}
+                                                                        {formatCapacity(
+                                                                            warehouse.availableCapacityM2
+                                                                        )}
                                                                     </span>
-                                                                ) : null}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {canManageWarehouses ? (
-                                                                <>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        disabled={warehouseInactive}
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            setFeedbackMessage(null);
-                                                                            setEditor({
-                                                                                entity: "warehouse",
-                                                                                mode: "edit",
-                                                                                warehouse,
-                                                                            });
-                                                                        }}
-                                                                    >
-                                                                        Editar
-                                                                    </Button>
-                                                                    {warehouseInactive ? (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {!isSalesViewer && !isClientViewer && canManageWarehouses ? (
+                                                                    <>
                                                                         <Button
-                                                                            variant="secondary"
+                                                                            variant="outline"
                                                                             size="sm"
+                                                                            disabled={warehouseInactive}
                                                                             onClick={(event) => {
                                                                                 event.stopPropagation();
-                                                                                void handleEnableWarehouseAction(
-                                                                                    warehouse
-                                                                                );
+                                                                                setFeedbackMessage(null);
+                                                                                setEditor({
+                                                                                    entity: "warehouse",
+                                                                                    mode: "edit",
+                                                                                    warehouse,
+                                                                                });
                                                                             }}
                                                                         >
-                                                                            Reactivar
+                                                                            Editar
                                                                         </Button>
-                                                                    ) : (
-                                                                        <Button
-                                                                            variant="danger"
-                                                                            size="sm"
-                                                                            onClick={(event) => {
-                                                                                event.stopPropagation();
-                                                                                void handleDeleteWarehouseAction(
-                                                                                    warehouse
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            Eliminar
-                                                                        </Button>
-                                                                    )}
-                                                                </>
-                                                            ) : (
-                                                                <Badge
-                                                                    label="Solo lectura"
-                                                                    variant="neutral"
-                                                                />
-                                                            )}
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-[10px] uppercase font-bold text-[var(--color-text-tertiary)] tracking-wider">Solo lectura</span>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </Card>
-                                            );
-                                        })
+                                                    </Card>
+                                                );
+                                            })}
+                                            
+                                            <Pagination
+                                                currentPage={warehousePage}
+                                                totalPages={warehouseTotalPages}
+                                                onPageChange={goToWarehousePage}
+                                                className="mt-2"
+                                            />
+                                        </div>
                                     ) : (
                                         <EmptyState
                                             title="No hay bodegas registradas"
