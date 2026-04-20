@@ -14,7 +14,7 @@ export const businessProcessVisibility: Record<BusinessProcess, boolean> = {
     clientManagement: true,
     inventory: false,
     movements: false,
-    contracts: false,
+    contracts: true,
 };
 
 export function isBusinessProcessVisible(process: BusinessProcess): boolean {

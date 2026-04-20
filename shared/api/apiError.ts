@@ -99,13 +99,20 @@ export function extractRichApiErrorMessage(payload: unknown): string | null {
     return null;
 }
 
+const UNAUTHORIZED_DEFAULT_MESSAGE =
+    "Sesión expirada o no enviada al API (cookie de acceso). Vuelva a iniciar sesión.";
+
 export function buildApiError(
     payload: unknown,
     status: number,
     path: string
 ): ApiError {
     if (isAuthErrorPayload(payload)) {
-        return new ApiError(payload);
+        const base = new ApiError(payload);
+        if (status === 401 && !payload.message?.trim()) {
+            return new ApiError({ ...payload, message: UNAUTHORIZED_DEFAULT_MESSAGE });
+        }
+        return base;
     }
 
     const rich = extractRichApiErrorMessage(payload);
@@ -115,8 +122,9 @@ export function buildApiError(
         status,
         error: status >= 500 ? "Server Error" : "Request Error",
         message:
-            rich ??
-            "No fue posible completar la solicitud.",
+            status === 401
+                ? (rich ?? UNAUTHORIZED_DEFAULT_MESSAGE)
+                : (rich ?? "No fue posible completar la solicitud."),
         path,
     });
 }

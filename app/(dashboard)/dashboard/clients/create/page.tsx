@@ -210,7 +210,7 @@ export default function CreateClientPage() {
             });
 
             persistClientCreateSuccessMessage(
-                "Cliente registrado correctamente. Se ha enviado un correo para activar su cuenta."
+                "Prospecto registrado correctamente. El acceso al portal se habilitará tras concretar una venta."
             );
             reset(buildDefaultValues());
             router.replace("/dashboard/clients");
@@ -237,11 +237,11 @@ export default function CreateClientPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                            Registrar nuevo cliente
+                            Registrar prospecto comercial
                         </h1>
                         <p className="text-sm text-[var(--color-text-secondary)]">
-                            Crea la ficha comercial del cliente. Su acceso se
-                            enviará por correo automáticamente.
+                            Crea la ficha base del prospecto. Las credenciales de acceso 
+                            se generarán tras facturar su primer contrato.
                         </p>
                     </div>
                 </div>
@@ -282,8 +282,8 @@ export default function CreateClientPage() {
                             aria-busy={isSubmitting}
                         >
                             <FormSection
-                                title="Datos comerciales del cliente"
-                                description="Información base para crear el registro y enviar el acceso por correo."
+                                title="Datos comerciales del prospecto"
+                                description="Información base obligatoria para poder generar cotizaciones o contratos."
                             >
                                 <FormRow cols={2}>
                                     <Select
@@ -452,8 +452,8 @@ export default function CreateClientPage() {
                                     disabled={!isValid || isSubmitting}
                                 >
                                     {isSubmitting
-                                        ? "Registrando cliente..."
-                                        : "Registrar cliente"}
+                                        ? "Registrando prospecto..."
+                                        : "Guardar prospecto"}
                                 </Button>
                             </FormActions>
                         </Form>

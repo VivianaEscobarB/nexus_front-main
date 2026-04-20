@@ -63,6 +63,7 @@ function mapRole(role: string, index: number): Role {
 }
 
 function mapCurrentUserToUser(user: CurrentUser): User {
+    const rawClientId = user.clientId ?? user.client_id ?? null;
     return {
         user_id: String(user.id),
         first_name: user.username,
@@ -70,6 +71,7 @@ function mapCurrentUserToUser(user: CurrentUser): User {
         email: user.email,
         status: normalizeStatus(user.status),
         roles: user.roles.map(mapRole),
+        client_id: rawClientId != null ? String(rawClientId) : null,
     };
 }
 

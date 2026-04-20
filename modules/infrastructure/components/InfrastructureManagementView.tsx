@@ -1486,7 +1486,6 @@ export function InfrastructureManagementView() {
                 UserRole.WAREHOUSE_SUPERVISOR,
                 UserRole.WAREHOUSE_OPERATOR,
                 UserRole.SALES_AGENT,
-                UserRole.CLIENT,
             ]}
         >
             <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
