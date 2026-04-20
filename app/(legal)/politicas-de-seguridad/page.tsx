@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 function ChevronLeftIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
@@ -10,14 +10,19 @@ function ChevronLeftIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function SecurityPoliciesPage() {
+    const router = useRouter();
+
     return (
         <div className="min-h-screen bg-[var(--color-surface-sunken)]">
             <div className="max-w-4xl mx-auto py-12 px-6 sm:px-8">
                 <div className="mb-8 block">
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary-default)] transition-colors">
+                    <button 
+                        onClick={() => router.back()}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary-default)] transition-colors cursor-pointer"
+                    >
                         <ChevronLeftIcon className="w-4 h-4" />
-                        Volver al inicio
-                    </Link>
+                        Volver
+                    </button>
                 </div>
 
                 <div className="bg-[var(--color-surface-app)] rounded-2xl shadow-sm border border-[var(--color-border-subtle)] p-8 sm:p-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
