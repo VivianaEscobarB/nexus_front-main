@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 interface AuthSplitViewProps {
@@ -47,9 +48,18 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
 
             {/* ── Panel derecho: formulario ──────────────────────────────────────── */}
             <div
-                className="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-12"
+                className="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-12 relative"
                 style={{ background: "var(--color-surface-app)" }}
             >
+                <div className="absolute top-6 left-6 lg:left-12">
+                    <Link href="/" className="flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70" style={{ color: "var(--color-text-secondary)" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                        </svg>
+                        Volver al inicio
+                    </Link>
+                </div>
+
                 <div className="w-full max-w-md space-y-8">
 
                     {/* Header del formulario */}
