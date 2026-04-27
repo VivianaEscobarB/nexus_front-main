@@ -1,4 +1,5 @@
 import React from "react";
+import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 interface AuthSplitViewProps {
     title: string;
@@ -10,6 +11,11 @@ interface AuthSplitViewProps {
 export function AuthSplitView({ title, subtitle, children, footerText }: AuthSplitViewProps) {
     return (
         <>
+            {/* Accessibility global for auth */}
+            <div className="absolute top-6 right-6 z-[9000]">
+                <AccessibilityMenu />
+            </div>
+
             {/* ── Panel izquierdo: brand visual ─────────────────────────────────── */}
             <div
                 className="hidden lg:flex lg:w-[50%] flex-col relative overflow-hidden justify-center items-center text-center p-12"

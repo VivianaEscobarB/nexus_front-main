@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
+import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 export const metadata: Metadata = {
   title: "Nexus — Gestión de Bodegas y Control de Inventario",
@@ -57,7 +58,8 @@ export default function HomePage() {
             <span className="font-bold text-xl tracking-tight" style={{ color: "var(--color-text-primary)" }}>Nexus</span>
           </div>
 
-          <div className="flex items-center gap-4 mr-16">
+          <div className="flex items-center gap-4">
+            <AccessibilityMenu />
             <Link href="/login">
               <Button variant="primary" size="sm" className="hidden sm:flex">
                 Entrar

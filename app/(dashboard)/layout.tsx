@@ -3,7 +3,7 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
 import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/modules/auth";
 import { UserProfileModal } from "@/components/UserProfileModal";
@@ -464,7 +464,6 @@ export default function DashboardLayout({
 
                         <div className="flex items-center gap-2 ml-auto">
                             <AccessibilityMenu />
-                            <ThemeToggle />
                             <div className="flex md:hidden items-center gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-onbrand)] overflow-hidden relative">
                                     {userProfile?.avatarUrl ? (
