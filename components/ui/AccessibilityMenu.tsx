@@ -90,8 +90,8 @@ export function AccessibilityMenu() {
             {/* Toggle Button (Always at the top) */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border-2 border-white/20
-                    ${isOpen ? "bg-white text-[#0066FF] rotate-90" : "bg-[#0066FF] text-white hover:scale-110 active:scale-95"}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border-2 border-text-onbrand/20
+                    ${isOpen ? "bg-surface-base text-brand-default rotate-90" : "bg-brand-default text-onbrand hover:scale-110 active:scale-95"}
                 `}
                 aria-label={isOpen ? "Cerrar menú de accesibilidad" : "Abrir menú de accesibilidad"}
                 aria-expanded={isOpen}
@@ -105,7 +105,7 @@ export function AccessibilityMenu() {
                     ${isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 -translate-y-4 pointer-events-none"}
                 `}
             >
-                <div className="bg-[#0066FF] p-2 rounded-full flex flex-col items-center gap-2 shadow-2xl border border-white/10">
+                <div className="bg-brand-default p-2 rounded-full flex flex-col items-center gap-2 shadow-2xl border border-text-onbrand/10">
                     {/* Contrast */}
                     <MenuButton 
                         onClick={toggleHighContrast} 
@@ -139,7 +139,7 @@ export function AccessibilityMenu() {
                         <PaperPlaneIcon />
                     </MenuButton>
 
-                    <div className="w-8 h-[1px] bg-white/20 my-1" />
+                    <div className="w-8 h-[1px] bg-text-onbrand/20 my-1" />
 
                     {/* Reset */}
                     <MenuButton onClick={resetAccessibility} title="Restablecer ajustes">
@@ -165,8 +165,8 @@ function MenuButton({ children, onClick, active, title }: MenuButtonProps) {
             title={title}
             className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-200
                 ${active 
-                    ? "bg-white text-[#0066FF] shadow-inner" 
-                    : "text-white hover:bg-white/20 active:bg-white/40"}
+                    ? "bg-surface-base text-brand-default shadow-inner" 
+                    : "text-onbrand hover:bg-text-onbrand/20 active:bg-text-onbrand/40"}
             `}
         >
             {children}

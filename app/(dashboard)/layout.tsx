@@ -293,13 +293,13 @@ export default function DashboardLayout({
                         {!isSidebarCollapsed && (
                             <div className="flex items-center gap-2 overflow-hidden">
                                 <img
-                                    src="/logo.svg"
+                                    src="/Exclude.svg"
                                     alt="Nexus Logo"
-                                    className="h-6 w-6 shrink-0 object-contain"
+                                    className="h-10 w-10 shrink-0 object-contain"
                                 />
                                 <span
                                     className="font-bold text-lg tracking-tight truncate"
-                                    style={{ color: "var(--color-text-inverse)" }}
+                                    style={{ color: "var(--color-sidebar-text-active)" }}
                                 >
                                     Nexus
                                 </span>
@@ -307,7 +307,7 @@ export default function DashboardLayout({
                         )}
                         <button 
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="p-1.5 rounded-md text-[var(--color-text-inverse)] hover:bg-white/10 transition-colors shrink-0"
+                            className="p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0"
                             title={isSidebarCollapsed ? "Expandir menú" : "Contraer menú"}
                         >
                             {isSidebarCollapsed ? (
@@ -324,7 +324,7 @@ export default function DashboardLayout({
                             className={`flex flex-col items-center rounded-xl transition-all duration-300 group hover:bg-[var(--color-sidebar-item-hover)] hover:shadow-sm border border-transparent hover:border-[var(--color-sidebar-item-hover)] text-center relative ${isSidebarCollapsed ? "p-2 gap-0 w-auto" : "w-full gap-2 p-4"}`}
                             title="Ver Perfil"
                         >
-                            <div className={`${isSidebarCollapsed ? "w-10 h-10 ring-2 text-sm" : "w-20 h-20 ring-[3px] text-3xl mb-2"} shrink-0 rounded-full flex items-center justify-center font-bold shadow-md bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] ring-transparent group-hover:ring-[var(--color-primary-default)] transition-all overflow-hidden relative`}>
+                            <div className={`${isSidebarCollapsed ? "w-10 h-10 ring-2 text-sm" : "w-20 h-20 ring-[3px] text-3xl mb-2"} shrink-0 rounded-full flex items-center justify-center font-bold shadow-md bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-onbrand)] ring-transparent group-hover:ring-[var(--color-primary-default)] transition-all overflow-hidden relative`}>
                                 {userProfile?.avatarUrl ? (
                                     <div 
                                         className="w-full h-full absolute inset-0 transition-transform duration-500 group-hover:scale-110" 
@@ -342,13 +342,13 @@ export default function DashboardLayout({
                             
                             {!isSidebarCollapsed && (
                                 <div className="flex flex-col items-center w-full min-w-0">
-                                    <span className="text-base font-bold truncate transition-colors w-full" style={{ color: "var(--color-text-inverse)" }}>
+                                    <span className="text-base font-bold truncate transition-colors w-full" style={{ color: "var(--color-sidebar-text-active)" }}>
                                         {user?.first_name || "Usuario"} {user?.last_name || ""}
                                     </span>
                                     <span className="text-[10px] font-bold tracking-widest uppercase mt-1.5 px-3 py-1 rounded-full" style={{ backgroundColor: "var(--color-brand-subtle)", color: "var(--color-brand-strong)" }}>
                                         {user?.roles?.[0]?.role_name || role || "ADMIN"}
                                     </span>
-                                    <span className="text-xs truncate opacity-60 mt-2.5 w-full font-medium" style={{ color: "var(--color-text-inverse)" }}>
+                                    <span className="text-xs truncate opacity-60 mt-2.5 w-full font-medium" style={{ color: "var(--color-sidebar-text)" }}>
                                         {userProfile?.email || user?.email || "usuario@nexus.com"}
                                     </span>
                                 </div>
@@ -380,7 +380,7 @@ export default function DashboardLayout({
                                     >
                                         {group.title}
                                     </h3>
-                                ) : (group.title && isSidebarCollapsed ? <div className="h-4 border-b w-8 mx-auto mb-2 opacity-20" style={{ borderColor: "var(--color-text-inverse)" }}></div> : null)}
+                                ) : (group.title && isSidebarCollapsed ? <div className="h-4 border-b w-8 mx-auto mb-2 opacity-20" style={{ borderColor: "var(--color-sidebar-text)" }}></div> : null)}
 
                                 <div className="space-y-1">
                                     {group.items.map((item) => {
@@ -466,7 +466,7 @@ export default function DashboardLayout({
                             <AccessibilityMenu />
                             <ThemeToggle />
                             <div className="flex md:hidden items-center gap-2">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] overflow-hidden relative">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-onbrand)] overflow-hidden relative">
                                     {userProfile?.avatarUrl ? (
                                         <div 
                                             className="w-full h-full absolute inset-0" 

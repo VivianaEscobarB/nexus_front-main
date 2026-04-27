@@ -17,13 +17,13 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
             >
                 <div className="relative z-10 flex flex-col items-center max-w-md">
                     <img
-                        src="/logo.svg"
+                        src="/Exclude.svg"
                         alt="Nexus Logo"
-                        className="h-32 w-32 object-contain mb-8 origin-center scale-110 drop-shadow-2xl"
+                        className="h-48 w-48 object-contain mb-8 origin-center scale-110 drop-shadow-2xl"
                     />
 
                     <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight mb-4"
-                        style={{ color: "var(--color-text-inverse)" }}>
+                        style={{ color: "var(--color-sidebar-text-active)" }}>
                         Nexus
                     </h1>
 
@@ -51,10 +51,10 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                         {/* Logo mobile */}
                         <div className="flex items-center gap-2 mb-6 lg:hidden">
                             <div
-                                className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-sm"
-                                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-inverse)" }}
+                                className="h-12 w-12 rounded-xl flex items-center justify-center font-bold text-sm"
+                                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-onbrand)" }}
                             >
-                                <img src="/logo.svg" alt="Nexus Logo" className="h-5 w-5 object-contain" />
+                                <img src="/Exclude.svg" alt="Nexus Logo" className="h-8 w-8 object-contain" />
                             </div>
                             <span className="font-bold text-lg"
                                 style={{ color: "var(--color-text-primary)" }}>

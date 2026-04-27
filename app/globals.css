@@ -1,312 +1,216 @@
 @import "tailwindcss";
 
 /* =============================================================================
-   NEXUS — Design Token System
-   Tailwind CSS v4: tokens definidos en @theme disponibles como utilidades.
-   Convención: --color-<grupo>-<escala> → bg-<grupo>-<escala>
+   NEXUS — Global Design System
+   Professional Compact Structure (Primary, Secondary, Semantic)
    ============================================================================= */
 
 /* ---------------------------------------------------------------------------
-   1. Paleta primitiva — valores "puros", solo usados por los tokens semánticos
+   1. Theme Variables (Light Mode)
    --------------------------------------------------------------------------- */
 :root {
-  /* Brand — Azul índigo puro y limpio (Logo) */
-  --primitive-brand-50: #f5f3ff;
-  --primitive-brand-100: #ede9fe;
-  --primitive-brand-200: #ddd6fe;
-  --primitive-brand-300: #c4b5fd;
-  --primitive-brand-400: #a78bfa;
-  --primitive-brand-500: #818cf8;
-  /* Accent brillante */
-  --primitive-brand-600: #6366f1;
-  /* Main logo color */
-  --primitive-brand-700: #4f46e5;
-  /* Strong logo color */
-  --primitive-brand-800: #4338ca;
-  --primitive-brand-900: #312e81;
-  /* Dark logo background */
-  --primitive-brand-950: #1e1b4b;
-  /* Deep logo background */
+  /* Layout & Surfaces */
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
 
-  /* Neutral — Escala pura/monocromática (para limpieza minimalista) */
-  --primitive-neutral-0: #ffffff;
-  --primitive-neutral-50: #fafafa;
-  --primitive-neutral-100: #f4f4f5;
-  --primitive-neutral-200: #e4e4e7;
-  --primitive-neutral-300: #d4d4d8;
-  --primitive-neutral-400: #a1a1aa;
-  --primitive-neutral-500: #71717a;
-  --primitive-neutral-600: #52525b;
-  --primitive-neutral-700: #3f3f46;
-  --primitive-neutral-800: #27272a;
-  --primitive-neutral-900: #18181b;
-  --primitive-neutral-950: #09090b;
+  /* Primary Brand (Elegant Corporate Blue) */
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --primary-hover: #4338ca;
+  --primary-muted: #e0e7ff;
 
-  /* Success — Esmeralda */
-  --primitive-success-50: #ecfdf5;
-  --primitive-success-100: #d1fae5;
-  --primitive-success-500: #10b981;
-  --primitive-success-600: #059669;
-  --primitive-success-700: #047857;
+  /* Secondary & Muted */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
 
-  /* Warning — Ámbar */
-  --primitive-warning-50: #fffbeb;
-  --primitive-warning-100: #fef3c7;
-  --primitive-warning-500: #f59e0b;
-  --primitive-warning-600: #d97706;
-  --primitive-warning-700: #b45309;
+  /* Borders & States */
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #4f46e5;
 
-  /* Danger — Rojo */
-  --primitive-danger-50: #fef2f2;
-  --primitive-danger-100: #fee2e2;
-  --primitive-danger-500: #ef4444;
-  --primitive-danger-600: #dc2626;
-  --primitive-danger-700: #b91c1c;
+  /* Sidebar (Dark by default) */
+  --sidebar-background: #1e1b4b;
+  --sidebar-foreground: #c7d2fe;
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-border: #312e81;
+  --sidebar-accent: #3730a3;
 
-  /* Info — Cielo */
-  --primitive-info-50: #f0f9ff;
-  --primitive-info-100: #e0f2fe;
-  --primitive-info-500: #0ea5e9;
-  --primitive-info-600: #0284c7;
-  --primitive-info-700: #0369a1;
+  /* Status Colors */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --info: #0ea5e9;
+  --info-foreground: #ffffff;
 }
 
 /* ---------------------------------------------------------------------------
-   2. Tokens semánticos — Light mode
-   Se reasignan en dark mode sin tocar ningún componente.
+   2. Dark Mode Overrides
    --------------------------------------------------------------------------- */
-:root {
-  /* Marca */
-  --color-brand-subtle: var(--primitive-brand-50);
-  --color-brand-muted: var(--primitive-brand-100);
-  --color-brand-light: var(--primitive-brand-300);
-  --color-brand-default: var(--primitive-brand-500);
-  --color-brand-strong: var(--primitive-brand-600);
-  --color-brand-stronger: var(--primitive-brand-700);
-  --color-brand-dark: var(--primitive-brand-900);
-
-  /* Superficies */
-  --color-surface-app: var(--primitive-neutral-50);
-  --color-surface-base: var(--primitive-neutral-0);
-  --color-surface-raised: var(--primitive-neutral-0);
-  --color-surface-overlay: var(--primitive-neutral-0);
-  --color-surface-sunken: var(--primitive-neutral-100);
-  --color-surface-hover: var(--primitive-neutral-100);
-  --color-surface-active: var(--primitive-neutral-200);
-
-  /* Bordes */
-  --color-border-subtle: var(--primitive-neutral-100);
-  --color-border-default: var(--primitive-neutral-200);
-  --color-border-strong: var(--primitive-neutral-300);
-  --color-border-focus: var(--primitive-brand-500);
-
-  /* Texto */
-  --color-text-primary: var(--primitive-neutral-900);
-  --color-text-secondary: var(--primitive-neutral-700);
-  --color-text-tertiary: var(--primitive-neutral-500);
-  --color-text-disabled: var(--primitive-neutral-400);
-  --color-text-inverse: var(--primitive-neutral-0);
-  --color-text-brand: var(--primitive-brand-600);
-  --color-text-onbrand: var(--primitive-neutral-0);
-
-  /* Success */
-  --color-success-subtle: var(--primitive-success-50);
-  --color-success-muted: var(--primitive-success-100);
-  --color-success-default: var(--primitive-success-500);
-  --color-success-strong: var(--primitive-success-600);
-  --color-success-text: var(--primitive-success-700);
-
-  /* Warning */
-  --color-warning-subtle: var(--primitive-warning-50);
-  --color-warning-muted: var(--primitive-warning-100);
-  --color-warning-default: var(--primitive-warning-500);
-  --color-warning-strong: var(--primitive-warning-600);
-  --color-warning-text: var(--primitive-warning-700);
-
-  /* Danger */
-  --color-danger-subtle: var(--primitive-danger-50);
-  --color-danger-muted: var(--primitive-danger-100);
-  --color-danger-default: var(--primitive-danger-500);
-  --color-danger-strong: var(--primitive-danger-600);
-  --color-danger-text: var(--primitive-danger-700);
-
-  /* Info */
-  --color-info-subtle: var(--primitive-info-50);
-  --color-info-muted: var(--primitive-info-100);
-  --color-info-default: var(--primitive-info-500);
-  --color-info-strong: var(--primitive-info-600);
-  --color-info-text: var(--primitive-info-700);
-
-  /* Sidebar */
-  --color-sidebar-bg: var(--primitive-brand-950);
-  --color-sidebar-surface: var(--primitive-brand-900);
-  --color-sidebar-text: var(--primitive-brand-200);
-  --color-sidebar-text-active: var(--primitive-neutral-0);
-  --color-sidebar-icon: var(--primitive-brand-400);
-  --color-sidebar-icon-active: var(--primitive-neutral-0);
-  --color-sidebar-item-active: var(--primitive-brand-700);
-  --color-sidebar-item-hover: var(--primitive-brand-800);
-  --color-sidebar-border: var(--primitive-brand-800);
-}
-
-/* ---------------------------------------------------------------------------
-   3. Dark mode
-   Estrategia de triple soporte:
-   - data-theme="dark"  → oscuro explícito (toggle manual)
-   - data-theme="light" → claro explícito (ignora la preferencia del sistema)
-   - sin atributo       → sigue la preferencia del sistema operativo
-   --------------------------------------------------------------------------- */
-
-/* Tokens oscuros compartidos (reutilizados en ambos selectores abajo) */
 @layer base {
   .dark-tokens {
-    --color-surface-app: var(--primitive-neutral-950);
-    --color-surface-base: var(--primitive-neutral-900);
-    --color-surface-raised: var(--primitive-neutral-800);
-    --color-surface-overlay: var(--primitive-neutral-800);
-    --color-surface-sunken: var(--primitive-neutral-950);
-    --color-surface-hover: var(--primitive-neutral-800);
-    --color-surface-active: var(--primitive-neutral-700);
-    --color-border-subtle: var(--primitive-neutral-800);
-    --color-border-default: var(--primitive-neutral-700);
-    --color-border-strong: var(--primitive-neutral-600);
-    --color-text-primary: var(--primitive-neutral-50);
-    --color-text-secondary: var(--primitive-neutral-300);
-    --color-text-tertiary: var(--primitive-neutral-500);
-    --color-text-disabled: var(--primitive-neutral-600);
-    --color-text-brand: var(--primitive-brand-400);
-    --color-brand-subtle: var(--primitive-brand-950);
-    --color-brand-muted: var(--primitive-brand-900);
+    --background: #030303;
+    --foreground: #fafafa;
+    --card: #09090b;
+    --card-foreground: #fafafa;
+    --popover: #09090b;
+    --popover-foreground: #fafafa;
+
+    --primary: #818cf8;
+    --primary-foreground: #ffffff;
+    --primary-hover: #a5b4fc;
+    --primary-muted: #3730a3;
+
+    --secondary: #18181b;
+    --secondary-foreground: #fafafa;
+    --muted: #18181b;
+    --muted-foreground: #d4d4d8;
+
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #818cf8;
+
+    --sidebar-background: #09090b;
+    --sidebar-foreground: #d4d4d8;
+    --sidebar-primary: #818cf8;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-border: #27272a;
+    --sidebar-accent: #18181b;
   }
 }
 
-/* Modo oscuro — preferencia del sistema (cuando no hay data-theme explícito) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --color-surface-app: var(--primitive-neutral-950);
-    --color-surface-base: var(--primitive-neutral-900);
-    --color-surface-raised: var(--primitive-neutral-800);
-    --color-surface-overlay: var(--primitive-neutral-800);
-    --color-surface-sunken: var(--primitive-neutral-950);
-    --color-surface-hover: var(--primitive-neutral-800);
-    --color-surface-active: var(--primitive-neutral-700);
-    --color-border-subtle: var(--primitive-neutral-800);
-    --color-border-default: var(--primitive-neutral-700);
-    --color-border-strong: var(--primitive-neutral-600);
-    --color-text-primary: var(--primitive-neutral-50);
-    --color-text-secondary: var(--primitive-neutral-300);
-    --color-text-tertiary: var(--primitive-neutral-500);
-    --color-text-disabled: var(--primitive-neutral-600);
-    --color-text-brand: var(--primitive-brand-400);
-    --color-brand-subtle: var(--primitive-brand-950);
-    --color-brand-muted: var(--primitive-brand-900);
+    --background: #030303;
+    --foreground: #fafafa;
+    --card: #09090b;
+    --card-foreground: #fafafa;
+    --popover: #09090b;
+    --popover-foreground: #fafafa;
+    --primary: #818cf8;
+    --primary-foreground: #ffffff;
+    --primary-hover: #a5b4fc;
+    --primary-muted: #3730a3;
+    --secondary: #18181b;
+    --secondary-foreground: #fafafa;
+    --muted: #18181b;
+    --muted-foreground: #d4d4d8;
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #818cf8;
+    --sidebar-background: #09090b;
+    --sidebar-foreground: #d4d4d8;
+    --sidebar-primary: #818cf8;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-border: #27272a;
+    --sidebar-accent: #18181b;
   }
 }
 
-/* Modo oscuro — toggle manual explícito */
 :root[data-theme="dark"] {
-  --color-surface-app: var(--primitive-neutral-950);
-  --color-surface-base: var(--primitive-neutral-900);
-  --color-surface-raised: var(--primitive-neutral-800);
-  --color-surface-overlay: var(--primitive-neutral-800);
-  --color-surface-sunken: var(--primitive-neutral-950);
-  --color-surface-hover: var(--primitive-neutral-800);
-  --color-surface-active: var(--primitive-neutral-700);
-  --color-border-subtle: var(--primitive-neutral-800);
-  --color-border-default: var(--primitive-neutral-700);
-  --color-border-strong: var(--primitive-neutral-600);
-  --color-text-primary: var(--primitive-neutral-50);
-  --color-text-secondary: var(--primitive-neutral-300);
-  --color-text-tertiary: var(--primitive-neutral-500);
-  --color-text-disabled: var(--primitive-neutral-600);
-  --color-text-brand: var(--primitive-brand-400);
-  --color-brand-subtle: var(--primitive-brand-950);
-  --color-brand-muted: var(--primitive-brand-900);
-  --color-brand-dark: var(--primitive-brand-100);
+  --background: #030303;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #818cf8;
+  --primary-foreground: #ffffff;
+  --primary-hover: #a5b4fc;
+  --primary-muted: #3730a3;
+  --secondary: #18181b;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #d4d4d8;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #818cf8;
+  --sidebar-background: #09090b;
+  --sidebar-foreground: #d4d4d8;
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-border: #27272a;
+  --sidebar-accent: #18181b;
 }
 
-
-
 /* ---------------------------------------------------------------------------
-   4. Registro en Tailwind v4 — @theme
-   Genera utilidades: bg-brand-strong, text-text-primary, border-border-default, etc.
+   3. Tailwind @theme Mapping (Legacy API Support)
+   Bridges the new professional structure to the existing utility classes
    --------------------------------------------------------------------------- */
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Brand */
-  --color-brand-subtle: var(--color-brand-subtle);
-  --color-brand-muted: var(--color-brand-muted);
-  --color-brand-light: var(--color-brand-light);
-  --color-brand-default: var(--color-brand-default);
-  --color-brand-strong: var(--color-brand-strong);
-  --color-brand-stronger: var(--color-brand-stronger);
-  --color-brand-dark: var(--color-brand-dark);
+  /* Brand / Primary Mappings */
+  --color-brand-subtle: var(--primary-muted);
+  --color-brand-muted: var(--primary-muted);
+  --color-brand-light: var(--primary-hover);
+  --color-brand-default: var(--primary);
+  --color-brand-strong: var(--primary);
+  --color-brand-stronger: var(--primary-hover);
+  --color-brand-dark: var(--primary-hover);
 
-  /* Superficies */
-  --color-surface-app: var(--color-surface-app);
-  --color-surface-base: var(--color-surface-base);
-  --color-surface-raised: var(--color-surface-raised);
-  --color-surface-overlay: var(--color-surface-overlay);
-  --color-surface-sunken: var(--color-surface-sunken);
-  --color-surface-hover: var(--color-surface-hover);
-  --color-surface-active: var(--color-surface-active);
+  /* Surfaces / Backgrounds Mappings */
+  --color-surface-app: var(--background);
+  --color-surface-base: var(--card);
+  --color-surface-raised: var(--popover);
+  --color-surface-overlay: var(--popover);
+  --color-surface-sunken: var(--secondary);
+  --color-surface-hover: var(--muted);
+  --color-surface-active: var(--muted);
 
-  /* Bordes */
-  --color-border-subtle: var(--color-border-subtle);
-  --color-border-default: var(--color-border-default);
-  --color-border-strong: var(--color-border-strong);
-  --color-border-focus: var(--color-border-focus);
+  /* Borders Mappings */
+  --color-border-subtle: var(--border);
+  --color-border-default: var(--border);
+  --color-border-strong: var(--input);
+  --color-border-focus: var(--ring);
 
-  /* Texto */
-  --color-text-primary: var(--color-text-primary);
-  --color-text-secondary: var(--color-text-secondary);
-  --color-text-tertiary: var(--color-text-tertiary);
-  --color-text-disabled: var(--color-text-disabled);
-  --color-text-inverse: var(--color-text-inverse);
-  --color-text-brand: var(--color-text-brand);
-  --color-text-onbrand: var(--color-text-onbrand);
+  /* Text Mappings */
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --color-text-tertiary: var(--muted-foreground);
+  --color-text-disabled: var(--muted-foreground);
+  --color-text-inverse: var(--background);
+  --color-text-brand: var(--primary);
+  --color-text-onbrand: var(--primary-foreground);
 
-  /* Estados */
-  --color-success-subtle: var(--color-success-subtle);
-  --color-success-muted: var(--color-success-muted);
-  --color-success-default: var(--color-success-default);
-  --color-success-strong: var(--color-success-strong);
-  --color-success-text: var(--color-success-text);
+  /* Sidebar Mappings */
+  --color-sidebar-bg: var(--sidebar-background);
+  --color-sidebar-surface: var(--sidebar-background);
+  --color-sidebar-text: var(--sidebar-foreground);
+  --color-sidebar-text-active: var(--sidebar-primary-foreground);
+  --color-sidebar-icon: var(--sidebar-foreground);
+  --color-sidebar-icon-active: var(--sidebar-primary-foreground);
+  --color-sidebar-item-active: var(--sidebar-primary);
+  --color-sidebar-item-hover: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
 
-  --color-warning-subtle: var(--color-warning-subtle);
-  --color-warning-muted: var(--color-warning-muted);
-  --color-warning-default: var(--color-warning-default);
-  --color-warning-strong: var(--color-warning-strong);
-  --color-warning-text: var(--color-warning-text);
-
-  --color-danger-subtle: var(--color-danger-subtle);
-  --color-danger-muted: var(--color-danger-muted);
-  --color-danger-default: var(--color-danger-default);
-  --color-danger-strong: var(--color-danger-strong);
-  --color-danger-text: var(--color-danger-text);
-
-  --color-info-subtle: var(--color-info-subtle);
-  --color-info-muted: var(--color-info-muted);
-  --color-info-default: var(--color-info-default);
-  --color-info-strong: var(--color-info-strong);
-  --color-info-text: var(--color-info-text);
-
-  /* Sidebar */
-  --color-sidebar-bg: var(--color-sidebar-bg);
-  --color-sidebar-surface: var(--color-sidebar-surface);
-  --color-sidebar-text: var(--color-sidebar-text);
-  --color-sidebar-text-active: var(--color-sidebar-text-active);
-  --color-sidebar-icon: var(--color-sidebar-icon);
-  --color-sidebar-icon-active: var(--color-sidebar-icon-active);
-  --color-sidebar-item-active: var(--color-sidebar-item-active);
-  --color-sidebar-item-hover: var(--color-sidebar-item-hover);
-  --color-sidebar-border: var(--color-sidebar-border);
+  /* Status Mappings */
+  --color-success-default: var(--success);
+  --color-success-strong: var(--success);
+  --color-success-text: var(--success);
+  --color-warning-default: var(--warning);
+  --color-warning-strong: var(--warning);
+  --color-warning-text: var(--warning);
+  --color-danger-default: var(--danger);
+  --color-danger-strong: var(--danger);
+  --color-danger-text: var(--danger);
+  --color-info-default: var(--info);
+  --color-info-strong: var(--info);
+  --color-info-text: var(--info);
 }
 
 /* ---------------------------------------------------------------------------
-   5. Estilos base globales
+   4. Estilos Base Globales
    --------------------------------------------------------------------------- */
 *,
 *::before,
@@ -327,7 +231,6 @@ body {
   min-height: 100dvh;
 }
 
-/* Scrollbar estilizada */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -346,16 +249,14 @@ body {
   background: var(--color-text-tertiary);
 }
 
-/* Selección de texto */
 ::selection {
   background-color: var(--color-brand-strong);
   color: var(--color-text-inverse);
 }
 
 /* ---------------------------------------------------------------------------
-   6. Accesibilidad (ISO/IEC 25010)
+   5. Accesibilidad (ISO/IEC 25010)
    --------------------------------------------------------------------------- */
-
 html[data-accessibility-font="dyslexia"] * {
   font-family: "Comic Sans MS", "Comic Sans", "OpenDyslexic", sans-serif !important;
 }
