@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
+import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 export const metadata: Metadata = {
   title: "Nexus — Gestión de Bodegas y Control de Inventario",
@@ -53,11 +54,12 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 w-full border-b backdrop-blur-md" style={{ background: "var(--color-surface-app)", borderColor: "var(--color-border-subtle)" }}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="Nexus Logo" className="h-8 w-8 object-contain" />
+            <img src="/Exclude.svg" alt="Nexus Logo" className="h-12 w-12 object-contain" />
             <span className="font-bold text-xl tracking-tight" style={{ color: "var(--color-text-primary)" }}>Nexus</span>
           </div>
 
-          <div className="flex items-center gap-4 mr-16">
+          <div className="flex items-center gap-4">
+            <AccessibilityMenu />
             <Link href="/login">
               <Button variant="primary" size="sm" className="hidden sm:flex">
                 Entrar
@@ -72,45 +74,49 @@ export default function HomePage() {
         {/* 2. Hero Section (Portada principal) */}
         <section className="relative py-24 md:py-32 overflow-hidden flex flex-col items-center text-center px-6">
           {/* Elemento de fondo sutil usando los colores brand del CSS */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-30 pointer-events-none blur-3xl animate-in fade-in duration-1000"
-            style={{ background: "radial-gradient(circle, var(--color-brand-muted) 0%, transparent 60%)" }} />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full opacity-20 pointer-events-none blur-3xl animate-in fade-in duration-1000"
+            style={{ background: "radial-gradient(circle, var(--color-brand-default) 0%, transparent 70%)" }} />
 
-          <div className="relative z-10 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="relative z-10 max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700">
 
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium mb-4"
-              style={{ background: "var(--color-surface-base)", borderColor: "var(--color-border-default)", color: "var(--color-text-secondary)" }}>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium mb-4 backdrop-blur-sm"
+              style={{ background: "var(--color-surface-hover)", borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}>
               <span className="flex h-2 w-2 rounded-full relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--color-brand-strong)" }}></span>
-                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--color-brand-default)" }}></span>
+                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--color-brand-light)" }}></span>
               </span>
               SaaS Operativo v2.0 ya disponible
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-tight" style={{ color: "var(--color-text-primary)" }}>
-              Controla tu inventario con <span style={{ color: "var(--color-text-brand)" }}>precisión absoluta.</span>
+            <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[1.1] text-balance" style={{ color: "var(--color-text-primary)" }}>
+              Controla tu inventario con <br />
+              <span style={{ color: "var(--color-text-brand)" }}>
+                precisión absoluta.
+              </span>
             </h1>
 
-            <p className="text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed" style={{ color: "var(--color-text-tertiary)" }}>
+            <p className="text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed font-medium" style={{ color: "var(--color-text-secondary)" }}>
               Nexus es la plataforma definitiva para empresas que quieren automatizar sus almacenes, evitar pérdidas y escalar sus operaciones logísticas sin complicaciones.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-6">
               <Link href="/login" className="w-full sm:w-auto">
-                <Button variant="primary" size="lg" className="w-full h-14 text-lg px-8">
+                <Button variant="primary" size="lg" className="w-full h-16 text-xl px-10 rounded-2xl shadow-2xl shadow-brand-strong/30 hover:scale-105 active:scale-95 transition-all">
                   Comenzar ahora
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 ml-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 ml-2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                   </svg>
                 </Button>
               </Link>
               <Link href="#soluciones" className="w-full sm:w-auto">
-                <Button variant="secondary" size="lg" className="w-full h-14 text-lg px-8">
+                <Button variant="secondary" size="lg" className="w-full h-16 text-xl px-10 rounded-2xl border-2 hover:bg-surface-active transition-all">
                   Ver soluciones
                 </Button>
               </Link>
             </div>
           </div>
         </section>
+
 
         {/* 3. Logos o Barra de Confianza (Trust indicators) */}
         <section className="py-10 border-y" style={{ borderColor: "var(--color-border-subtle)", background: "var(--color-surface-sunken)" }}>
@@ -158,10 +164,10 @@ export default function HomePage() {
               <div className="absolute top-0 right-0 w-32 h-32 opacity-10 blur-xl" style={{ background: "var(--color-brand-strong)" }} />
 
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
-                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-inverse)" }}>
+                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-onbrand)" }}>
                 <LightningIcon className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold mb-3" style={{ color: "var(--color-text-inverse)" }}>Flujos Automatizados</h3>
+              <h3 className="text-2xl font-bold mb-3" style={{ color: "var(--color-sidebar-text-active)" }}>Flujos Automatizados</h3>
               <p className="leading-relaxed" style={{ color: "var(--color-sidebar-text)" }}>
                 Rutas de despacho y recepciones rápidas. Ahorra hasta el 40% del tiempo operativo del personal logístico.
               </p>
@@ -185,7 +191,7 @@ export default function HomePage() {
         {/* 5. Cierre / CTA Final */}
         <section className="py-24 border-t mt-auto" style={{ borderColor: "var(--color-border-default)", background: "var(--color-surface-sunken)" }}>
           <div className="max-w-4xl mx-auto px-6 text-center space-y-8">
-            <img src="/logo.svg" alt="Nexus Decoración" className="h-20 w-20 mx-auto object-contain drop-shadow-lg scale-110 mb-6" />
+            <img src="/Exclude.svg" alt="Nexus Decoración" className="h-32 w-32 mx-auto object-contain drop-shadow-lg scale-110 mb-6" />
 
             <h2 className="text-4xl md:text-5xl font-bold" style={{ color: "var(--color-text-primary)" }}>
               La organización del futuro.
@@ -197,7 +203,7 @@ export default function HomePage() {
 
             <div className="pt-8">
               <Link href="/login">
-                <Button variant="primary" size="lg" className="h-14 px-10 text-lg shadow-xl shadow-indigo-500/20">
+                <Button variant="primary" size="lg" className="h-14 px-10 text-lg shadow-xl shadow-brand-strong/20">
                   Iniciar sesión en Nexus
                 </Button>
               </Link>

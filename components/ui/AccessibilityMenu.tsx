@@ -86,12 +86,12 @@ export function AccessibilityMenu() {
     }, []);
 
     return (
-        <div ref={menuRef} className="fixed top-6 right-6 z-[9999] flex flex-col items-center gap-3">
-            {/* Toggle Button (Always at the top) */}
+        <div ref={menuRef} className="relative flex items-center z-50">
+            {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl border-2 border-white/20
-                    ${isOpen ? "bg-white text-[#0066FF] rotate-90" : "bg-[#0066FF] text-white hover:scale-110 active:scale-95"}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm border border-brand-subtle
+                    ${isOpen ? "bg-surface-base text-brand-strong rotate-90" : "bg-brand-default text-white hover:bg-brand-strong hover:scale-105 active:scale-95"}
                 `}
                 aria-label={isOpen ? "Cerrar menú de accesibilidad" : "Abrir menú de accesibilidad"}
                 aria-expanded={isOpen}
@@ -99,13 +99,13 @@ export function AccessibilityMenu() {
                 <AccessibilityIcon />
             </button>
 
-            {/* Vertical Pill Bar (Deploys downwards) */}
+            {/* Horizontal Pill Bar (Deploys leftwards) */}
             <div 
-                className={`flex flex-col items-center gap-1 transition-all duration-500 origin-top
-                    ${isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 -translate-y-4 pointer-events-none"}
+                className={`absolute right-full mr-2 flex flex-row items-center transition-all duration-500 origin-right
+                    ${isOpen ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-90 translate-x-4 pointer-events-none"}
                 `}
             >
-                <div className="bg-[#0066FF] p-2 rounded-full flex flex-col items-center gap-2 shadow-2xl border border-white/10">
+                <div className="bg-surface-base p-1.5 rounded-full flex flex-row items-center gap-1.5 shadow-xl border border-border-default">
                     {/* Contrast */}
                     <MenuButton 
                         onClick={toggleHighContrast} 
@@ -139,7 +139,7 @@ export function AccessibilityMenu() {
                         <PaperPlaneIcon />
                     </MenuButton>
 
-                    <div className="w-8 h-[1px] bg-white/20 my-1" />
+                    <div className="w-[1px] h-6 bg-border-default mx-1" />
 
                     {/* Reset */}
                     <MenuButton onClick={resetAccessibility} title="Restablecer ajustes">
@@ -163,10 +163,10 @@ function MenuButton({ children, onClick, active, title }: MenuButtonProps) {
         <button
             onClick={onClick}
             title={title}
-            className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-200
+            className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full transition-all duration-200
                 ${active 
-                    ? "bg-white text-[#0066FF] shadow-inner" 
-                    : "text-white hover:bg-white/20 active:bg-white/40"}
+                    ? "bg-brand-subtle text-brand-strong shadow-inner" 
+                    : "text-text-secondary hover:bg-surface-hover hover:text-text-primary active:bg-surface-active"}
             `}
         >
             {children}

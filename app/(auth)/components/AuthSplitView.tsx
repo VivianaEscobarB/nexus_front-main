@@ -1,4 +1,6 @@
 import React from "react";
+import Link from "next/link";
+import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 
 interface AuthSplitViewProps {
     title: string;
@@ -10,6 +12,11 @@ interface AuthSplitViewProps {
 export function AuthSplitView({ title, subtitle, children, footerText }: AuthSplitViewProps) {
     return (
         <>
+            {/* Accessibility global for auth */}
+            <div className="absolute top-6 right-6 z-[9000]">
+                <AccessibilityMenu />
+            </div>
+
             {/* ── Panel izquierdo: brand visual ─────────────────────────────────── */}
             <div
                 className="hidden lg:flex lg:w-[50%] flex-col relative overflow-hidden justify-center items-center text-center p-12"
@@ -17,13 +24,13 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
             >
                 <div className="relative z-10 flex flex-col items-center max-w-md">
                     <img
-                        src="/logo.svg"
+                        src="/Exclude.svg"
                         alt="Nexus Logo"
-                        className="h-32 w-32 object-contain mb-8 origin-center scale-110 drop-shadow-2xl"
+                        className="h-48 w-48 object-contain mb-8 origin-center scale-110 drop-shadow-2xl"
                     />
 
                     <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight mb-4"
-                        style={{ color: "var(--color-text-inverse)" }}>
+                        style={{ color: "var(--color-sidebar-text-active)" }}>
                         Nexus
                     </h1>
 
@@ -41,9 +48,18 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
 
             {/* ── Panel derecho: formulario ──────────────────────────────────────── */}
             <div
-                className="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-12"
+                className="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-12 relative"
                 style={{ background: "var(--color-surface-app)" }}
             >
+                <div className="absolute top-6 left-6 lg:left-12">
+                    <Link href="/" className="flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70" style={{ color: "var(--color-text-secondary)" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                        </svg>
+                        Volver al inicio
+                    </Link>
+                </div>
+
                 <div className="w-full max-w-md space-y-8">
 
                     {/* Header del formulario */}
@@ -51,10 +67,10 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                         {/* Logo mobile */}
                         <div className="flex items-center gap-2 mb-6 lg:hidden">
                             <div
-                                className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-sm"
-                                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-inverse)" }}
+                                className="h-12 w-12 rounded-xl flex items-center justify-center font-bold text-sm"
+                                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-onbrand)" }}
                             >
-                                <img src="/logo.svg" alt="Nexus Logo" className="h-5 w-5 object-contain" />
+                                <img src="/Exclude.svg" alt="Nexus Logo" className="h-8 w-8 object-contain" />
                             </div>
                             <span className="font-bold text-lg"
                                 style={{ color: "var(--color-text-primary)" }}>

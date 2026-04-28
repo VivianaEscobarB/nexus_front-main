@@ -3,7 +3,7 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
 import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/modules/auth";
 import { UserProfileModal } from "@/components/UserProfileModal";
@@ -293,13 +293,13 @@ export default function DashboardLayout({
                         {!isSidebarCollapsed && (
                             <div className="flex items-center gap-2 overflow-hidden">
                                 <img
-                                    src="/logo.svg"
+                                    src="/Exclude.svg"
                                     alt="Nexus Logo"
-                                    className="h-6 w-6 shrink-0 object-contain"
+                                    className="h-10 w-10 shrink-0 object-contain"
                                 />
                                 <span
                                     className="font-bold text-lg tracking-tight truncate"
-                                    style={{ color: "var(--color-text-inverse)" }}
+                                    style={{ color: "var(--color-sidebar-text-active)" }}
                                 >
                                     Nexus
                                 </span>
@@ -307,7 +307,7 @@ export default function DashboardLayout({
                         )}
                         <button 
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="p-1.5 rounded-md text-[var(--color-text-inverse)] hover:bg-white/10 transition-colors shrink-0"
+                            className="p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0"
                             title={isSidebarCollapsed ? "Expandir menú" : "Contraer menú"}
                         >
                             {isSidebarCollapsed ? (
@@ -318,54 +318,55 @@ export default function DashboardLayout({
                         </button>
                     </div>
 
-                    <div className={`px-2 pt-6 pb-4 flex flex-col items-center border-b transition-all duration-300 ${isSidebarCollapsed ? "px-2" : "px-4 pt-8"}`} style={{ borderColor: "var(--color-sidebar-border)" }}>
-                        <button
-                            onClick={() => setIsProfileOpen(true)}
-                            className={`flex flex-col items-center rounded-xl transition-all duration-300 group hover:bg-[var(--color-sidebar-item-hover)] hover:shadow-sm border border-transparent hover:border-[var(--color-sidebar-item-hover)] text-center relative ${isSidebarCollapsed ? "p-2 gap-0 w-auto" : "w-full gap-2 p-4"}`}
-                            title="Ver Perfil"
-                        >
-                            <div className={`${isSidebarCollapsed ? "w-10 h-10 ring-2 text-sm" : "w-20 h-20 ring-[3px] text-3xl mb-2"} shrink-0 rounded-full flex items-center justify-center font-bold shadow-md bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] ring-transparent group-hover:ring-[var(--color-primary-default)] transition-all overflow-hidden relative`}>
-                                {userProfile?.avatarUrl ? (
-                                    <div 
-                                        className="w-full h-full absolute inset-0 transition-transform duration-500 group-hover:scale-110" 
-                                        style={{ 
-                                            backgroundImage: `url(/avatars-sprite.jpg)`,
-                                            backgroundSize: '380% 255%',
-                                            backgroundPosition: userProfile.avatarUrl,
-                                            backgroundColor: 'var(--color-surface-hover)'
-                                        }}
-                                    />
-                                ) : (
-                                    user?.first_name?.charAt(0) || "U"
-                                )}
-                            </div>
-                            
-                            {!isSidebarCollapsed && (
-                                <div className="flex flex-col items-center w-full min-w-0">
-                                    <span className="text-base font-bold truncate transition-colors w-full" style={{ color: "var(--color-text-inverse)" }}>
-                                        {user?.first_name || "Usuario"} {user?.last_name || ""}
-                                    </span>
-                                    <span className="text-[10px] font-bold tracking-widest uppercase mt-1.5 px-3 py-1 rounded-full" style={{ backgroundColor: "var(--color-brand-subtle)", color: "var(--color-brand-strong)" }}>
-                                        {user?.roles?.[0]?.role_name || role || "ADMIN"}
-                                    </span>
-                                    <span className="text-xs truncate opacity-60 mt-2.5 w-full font-medium" style={{ color: "var(--color-text-inverse)" }}>
-                                        {userProfile?.email || user?.email || "usuario@nexus.com"}
-                                    </span>
+                    {/* Header del Sidebar: Perfil y Logout */}
+                    <div className="border-b p-3 transition-all duration-300" style={{ borderColor: "var(--color-sidebar-border)" }}>
+                        <div className={`flex items-center ${isSidebarCollapsed ? "flex-col justify-center gap-2" : "gap-2"}`}>
+                            {/* Profile Button */}
+                            <button
+                                onClick={() => setIsProfileOpen(true)}
+                                className={`flex items-center rounded-xl transition-all duration-300 group hover:bg-[var(--color-sidebar-item-hover)] text-left flex-1 min-w-0 ${isSidebarCollapsed ? "p-1 justify-center" : "p-2 gap-3"}`}
+                                title="Ver Perfil"
+                            >
+                                <div className={`w-10 h-10 ring-2 ring-transparent group-hover:ring-[var(--color-primary-default)] text-sm shrink-0 rounded-full flex items-center justify-center font-bold shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-onbrand)] transition-all overflow-hidden relative`}>
+                                    {userProfile?.avatarUrl ? (
+                                        <div 
+                                            className="w-full h-full absolute inset-0 transition-transform duration-500 group-hover:scale-110" 
+                                            style={{ 
+                                                backgroundImage: `url(/avatars-sprite.jpg)`,
+                                                backgroundSize: '380% 255%',
+                                                backgroundPosition: userProfile.avatarUrl,
+                                                backgroundColor: 'var(--color-surface-hover)'
+                                            }}
+                                        />
+                                    ) : (
+                                        user?.first_name?.charAt(0) || "U"
+                                    )}
                                 </div>
-                            )}
-                        </button>
+                                
+                                {!isSidebarCollapsed && (
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <span className="text-sm font-bold truncate transition-colors" style={{ color: "var(--color-sidebar-text-active)" }}>
+                                            {user?.first_name || "Usuario"} {user?.last_name || ""}
+                                        </span>
+                                        <span className="text-[10px] truncate opacity-60 font-medium leading-none" style={{ color: "var(--color-sidebar-text)" }}>
+                                            {userProfile?.email || user?.email || "usuario@nexus.com"}
+                                        </span>
+                                    </div>
+                                )}
+                            </button>
 
-                        <button
-                            className={`flex items-center justify-center gap-2 rounded-lg bg-[var(--color-danger-default)] text-white hover:bg-[var(--color-danger-strong)] transition-all text-xs font-bold shadow-sm ${isSidebarCollapsed ? "mt-4 p-2 w-10 h-10 rounded-full" : "w-full px-3 py-2.5 tracking-wider mt-3"}`}
-                            onClick={() => signOut()}
-                            title="Cerrar sesión"
-                        >
-                            <LogoutIcon className="w-4 h-4 shrink-0" />
-                            {!isSidebarCollapsed && <span>CERRAR SESIÓN</span>}
-                        </button>
+                            {/* Logout Button */}
+                            <button
+                                className={`flex items-center justify-center rounded-lg text-[var(--color-danger-default)] hover:bg-[var(--color-danger-subtle)] transition-all shrink-0 ${isSidebarCollapsed ? "w-10 h-10" : "w-10 h-10"}`}
+                                onClick={() => signOut()}
+                                title="Cerrar sesión"
+                            >
+                                <LogoutIcon className="w-5 h-5 shrink-0" />
+                            </button>
+                        </div>
                     </div>
 
-                    <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto no-scrollbar">
+                    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
                         {navGroups.map((group, groupIndex) => (
                             <div
                                 key={groupIndex}
@@ -380,7 +381,7 @@ export default function DashboardLayout({
                                     >
                                         {group.title}
                                     </h3>
-                                ) : (group.title && isSidebarCollapsed ? <div className="h-4 border-b w-8 mx-auto mb-2 opacity-20" style={{ borderColor: "var(--color-text-inverse)" }}></div> : null)}
+                                ) : (group.title && isSidebarCollapsed ? <div className="h-4 border-b w-8 mx-auto mb-2 opacity-20" style={{ borderColor: "var(--color-sidebar-text)" }}></div> : null)}
 
                                 <div className="space-y-1">
                                     {group.items.map((item) => {
@@ -431,6 +432,8 @@ export default function DashboardLayout({
                     </nav>
 
 
+
+
                 </aside>
 
                 <main className="flex-1 flex flex-col min-w-0">
@@ -464,9 +467,8 @@ export default function DashboardLayout({
 
                         <div className="flex items-center gap-2 ml-auto">
                             <AccessibilityMenu />
-                            <ThemeToggle />
                             <div className="flex md:hidden items-center gap-2">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-inverse)] overflow-hidden relative">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm bg-gradient-to-br from-[var(--color-brand-strong)] to-[var(--color-primary-default)] text-[var(--color-text-onbrand)] overflow-hidden relative">
                                     {userProfile?.avatarUrl ? (
                                         <div 
                                             className="w-full h-full absolute inset-0" 
