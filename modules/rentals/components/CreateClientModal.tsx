@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, Input } from "@/components/ui";
+import { Alert, Button, Input } from "@/components/ui";
 import { useCreateClient } from "../hooks/useCreateClient";
 import type { Client } from "../types/Client";
 
@@ -37,11 +37,11 @@ export function CreateClientModal({ onClose, onCreated }: CreateClientModalProps
                 </div>
                 
                 <div className="p-6 space-y-4">
-                    {error && (
-                        <div className="p-3 rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] text-[var(--color-danger-strong)] text-sm">
+                    {error ? (
+                        <Alert variant="danger" className="rounded-lg">
                             {error}
-                        </div>
-                    )}
+                        </Alert>
+                    ) : null}
                     
                     <Input label="Nombre de Empresa / Comercial *" value={name} onChange={e => setName(e.target.value)} disabled={isLoading} />
                     <Input label="Documento (NIT / CC) *" value={documentNumber} onChange={e => setDocumentNumber(e.target.value)} disabled={isLoading} />

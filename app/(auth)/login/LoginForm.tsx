@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { resendActivation } from "@/services/auth.service";
@@ -205,11 +206,8 @@ export function LoginForm() {
             noValidate
             className="flex flex-col gap-5"
         >
-            {serverError && (
-                <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-lg border border-danger-default/20 bg-danger-subtle px-4 py-3 text-sm text-danger-text"
-                >
+            {serverError ? (
+                <Alert variant="danger" className="flex items-start gap-2 rounded-lg">
                     <svg
                         className="mt-0.5 h-4 w-4 flex-shrink-0"
                         viewBox="0 0 16 16"
@@ -218,14 +216,15 @@ export function LoginForm() {
                     >
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
                     </svg>
-                    <div className="flex flex-1 flex-col gap-3">
+                    <div className="flex flex-1 flex-col gap-2.5">
                         <p>{serverError}</p>
-                        {showResendAccess && (
+                        {showResendAccess ? (
                             <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
+                                    className="h-9"
                                     disabled={isBusy || !normalizedEmail}
                                     isLoading={isResendingAccess}
                                     onClick={handleResendAccess}
@@ -235,32 +234,20 @@ export function LoginForm() {
                                         : "Reenviar acceso"}
                                 </Button>
                             </div>
-                        )}
+                        ) : null}
                     </div>
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
-            {resendFeedback && (
-                <div
+            {resendFeedback ? (
+                <Alert
+                    variant={resendFeedback.tone === "success" ? "success" : "danger"}
                     role="status"
-                    className="rounded-lg border px-4 py-3 text-sm"
-                    style={
-                        resendFeedback.tone === "success"
-                            ? {
-                                background: "var(--color-success-subtle)",
-                                borderColor: "var(--color-success-default)",
-                                color: "var(--color-success-strong)",
-                            }
-                            : {
-                                background: "var(--color-danger-subtle)",
-                                borderColor: "var(--color-danger-default)",
-                                color: "var(--color-danger-text)",
-                            }
-                    }
+                    className="rounded-lg"
                 >
                     {resendFeedback.message}
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
             <Input
                 label="Correo electrónico"
@@ -284,7 +271,7 @@ export function LoginForm() {
                         <button
                             type="button"
                             onClick={() => setShowPassword((previous) => !previous)}
-                            className="pointer-events-auto text-text-tertiary transition-colors hover:text-text-secondary"
+                            className="pointer-events-auto rounded-md text-text-tertiary transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-1"
                             disabled={isBusy}
                             aria-label={
                                 showPassword
@@ -302,7 +289,7 @@ export function LoginForm() {
                 <div className="flex justify-end">
                     <Link
                         href="/forgot-password"
-                        className="text-xs font-medium text-text-brand transition-colors hover:text-brand-stronger"
+                        className="text-sm font-medium text-text-brand transition-colors hover:text-brand-stronger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md px-1 py-0.5"
                     >
                         ¿Olvidaste tu contraseña?
                     </Link>

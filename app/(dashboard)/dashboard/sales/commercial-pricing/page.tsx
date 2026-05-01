@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card, CardBody, Input, Label, Modal, Select } from "@/components/ui";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Alert, Button, Card, CardBody, Input, Label, Modal, Pagination, Select } from "@/components/ui";
+import { usePagination } from "@/shared/hooks/usePagination";
 import { Badge } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,12 +12,14 @@ import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import {
     listRentalUnitsPricing,
     patchRentalUnitPricing,
+    syncRentalUnitsCatalog,
 } from "@/modules/sales";
 import type { RentalUnitPricingRow, UpdateRentalUnitPricingInput } from "@/modules/sales";
 import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
 
 const CURRENCY_REGEX = /^[A-Z]{3}$/;
+const PRICING_PAGE_SIZE = 8;
 
 function getApiErrorMessage(error: unknown): string {
     if (isApiError(error)) return error.message;
@@ -85,6 +89,9 @@ type Flash = { kind: "success" | "error"; text: string } | null;
 
 export default function CommercialPricingPage() {
     const { user } = useAuth();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const isAdmin = useMemo(
         () => user?.roles?.some((r) => r.role_name === UserRole.ADMIN) ?? false,
         [user?.roles]
@@ -96,6 +103,8 @@ export default function CommercialPricingPage() {
 
     const [readyOnly, setReadyOnly] = useState(false);
     const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
+    const [searchInput, setSearchInput] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
 
     const [modalRow, setModalRow] = useState<RentalUnitPricingRow | null>(null);
     const [formBasePrice, setFormBasePrice] = useState("");
@@ -105,6 +114,10 @@ export default function CommercialPricingPage() {
     const [isPatching, setIsPatching] = useState(false);
 
     const [flash, setFlash] = useState<Flash>(null);
+    const [isSyncedFromUrl, setIsSyncedFromUrl] = useState(false);
+    const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
+    const [syncCatalogMessage, setSyncCatalogMessage] = useState<string | null>(null);
+    const [syncCatalogError, setSyncCatalogError] = useState<string | null>(null);
 
     const fetchRows = useCallback(async () => {
         setIsLoading(true);
@@ -133,10 +146,76 @@ export default function CommercialPricingPage() {
     }, [fetchRows]);
 
     useEffect(() => {
+        const q = searchParams.get("q") ?? "";
+        const status = searchParams.get("status");
+        const ready = searchParams.get("ready");
+        setSearchInput(q);
+        setReadyOnly(ready === "1");
+        if (status === "active" || status === "inactive") {
+            setActiveFilter(status);
+        } else {
+            setActiveFilter("all");
+        }
+        setIsSyncedFromUrl(true);
+    }, [searchParams]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setSearchTerm(searchInput.trim());
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [searchInput]);
+
+    useEffect(() => {
+        if (!isSyncedFromUrl) return;
+        const params = new URLSearchParams();
+        const q = searchInput.trim();
+        if (q) params.set("q", q);
+        if (activeFilter !== "all") params.set("status", activeFilter);
+        if (readyOnly) params.set("ready", "1");
+        const nextQuery = params.toString();
+        const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+        router.replace(nextUrl, { scroll: false });
+    }, [activeFilter, isSyncedFromUrl, pathname, readyOnly, router, searchInput]);
+
+    useEffect(() => {
         if (!flash) return;
         const t = window.setTimeout(() => setFlash(null), 6000);
         return () => window.clearTimeout(t);
     }, [flash]);
+
+    const filteredRows = useMemo(() => {
+        const query = searchTerm.toLowerCase();
+        if (!query) return rows;
+        return rows.filter((row) => {
+            const haystack = [
+                formatUnitLabel(row),
+                String(row.rentalUnitId),
+                row.entityTypeName ?? "",
+                row.referenceCode ?? "",
+                row.referenceName ?? "",
+                row.referenceType ?? "",
+            ]
+                .join(" ")
+                .toLowerCase();
+            return haystack.includes(query);
+        });
+    }, [rows, searchTerm]);
+
+    const {
+        paginatedData: paginatedRows,
+        currentPage: tablePage,
+        totalPages: tableTotalPages,
+        goToPage: goToTablePage,
+        totalItems: filteredTotalItems,
+    } = usePagination(filteredRows, PRICING_PAGE_SIZE);
+
+    const rangeLabel = useMemo(() => {
+        if (filteredTotalItems === 0) return null;
+        const start = (tablePage - 1) * PRICING_PAGE_SIZE + 1;
+        const end = Math.min(tablePage * PRICING_PAGE_SIZE, filteredTotalItems);
+        return `Mostrando ${start}–${end} de ${filteredTotalItems}`;
+    }, [filteredTotalItems, tablePage]);
 
     const openModal = (row: RentalUnitPricingRow) => {
         setModalRow(row);
@@ -183,15 +262,49 @@ export default function CommercialPricingPage() {
         }
     };
 
-    const emptyMessage =
-        readyOnly || activeFilter !== "all"
-            ? "No hay unidades que coincidan con los filtros. Prueba ampliar la búsqueda."
-            : "No hay unidades de arrendamiento registradas para parametrizar.";
+    const hasActiveFilters = readyOnly || activeFilter !== "all" || searchTerm.length > 0;
+    const emptyMessage = hasActiveFilters
+        ? "No hay resultados con los filtros actuales."
+        : "No hay unidades de arrendamiento registradas para parametrizar.";
+
+    const handleClearFilters = () => {
+        setSearchInput("");
+        setReadyOnly(false);
+        setActiveFilter("all");
+    };
+
+    const handleSyncCatalog = async () => {
+        if (!isAdmin || isSyncingCatalog) return;
+        setIsSyncingCatalog(true);
+        setSyncCatalogError(null);
+        setSyncCatalogMessage(null);
+        try {
+            const detail = await syncRentalUnitsCatalog();
+            setSyncCatalogMessage(
+                detail ??
+                    "Catálogo alineado con infraestructura. El listado de precios se actualizó automáticamente."
+            );
+            await fetchRows();
+        } catch (err) {
+            setSyncCatalogError(formatMutationError(err));
+        } finally {
+            setIsSyncingCatalog(false);
+        }
+    };
 
     return (
         <ProcessVisibilityGuard process="contracts">
             <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SALES_AGENT]}>
-                <div className="mx-auto max-w-7xl space-y-6 animate-in fade-in duration-500">
+                <div className="mx-auto max-w-7xl space-y-4 md:space-y-5 animate-in fade-in duration-500">
+                    <div className="md:hidden">
+                        <h1 className="text-xl font-bold tracking-tight text-[var(--color-text-primary)]">
+                            Parametrización comercial
+                        </h1>
+                        <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
+                            Precio base, moneda y activación comercial por unidad.
+                        </p>
+                    </div>
+
                     {flash ? (
                         <div
                             role="status"
@@ -205,84 +318,116 @@ export default function CommercialPricingPage() {
                         </div>
                     ) : null}
 
-                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
-                                Parametrización comercial
-                            </h1>
-                            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                                Define precio base, moneda y activación comercial de cada unidad de arrendamiento.
-                            </p>
-                            <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                                Las filas corresponden a <strong>rental units</strong> creadas desde la infraestructura de bodegas y la sincronización del catálogo, no desde un formulario comercial aislado. Si faltan unidades, cree bodegas en{" "}
-                                <Link href="/dashboard/infrastructure" className="font-semibold text-[var(--color-brand-strong)] underline">
-                                    Infraestructura
-                                </Link>
-                                {isAdmin ? (
-                                    <>
-                                        {" "}
-                                        o ejecute{" "}
-                                        <Link href="/dashboard/sales/commercial-sync" className="font-semibold text-[var(--color-brand-strong)] underline">
-                                            Resincronizar catálogo
-                                        </Link>
-                                        .
-                                    </>
-                                ) : (
-                                    <> Un administrador puede ejecutar la resincronización masiva del catálogo si aplica.</>
-                                )}
-                            </p>
+                    <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-4 sm:flex-row sm:items-start sm:justify-between">
+                        <p className="max-w-3xl text-sm leading-snug text-[var(--color-text-secondary)]">
+                            {isAdmin ? (
+                                <>
+                                    Gestiona precios y activación comercial de las unidades del catálogo. La estructura
+                                    física está en{" "}
+                                    <Link href="/dashboard/infrastructure" className="font-semibold text-[var(--color-brand-strong)] underline">
+                                        Infraestructura
+                                    </Link>
+                                    . Si tras cambios allí no ves filas aquí, usa{" "}
+                                    <strong className="text-[var(--color-text-primary)]">Sincronizar con infraestructura</strong>{" "}
+                                    y, si hace falta,{" "}
+                                    <strong className="text-[var(--color-text-primary)]">Recargar listado</strong>.
+                                </>
+                            ) : (
+                                <>
+                                    Consulta precios y estado comercial del catálogo. Para el detalle operativo
+                                    (ubicación, disponibilidad), abre{" "}
+                                    <Link href="/dashboard/sales/rental-units" className="font-semibold text-[var(--color-brand-strong)] underline">
+                                        Unidades de arrendamiento
+                                    </Link>
+                                    .
+                                </>
+                            )}
+                        </p>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            {isAdmin ? (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => void handleSyncCatalog()}
+                                    disabled={isSyncingCatalog || isLoading}
+                                    isLoading={isSyncingCatalog}
+                                >
+                                    Sincronizar con infraestructura
+                                </Button>
+                            ) : null}
+                            <Button variant="secondary" size="sm" onClick={() => void fetchRows()} disabled={isLoading}>
+                                Recargar listado
+                            </Button>
                         </div>
                     </div>
 
+                    {syncCatalogError ? (
+                        <Alert variant="danger" className="rounded-lg">
+                            {syncCatalogError}
+                        </Alert>
+                    ) : null}
+                    {syncCatalogMessage ? (
+                        <Alert variant="success" role="status" className="rounded-lg">
+                            {syncCatalogMessage}
+                        </Alert>
+                    ) : null}
+
                     {!isAdmin ? (
-                        <div
-                            role="note"
-                            className="rounded-lg border border-[var(--color-info-default)]/40 bg-[var(--color-info-subtle)] px-4 py-3 text-sm text-[var(--color-info-strong)]"
-                        >
+                        <Alert variant="info" role="note" className="rounded-lg">
                             Tu rol permite solo consultar esta información. La edición de precios está reservada
                             a administradores.
-                        </div>
+                        </Alert>
                     ) : null}
 
                     {pageError ? (
-                        <div
-                            role="alert"
-                            className="flex items-center justify-between rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
-                        >
+                        <Alert variant="danger" className="flex items-center justify-between rounded-lg">
                             <span>{pageError}</span>
                             <Button variant="ghost" size="sm" onClick={() => void fetchRows()}>
                                 Reintentar
                             </Button>
-                        </div>
+                        </Alert>
                     ) : null}
 
                     <Card>
                         <CardBody className="p-0">
-                            <div className="flex flex-col gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-hover)] p-4 sm:flex-row sm:flex-wrap sm:items-end">
-                                <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-primary)]">
-                                    <input
-                                        type="checkbox"
-                                        className="h-4 w-4 rounded border-[var(--color-border-subtle)]"
-                                        checked={readyOnly}
-                                        onChange={(e) => setReadyOnly(e.target.checked)}
-                                    />
-                                    Solo listas para comercializar
-                                </label>
-                                <div className="w-full min-w-[200px] max-w-xs sm:w-64">
-                                    <Label size="sm" className="mb-1 block text-[var(--color-text-secondary)]">
-                                        Estado comercial
-                                    </Label>
-                                    <Select
-                                        value={activeFilter}
-                                        onChange={(e) =>
-                                            setActiveFilter(e.target.value as "all" | "active" | "inactive")
-                                        }
-                                        options={[
-                                            { value: "all", label: "Todas" },
-                                            { value: "active", label: "Solo activas" },
-                                            { value: "inactive", label: "Solo inactivas" },
-                                        ]}
-                                    />
+                            <div className="flex flex-col gap-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-hover)] p-4">
+                                <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+                                    <div className="min-w-0 flex-1 md:min-w-[280px]">
+                                        <Input
+                                            label="Buscar"
+                                            placeholder="Buscar por unidad, código o tipo"
+                                            value={searchInput}
+                                            onChange={(e) => setSearchInput(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-56">
+                                        <Select
+                                            label="Estado comercial"
+                                            value={activeFilter}
+                                            onChange={(e) =>
+                                                setActiveFilter(e.target.value as "all" | "active" | "inactive")
+                                            }
+                                            options={[
+                                                { value: "all", label: "Todas" },
+                                                { value: "active", label: "Solo activas" },
+                                                { value: "inactive", label: "Solo inactivas" },
+                                            ]}
+                                        />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-3 md:ml-auto">
+                                        <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-primary)]">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-[var(--color-border-subtle)]"
+                                                checked={readyOnly}
+                                                onChange={(e) => setReadyOnly(e.target.checked)}
+                                            />
+                                            Solo listas para comercializar
+                                        </label>
+                                        <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                                            Limpiar filtros
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -320,18 +465,27 @@ export default function CommercialPricingPage() {
                                                       ))}
                                                   </tr>
                                               ))
-                                            : rows.length === 0
+                                            : filteredRows.length === 0
                                               ? (
                                                     <tr>
                                                         <td
                                                             colSpan={7}
                                                             className="px-6 py-10 text-center text-[var(--color-text-tertiary)]"
                                                         >
-                                                            {emptyMessage}
+                                                            <div className="space-y-3">
+                                                                <p>{emptyMessage}</p>
+                                                                {hasActiveFilters ? (
+                                                                    <div className="flex justify-center">
+                                                                        <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                                                                            Limpiar filtros
+                                                                        </Button>
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )
-                                              : rows.map((row) => (
+                                              : paginatedRows.map((row) => (
                                                     <tr
                                                         key={row.rentalUnitId}
                                                         className="transition-colors hover:bg-[var(--color-surface-hover)]"
@@ -365,21 +519,16 @@ export default function CommercialPricingPage() {
                                                         <td className="px-6 py-4 text-right">
                                                             {isAdmin ? (
                                                                 <Button
-                                                                    variant="outline"
+                                                                    variant="secondary"
                                                                     size="sm"
                                                                     onClick={() => openModal(row)}
                                                                 >
                                                                     Configurar precio
                                                                 </Button>
                                                             ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    disabled
-                                                                    title="Solo lectura"
-                                                                >
+                                                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
                                                                     Solo lectura
-                                                                </Button>
+                                                                </span>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -387,6 +536,21 @@ export default function CommercialPricingPage() {
                                     </tbody>
                                 </table>
                             </div>
+                            {!isLoading && filteredRows.length > 0 ? (
+                                <div className="border-t border-[var(--color-border-subtle)] px-4 py-2">
+                                    {rangeLabel ? (
+                                        <p className="mb-1 text-center text-xs text-[var(--color-text-tertiary)]">
+                                            {rangeLabel}
+                                        </p>
+                                    ) : null}
+                                    <Pagination
+                                        currentPage={tablePage}
+                                        totalPages={tableTotalPages}
+                                        onPageChange={goToTablePage}
+                                        className="py-2"
+                                    />
+                                </div>
+                            ) : null}
                         </CardBody>
                     </Card>
 
@@ -459,14 +623,13 @@ export default function CommercialPricingPage() {
                                 </label>
 
                                 {formErrors.length > 0 ? (
-                                    <ul
-                                        role="alert"
-                                        className="list-inside list-disc rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger-strong)]"
-                                    >
-                                        {formErrors.map((e) => (
-                                            <li key={e}>{e}</li>
-                                        ))}
-                                    </ul>
+                                    <Alert variant="danger" className="rounded-lg py-2">
+                                        <ul className="mb-0 list-inside list-disc space-y-0.5 pl-0.5">
+                                            {formErrors.map((e) => (
+                                                <li key={e}>{e}</li>
+                                            ))}
+                                        </ul>
+                                    </Alert>
                                 ) : null}
                             </div>
                         ) : null}

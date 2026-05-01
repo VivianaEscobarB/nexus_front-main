@@ -11,6 +11,15 @@ export interface StatusCatalog {
     name: string;
     code?: string;
     description?: string;
+    color?: string;
+    isOperational?: boolean;
+    entityTypeId?: number;
+}
+
+export interface EntityTypeCatalog {
+    id: number;
+    name: string;
+    description?: string;
 }
 
 export interface ManagedWarehouse {
@@ -117,4 +126,13 @@ export interface CreateStatusCatalogInput {
     isOperational: boolean;
     entityTypeId: number;
 }
+
+export type UpdateStatusCatalogInput = Partial<CreateStatusCatalogInput>;
+
+export interface CreateEntityTypeInput {
+    name: string;
+    description?: string;
+}
+
+export type UpdateEntityTypeInput = Partial<CreateEntityTypeInput>;
 

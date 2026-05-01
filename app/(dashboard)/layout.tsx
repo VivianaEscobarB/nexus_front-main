@@ -7,6 +7,9 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/modules/auth";
 import { UserProfileModal } from "@/components/UserProfileModal";
+import { Brand } from "@/components/Brand";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
 import { LegalFooter } from "@/components/ui/LegalFooter";
 import { useAuthStore, authStore } from "@/modules/auth/state/authStore";
@@ -39,7 +42,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [userProfile, setUserProfile] = useState<{name: string, email: string, avatarUrl: string} | null>(null);
+    const [userProfile, setUserProfile] = useState<{avatarUrl: string} | null>(null);
 
     const role = user?.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
 
@@ -78,7 +81,28 @@ export default function DashboardLayout({
                         : "Gestiona la estructura física de la operación."
             };
         }
-        
+        if (path.startsWith("/dashboard/status-management")) {
+            return {
+                title: "Gestión de estados",
+                description:
+                    "Administra estados reutilizables para bodegas, sectores y espacios."
+            };
+        }
+        if (path.startsWith("/dashboard/sales/commercial-pricing")) {
+            return {
+                title: "Parametrización comercial",
+                description:
+                    "Define precio base, moneda y estado comercial de las unidades de arrendamiento.",
+            };
+        }
+        if (path.startsWith("/dashboard/sales/rental-units")) {
+            return {
+                title: "Unidades de arrendamiento",
+                description:
+                    "Consulta del catálogo operativo: ubicación, disponibilidad y detalle por unidad.",
+            };
+        }
+
         if (path.startsWith("/dashboard/my-inventory")) {
             return {
                 title: "Mis bodegas",
@@ -101,42 +125,34 @@ export default function DashboardLayout({
     React.useEffect(() => {
         fetch("/api/user")
             .then(res => res.json())
-            .then(data => setUserProfile(data))
-            .catch(console.error);
+            .then(data => setUserProfile({ avatarUrl: data?.avatarUrl || "" }))
+            .catch(() => {
+                setUserProfile(null);
+            });
     }, []);
+
+    const sessionDisplayName = [user?.first_name, user?.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || "Usuario";
+    const sessionEmail = user?.email || "usuario@nexus.com";
 
     const navGroups: NavGroup[] = [
         { items: [{ name: "Inicio", href: "/dashboard", icon: HomeIcon }] },
     ];
 
     if (role === UserRole.ADMIN) {
-        const adminItems: NavItem[] = [
-            ...(isBusinessProcessVisible("warehouseStructure")
-                ? [
-                    {
-                        name: "Estructura de Bodegas",
-                        href: "/dashboard/infrastructure",
-                        icon: BoxIcon,
-                    },
-                    {
-                        name: "Unidades de arrendamiento",
-                        href: "/dashboard/sales/rental-units",
-                        icon: CubeIcon,
-                    },
-                    {
-                        name: "Sincronización catálogo",
-                        href: "/dashboard/sales/commercial-sync",
-                        icon: ArrowPathIcon,
-                    },
-                ]
-                : []),
-            ...(isBusinessProcessVisible("userManagement")
-                ? [{
-                    name: "Gestión de usuarios",
-                    href: "/dashboard/users",
-                    icon: ClipboardIcon,
-                }]
-                : []),
+        const infrastructureItems: NavItem[] = isBusinessProcessVisible("warehouseStructure")
+            ? [
+                {
+                    name: "Estructura de Bodegas",
+                    href: "/dashboard/infrastructure",
+                    icon: BoxIcon,
+                },
+            ]
+            : [];
+
+        const salesItems: NavItem[] = [
             ...(isBusinessProcessVisible("contracts")
                 ? [{
                     name: "Parametrización comercial",
@@ -146,10 +162,46 @@ export default function DashboardLayout({
                 : []),
         ];
 
-        navGroups.push({
-            title: "ADMINISTRACIÓN",
-            items: adminItems,
-        });
+        const userItems: NavItem[] = isBusinessProcessVisible("userManagement")
+            ? [{
+                name: "Gestión de usuarios",
+                href: "/dashboard/users",
+                icon: ClipboardIcon,
+            }]
+            : [];
+
+        const settingsItems: NavItem[] = [{
+            name: "Gestión de estados",
+            href: "/dashboard/status-management",
+            icon: SwatchIcon,
+        }];
+
+        if (infrastructureItems.length > 0) {
+            navGroups.push({
+                title: "INFRAESTRUCTURA DE BODEGAS",
+                items: infrastructureItems,
+            });
+        }
+
+        if (salesItems.length > 0) {
+            navGroups.push({
+                title: "GESTIÓN DE VENTAS",
+                items: salesItems,
+            });
+        }
+
+        if (userItems.length > 0) {
+            navGroups.push({
+                title: "USUARIOS",
+                items: userItems,
+            });
+        }
+        if (settingsItems.length > 0) {
+            navGroups.push({
+                title: "CONFIGURACIÓN GLOBAL",
+                items: settingsItems,
+            });
+        }
     } else if (role === UserRole.WAREHOUSE_SUPERVISOR) {
         if (isBusinessProcessVisible("warehouseStructure")) {
             navGroups.push({
@@ -287,27 +339,22 @@ export default function DashboardLayout({
                     }}
                 >
                     <div
-                        className={`h-16 flex items-center px-4 border-b ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}
+                        className={`h-16 flex items-center px-4 border-b relative ${isSidebarCollapsed ? "justify-center" : "justify-center"}`}
                         style={{ borderColor: "var(--color-sidebar-border)" }}
                     >
                         {!isSidebarCollapsed && (
                             <div className="flex items-center gap-2 overflow-hidden">
-                                <img
-                                    src="/Exclude.svg"
-                                    alt="Nexus Logo"
-                                    className="h-10 w-10 shrink-0 object-contain"
+                                <Brand
+                                    variant="logomarca"
+                                    surfaceTone="dark"
+                                    alt="Logomarca Nexus"
+                                    className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
                                 />
-                                <span
-                                    className="font-bold text-lg tracking-tight truncate"
-                                    style={{ color: "var(--color-sidebar-text-active)" }}
-                                >
-                                    Nexus
-                                </span>
                             </div>
                         )}
                         <button 
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0"
+                            className={`p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0 ${isSidebarCollapsed ? "" : "absolute right-4"}`}
                             title={isSidebarCollapsed ? "Expandir menú" : "Contraer menú"}
                         >
                             {isSidebarCollapsed ? (
@@ -346,10 +393,10 @@ export default function DashboardLayout({
                                 {!isSidebarCollapsed && (
                                     <div className="flex flex-col flex-1 min-w-0">
                                         <span className="text-sm font-bold truncate transition-colors" style={{ color: "var(--color-sidebar-text-active)" }}>
-                                            {user?.first_name || "Usuario"} {user?.last_name || ""}
+                                            {sessionDisplayName}
                                         </span>
                                         <span className="text-[10px] truncate opacity-60 font-medium leading-none" style={{ color: "var(--color-sidebar-text)" }}>
-                                            {userProfile?.email || user?.email || "usuario@nexus.com"}
+                                            {sessionEmail}
                                         </span>
                                     </div>
                                 )}
@@ -438,18 +485,25 @@ export default function DashboardLayout({
 
                 <main className="flex-1 flex flex-col min-w-0">
                     <header
-                        className="h-20 border-b flex items-center justify-between px-6 bg-white/50 backdrop-blur-md sticky top-0 z-40"
+                        className="h-20 border-b flex items-center justify-between px-6 sticky top-0 z-40 backdrop-blur-md"
                         style={{
                             background: "var(--color-surface-app)",
                             borderColor: "var(--color-border-subtle)",
                         }}
                     >
-                        <button
-                            className="md:hidden p-2 rounded-md"
-                            style={{ color: "var(--color-text-secondary)" }}
-                        >
-                            <MenuIcon className="w-6 h-6" />
-                        </button>
+                        <div className="flex items-center gap-3 md:hidden">
+                            <button
+                                className="p-2 rounded-md"
+                                style={{ color: "var(--color-text-secondary)" }}
+                            >
+                                <MenuIcon className="w-6 h-6" />
+                            </button>
+                            <Brand
+                                variant="isotipo"
+                                alt="Isotipo Nexus"
+                                className="h-6 w-6 object-contain"
+                            />
+                        </div>
 
                         {metadata && (
                             <div className="hidden md:flex flex-col">
@@ -483,32 +537,36 @@ export default function DashboardLayout({
                                         user?.first_name?.charAt(0) || "U"
                                     )}
                                 </div>
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="danger"
+                                    size="icon"
+                                    className="md:hidden shrink-0 shadow-sm"
                                     onClick={() => signOut()}
-                                    className="p-1.5 rounded-md bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
                                     title="Cerrar sesión"
+                                    aria-label="Cerrar sesión"
                                 >
                                     <LogoutIcon className="w-5 h-5" />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </header>
 
                     {authState.error ? (
                         <div className="px-6 pt-6 md:px-8">
-                            <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                            <Alert variant="danger" className="flex items-start justify-between gap-4">
                                 <div>
                                     <p className="font-semibold">Acceso denegado</p>
                                     <p>{authState.error}</p>
                                 </div>
                                 <button
                                     type="button"
-                                    className="rounded-md px-2 py-1 text-xs font-medium hover:bg-black/5"
+                                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-surface-hover/90"
                                     onClick={() => authStore.clearError()}
                                 >
                                     Cerrar
                                 </button>
-                            </div>
+                            </Alert>
                         </div>
                     ) : null}
 
@@ -524,6 +582,8 @@ export default function DashboardLayout({
             <UserProfileModal 
                 isOpen={isProfileOpen} 
                 onClose={() => setIsProfileOpen(false)} 
+                currentUserName={sessionDisplayName}
+                currentUserEmail={sessionEmail}
                 onSave={(data) => setUserProfile(data)}
             />
         </AuthGuard>
@@ -591,6 +651,15 @@ function CubeIcon({ className, style }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>
+    );
+}
+
+function SwatchIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0L19.5 9.804a3.75 3.75 0 0 0-5.304-5.304L4.098 14.598a3.75 3.75 0 0 0 0 5.304Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18h7.5" />
         </svg>
     );
 }

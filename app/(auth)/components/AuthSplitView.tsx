@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
+import { Brand } from "@/components/Brand";
 
 interface AuthSplitViewProps {
     title: string;
@@ -23,10 +24,10 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                 style={{ background: "var(--color-sidebar-bg)" }}
             >
                 <div className="relative z-10 flex flex-col items-center max-w-md">
-                    <img
-                        src="/Exclude.svg"
-                        alt="Nexus Logo"
-                        className="h-48 w-48 object-contain mb-8 origin-center scale-110 drop-shadow-2xl"
+                    <Brand
+                        variant="isotipo"
+                        alt="Isotipo de Nexus"
+                        className="h-40 w-40 xl:h-44 xl:w-44 object-contain mb-8 origin-center scale-105 drop-shadow-2xl"
                     />
 
                     <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight mb-4"
@@ -52,7 +53,7 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                 style={{ background: "var(--color-surface-app)" }}
             >
                 <div className="absolute top-6 left-6 lg:left-12">
-                    <Link href="/" className="flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70" style={{ color: "var(--color-text-secondary)" }}>
+                    <Link href="/" className="flex items-center gap-2 text-sm font-medium transition-all hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md px-1 py-0.5" style={{ color: "var(--color-text-secondary)" }}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                         </svg>
@@ -66,16 +67,11 @@ export function AuthSplitView({ title, subtitle, children, footerText }: AuthSpl
                     <div className="space-y-1">
                         {/* Logo mobile */}
                         <div className="flex items-center gap-2 mb-6 lg:hidden">
-                            <div
-                                className="h-12 w-12 rounded-xl flex items-center justify-center font-bold text-sm"
-                                style={{ background: "var(--color-brand-strong)", color: "var(--color-text-onbrand)" }}
-                            >
-                                <img src="/Exclude.svg" alt="Nexus Logo" className="h-8 w-8 object-contain" />
-                            </div>
-                            <span className="font-bold text-lg"
-                                style={{ color: "var(--color-text-primary)" }}>
-                                Nexus
-                            </span>
+                            <Brand
+                                variant="logomarca"
+                                alt="Logomarca Nexus"
+                                className="h-8 w-auto object-contain"
+                            />
                         </div>
 
                         <h2 className="text-2xl font-bold"

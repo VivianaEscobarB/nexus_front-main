@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import {
     activateUser,
@@ -653,15 +653,15 @@ export function UserManagementView({
                 </div>
 
                 {feedbackMessage ? (
-                    <div className="rounded-xl border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]">
+                    <Alert variant="success" className="rounded-xl">
                         {feedbackMessage}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 {pageError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {pageError}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 <Card padding="lg">
@@ -863,19 +863,13 @@ export function UserManagementView({
                         aria-busy={isSubmitting}
                     >
                         {actionError ? (
-                            <div
-                                role="alert"
-                                className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
-                            >
+                            <Alert variant="danger" className="rounded-xl">
                                 {actionError}
-                            </div>
+                            </Alert>
                         ) : null}
 
                         {locationsError ? (
-                            <div
-                                role="alert"
-                                className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning-strong)]"
-                            >
+                            <Alert variant="warning" className="rounded-xl">
                                 {locationsError}
                                 <button
                                     type="button"
@@ -887,7 +881,7 @@ export function UserManagementView({
                                 >
                                     Limpiar ubicación
                                 </button>
-                            </div>
+                            </Alert>
                         ) : null}
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

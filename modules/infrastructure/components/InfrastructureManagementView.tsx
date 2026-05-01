@@ -4,7 +4,9 @@ import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+    Alert,
     Badge,
     Button,
     Card,
@@ -507,14 +509,14 @@ function WarehouseFormModal({
                 })}
             >
                 {actionError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {actionError}
-                    </div>
+                    </Alert>
                 ) : null}
                 {locationsError ? (
-                    <div className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-xs text-[var(--color-warning-strong)]">
+                    <Alert variant="warning" className="rounded-xl text-xs">
                         {locationsError}
-                    </div>
+                    </Alert>
                 ) : null}
                 <section className="space-y-3">
                     <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
@@ -766,9 +768,9 @@ function SectorFormModal({
                 })}
             >
                 {actionError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {actionError}
-                    </div>
+                    </Alert>
                 ) : null}
                 <Select
                     label="Bodega"
@@ -946,9 +948,9 @@ function SpaceFormModal({
                 })}
             >
                 {actionError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {actionError}
-                    </div>
+                    </Alert>
                 ) : null}
                 <div className="grid gap-4 md:grid-cols-2">
                     <Select
@@ -1117,9 +1119,9 @@ function StatusCatalogFormModal({
                 onSubmit={handleSubmit(onSubmit)}
             >
                 {actionError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {actionError}
-                    </div>
+                    </Alert>
                 ) : null}
                 <Input label="Código" error={errors.code?.message} {...register("code")} />
                 <TextareaField
@@ -1159,6 +1161,9 @@ function StatusCatalogFormModal({
 
 export function InfrastructureManagementView() {
     const { user } = useAuth();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const role = user?.roles?.[0]?.role_name;
     const isSalesViewer = role === UserRole.SALES_AGENT;
     const isClientViewer = role === UserRole.CLIENT;
@@ -1186,16 +1191,56 @@ export function InfrastructureManagementView() {
     const [spaceStatusOptions, setSpaceStatusOptions] = React.useState<
         { value: number; label: string }[]
     >([]);
-    const [isStatusCatalogModalOpen, setIsStatusCatalogModalOpen] = React.useState(false);
-    const [isStatusCatalogSubmitting, setIsStatusCatalogSubmitting] = React.useState(false);
-    const [statusCatalogActionError, setStatusCatalogActionError] = React.useState<string | null>(null);
     const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<
         string | null
     >(null);
     const [selectedSectorId, setSelectedSectorId] = React.useState<string | null>(
         null
     );
+    const [selectedSpaceId, setSelectedSpaceId] = React.useState<string | null>(null);
     const [editor, setEditor] = React.useState<EditorState>(null);
+    const [activeUnitType, setActiveUnitType] = React.useState<
+        "warehouse" | "sector" | "space"
+    >("warehouse");
+    const [searchInput, setSearchInput] = React.useState("");
+    const [searchTerm, setSearchTerm] = React.useState("");
+    const [isDetailExpanded, setIsDetailExpanded] = React.useState(false);
+    const isSyncedFromUrlRef = React.useRef(false);
+
+    React.useEffect(() => {
+        const unit = searchParams.get("unit");
+        const nextUnitType =
+            unit === "sector" || unit === "space" ? unit : "warehouse";
+        setActiveUnitType(nextUnitType);
+        setSearchInput(searchParams.get("q") ?? "");
+        isSyncedFromUrlRef.current = true;
+    }, [searchParams]);
+
+    React.useEffect(() => {
+        const timerId = window.setTimeout(() => {
+            setSearchTerm(searchInput);
+        }, 250);
+
+        return () => window.clearTimeout(timerId);
+    }, [searchInput]);
+
+    React.useEffect(() => {
+        if (!isSyncedFromUrlRef.current) return;
+
+        const params = new URLSearchParams();
+        if (activeUnitType !== "warehouse") {
+            params.set("unit", activeUnitType);
+        }
+
+        const trimmedQuery = searchInput.trim();
+        if (trimmedQuery.length > 0) {
+            params.set("q", trimmedQuery);
+        }
+
+        const nextQuery = params.toString();
+        const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+        router.replace(nextUrl, { scroll: false });
+    }, [activeUnitType, pathname, router, searchInput]);
 
     const loadInfrastructure = React.useCallback(async () => {
         setIsLoading(true);
@@ -1239,12 +1284,59 @@ export function InfrastructureManagementView() {
         });
     }, [warehouses]);
 
+    const filteredWarehouseResults = React.useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return sortedWarehouses;
+
+        return sortedWarehouses.filter((warehouse) =>
+            `${warehouse.name} ${warehouse.code} ${warehouse.address}`
+                .toLowerCase()
+                .includes(query)
+        );
+    }, [searchTerm, sortedWarehouses]);
+
     const {
         paginatedData: paginatedWarehouses,
         currentPage: warehousePage,
         totalPages: warehouseTotalPages,
         goToPage: goToWarehousePage,
-    } = usePagination(sortedWarehouses, 5);
+    } = usePagination(filteredWarehouseResults, 8);
+
+    const filteredSectorResults = React.useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        return sectors.filter((sector) => {
+            if (!query) return true;
+
+            return `${sector.name} ${sector.code} ${sector.warehouseName ?? ""}`
+                .toLowerCase()
+                .includes(query);
+        });
+    }, [searchTerm, sectors]);
+
+    const {
+        paginatedData: paginatedSectors,
+        currentPage: sectorPage,
+        totalPages: sectorTotalPages,
+        goToPage: goToSectorPage,
+    } = usePagination(filteredSectorResults, 8);
+
+    const filteredSpaceResults = React.useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        return spaces.filter((space) => {
+            if (!query) return true;
+
+            return `${space.name} ${space.code} ${space.warehouseName ?? ""} ${space.sectorName ?? ""}`
+                .toLowerCase()
+                .includes(query);
+        });
+    }, [searchTerm, spaces]);
+
+    const {
+        paginatedData: paginatedSpaces,
+        currentPage: spacePage,
+        totalPages: spaceTotalPages,
+        goToPage: goToSpacePage,
+    } = usePagination(filteredSpaceResults, 8);
 
     const refreshStatusOptions = React.useCallback(async () => {
         try {
@@ -1356,6 +1448,10 @@ export function InfrastructureManagementView() {
         () => filteredSectors.find((sector) => sector.id === selectedSectorId) ?? null,
         [filteredSectors, selectedSectorId]
     );
+    const selectedSpace = React.useMemo(
+        () => spaces.find((space) => space.id === selectedSpaceId) ?? null,
+        [selectedSpaceId, spaces]
+    );
 
     const totals = React.useMemo(() => {
         const occupiedSpaces = spaces.filter(
@@ -1369,6 +1465,28 @@ export function InfrastructureManagementView() {
             occupiedSpaces,
         };
     }, [sectors.length, spaces, warehouses.length]);
+
+    const sectorCountByWarehouse = React.useMemo(() => {
+        const countMap = new Map<string, number>();
+        for (const sector of sectors) {
+            countMap.set(
+                sector.warehouseId,
+                (countMap.get(sector.warehouseId) ?? 0) + 1
+            );
+        }
+        return countMap;
+    }, [sectors]);
+
+    const spaceCountByWarehouse = React.useMemo(() => {
+        const countMap = new Map<string, number>();
+        for (const space of spaces) {
+            countMap.set(
+                space.warehouseId,
+                (countMap.get(space.warehouseId) ?? 0) + 1
+            );
+        }
+        return countMap;
+    }, [spaces]);
 
     function closeEditor() {
         setEditor(null);
@@ -1489,62 +1607,10 @@ export function InfrastructureManagementView() {
             ]}
         >
             <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
-                <div className="flex flex-wrap items-center justify-end gap-3">
-                        <Badge
-                            label={
-                                canManageWarehouses
-                                    ? "Control total"
-                                    : canManageStructure
-                                        ? "Consulta de bodegas"
-                                        : isSalesViewer
-                                            ? "Consulta comercial"
-                                            : isClientViewer
-                                                ? "Disponibilidad cliente"
-                                                : "Consulta operativa"
-                            }
-                            variant={
-                                canManageWarehouses
-                                    ? "danger"
-                                    : canManageStructure
-                                        ? "info"
-                                        : isSalesViewer
-                                            ? "brand"
-                                            : "neutral"
-                            }
-                        />
-                        {canManageWarehouses ? (
-                            <>
-                                <Button
-                                    onClick={() => {
-                                        setFeedbackMessage(null);
-                                        setEditor({
-                                            entity: "warehouse",
-                                            mode: "create",
-                                        });
-                                    }}
-                                >
-                                    Nueva bodega
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                        setStatusCatalogActionError(null);
-                                        setIsStatusCatalogModalOpen(true);
-                                    }}
-                                >
-                                    Registrar estado
-                                </Button>
-                            </>
-                        ) : null}
-                        <Button variant="outline" onClick={() => loadInfrastructure()}>
-                            Recargar
-                        </Button>
-                    </div>
-
                 {feedbackMessage ? (
-                    <div className="rounded-xl border border-[var(--color-success-strong)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]">
+                    <Alert variant="success" className="rounded-xl">
                         {feedbackMessage}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 {pageError ? (
@@ -1614,7 +1680,7 @@ export function InfrastructureManagementView() {
                             />
                         </div>
 
-                        <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+                        <div className="space-y-6">
                             <Card>
                                 <CardHeader
                                     title={
@@ -1625,10 +1691,111 @@ export function InfrastructureManagementView() {
                                     description={
                                         isClientViewer
                                             ? "Selecciona una bodega para revisar sus espacios disponibles."
-                                            : "Selecciona una bodega para trabajar su estructura interna."
+                                            : "Explora y filtra unidades para gestionar la estructura de forma ordenada."
+                                    }
+                                    action={
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => loadInfrastructure()}
+                                        >
+                                            Recargar
+                                        </Button>
                                     }
                                 />
-                                <CardBody padding="none" className="space-y-4">
+                                <CardBody className="space-y-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant={activeUnitType === "warehouse" ? "primary" : "outline"}
+                                                onClick={() => setActiveUnitType("warehouse")}
+                                            >
+                                                Bodegas ({totals.warehouses})
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant={activeUnitType === "sector" ? "primary" : "outline"}
+                                                onClick={() => setActiveUnitType("sector")}
+                                            >
+                                                Sectores ({totals.sectors})
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant={activeUnitType === "space" ? "primary" : "outline"}
+                                                onClick={() => setActiveUnitType("space")}
+                                            >
+                                                Espacios ({totals.spaces})
+                                            </Button>
+                                        </div>
+                                        {canManageStructure ? (
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={() => {
+                                                    setFeedbackMessage(null);
+                                                    if (activeUnitType === "warehouse") {
+                                                        setEditor({
+                                                            entity: "warehouse",
+                                                            mode: "create",
+                                                        });
+                                                        return;
+                                                    }
+                                                    if (activeUnitType === "sector") {
+                                                        setEditor({
+                                                            entity: "sector",
+                                                            mode: "create",
+                                                        });
+                                                        return;
+                                                    }
+                                                    setEditor({
+                                                        entity: "space",
+                                                        mode: "create",
+                                                    });
+                                                }}
+                                                disabled={
+                                                    activeUnitType === "warehouse"
+                                                        ? !canManageWarehouses
+                                                        : activeUnitType === "sector"
+                                                            ? !selectedWarehouseId
+                                                            : !selectedWarehouseId || !selectedSectorId
+                                                }
+                                            >
+                                                {activeUnitType === "warehouse"
+                                                    ? "Nueva bodega"
+                                                    : activeUnitType === "sector"
+                                                        ? "Nuevo sector"
+                                                        : "Nuevo espacio"}
+                                            </Button>
+                                        ) : null}
+                                    </div>
+
+                                    <Input
+                                        label="Buscar"
+                                        placeholder={
+                                            activeUnitType === "warehouse"
+                                                ? "Buscar por nombre, código o ubicación"
+                                                : activeUnitType === "sector"
+                                                    ? "Buscar sector por nombre, código o bodega"
+                                                    : "Buscar espacio por nombre, código o jerarquía"
+                                        }
+                                        value={searchInput}
+                                        onChange={(event) => setSearchInput(event.target.value)}
+                                    />
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setSearchInput("");
+                                                setActiveUnitType("warehouse");
+                                            }}
+                                        >
+                                            Limpiar filtros
+                                        </Button>
+                                    </div>
+
                                     {isLoading ? (
                                         Array.from({ length: 3 }).map((_, index) => (
                                             <div
@@ -1636,112 +1803,277 @@ export function InfrastructureManagementView() {
                                                 className="h-28 animate-pulse rounded-2xl bg-[var(--color-surface-hover)]"
                                             />
                                         ))
-                                    ) : sortedWarehouses.length > 0 ? (
-                                        <div className="flex flex-col gap-4">
-                                            {paginatedWarehouses.map((warehouse) => {
-                                                const isSelected =
-                                                    warehouse.id === selectedWarehouseId;
-                                                const warehouseInactive =
-                                                    isWarehouseInactive(warehouse);
+                                    ) : activeUnitType === "warehouse" &&
+                                      filteredWarehouseResults.length > 0 ? (
+                                        <div className="space-y-3">
+                                            <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
+                                                <table className="w-full min-w-[820px] text-left text-sm">
+                                                    <thead className="bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]">
+                                                        <tr>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Bodega</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Código</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Ubicación</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Estado</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Sectores</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Espacios</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                        {paginatedWarehouses.map((warehouse) => {
+                                                            const isSelected =
+                                                                warehouse.id === selectedWarehouseId;
+                                                            const warehouseInactive = isWarehouseInactive(warehouse);
 
-                                                return (
-                                                    <Card
-                                                        key={warehouse.id}
-                                                        clickable
-                                                        variant={isSelected ? "outlined" : "default"}
-                                                        className={[
-                                                            "border",
-                                                            isSelected
-                                                                ? "border-[var(--color-brand-strong)] bg-[var(--color-brand-subtle)]"
-                                                                : "border-[var(--color-border-subtle)]",
-                                                            warehouseInactive
-                                                                ? "opacity-80"
-                                                                : "",
-                                                        ].join(" ")}
-                                                        onClick={() => {
-                                                            setSelectedWarehouseId(warehouse.id);
-                                                            setFeedbackMessage(null);
-                                                        }}
-                                                    >
-                                                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                                            <div className="space-y-2">
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                                                            return (
+                                                                <tr
+                                                                    key={warehouse.id}
+                                                                    className={`cursor-pointer transition-colors ${isSelected ? "bg-[var(--color-brand-subtle)]" : "hover:bg-[var(--color-surface-hover)]"}`}
+                                                                    onClick={() => {
+                                                                        setSelectedWarehouseId(warehouse.id);
+                                                                        setSelectedSpaceId(null);
+                                                                        setFeedbackMessage(null);
+                                                                    }}
+                                                                >
+                                                                    <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
                                                                         {warehouse.name}
-                                                                    </h3>
-                                                                    <Badge
-                                                                        label={warehouse.code}
-                                                                        variant="brand"
-                                                                    />
-                                                                    <Badge
-                                                                        label={getWarehouseStatusLabel(warehouse)}
-                                                                        variant={
-                                                                            warehouseInactive
-                                                                                ? "neutral"
-                                                                                : "success"
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <p className="text-sm text-[var(--color-text-secondary)]">
-                                                                    {warehouse.address}
-                                                                </p>
-                                                                <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)]">
-                                                                    <span>
-                                                                        Total:{" "}
-                                                                        {formatCapacity(
-                                                                            warehouse.totalCapacityM2
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <Badge label={warehouse.code} variant="brand" />
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                                                                        {warehouse.address}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <Badge
+                                                                            label={getWarehouseStatusLabel(warehouse)}
+                                                                            variant={warehouseInactive ? "neutral" : "success"}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-[var(--color-text-primary)]">
+                                                                        {sectorCountByWarehouse.get(warehouse.id) ?? 0}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-[var(--color-text-primary)]">
+                                                                        {spaceCountByWarehouse.get(warehouse.id) ?? 0}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        {!isSalesViewer &&
+                                                                        !isClientViewer &&
+                                                                        canManageWarehouses ? (
+                                                                            <Button
+                                                                                variant="secondary"
+                                                                                size="sm"
+                                                                                disabled={warehouseInactive}
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    setFeedbackMessage(null);
+                                                                                    setEditor({
+                                                                                        entity: "warehouse",
+                                                                                        mode: "edit",
+                                                                                        warehouse,
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                Editar
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <span className="text-[10px] uppercase font-bold text-[var(--color-text-tertiary)] tracking-wider">
+                                                                                Solo lectura
+                                                                            </span>
                                                                         )}
-                                                                    </span>
-                                                                    <span>
-                                                                        Disponible:{" "}
-                                                                        {formatCapacity(
-                                                                            warehouse.availableCapacityM2
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {!isSalesViewer && !isClientViewer && canManageWarehouses ? (
-                                                                    <>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <Pagination
+                                                currentPage={warehousePage}
+                                                totalPages={warehouseTotalPages}
+                                                onPageChange={goToWarehousePage}
+                                            />
+                                        </div>
+                                    ) : activeUnitType === "sector" &&
+                                      filteredSectorResults.length > 0 ? (
+                                        <div className="space-y-3">
+                                            <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
+                                                <table className="w-full min-w-[760px] text-left text-sm">
+                                                    <thead className="bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]">
+                                                        <tr>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Sector</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Código</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Bodega</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Estado</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Espacios</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                        {paginatedSectors.map((sector) => (
+                                                            <tr
+                                                                key={sector.id}
+                                                                className={`cursor-pointer transition-colors ${sector.id === selectedSectorId ? "bg-[var(--color-brand-subtle)]" : "hover:bg-[var(--color-surface-hover)]"}`}
+                                                                onClick={() => {
+                                                                    setSelectedWarehouseId(sector.warehouseId);
+                                                                    setSelectedSectorId(sector.id);
+                                                                    setSelectedSpaceId(null);
+                                                                    setFeedbackMessage(null);
+                                                                }}
+                                                            >
+                                                                <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
+                                                                    {sector.name}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <Badge label={sector.code} variant="brand" />
+                                                                </td>
+                                                                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                                                                    {sector.warehouseName ?? "Sin bodega"}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <Badge
+                                                                        label={getStatusLabel(sector.status)}
+                                                                        variant={STATUS_VARIANTS[sector.status] ?? "neutral"}
+                                                                    />
+                                                                </td>
+                                                                <td className="px-4 py-3 text-[var(--color-text-primary)]">
+                                                                    {
+                                                                        spaces.filter(
+                                                                            (space) => space.sectorId === sector.id
+                                                                        ).length
+                                                                    }
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {canManageStructure ? (
                                                                         <Button
-                                                                            variant="outline"
+                                                                            variant="secondary"
                                                                             size="sm"
-                                                                            disabled={warehouseInactive}
                                                                             onClick={(event) => {
                                                                                 event.stopPropagation();
                                                                                 setFeedbackMessage(null);
                                                                                 setEditor({
-                                                                                    entity: "warehouse",
+                                                                                    entity: "sector",
                                                                                     mode: "edit",
-                                                                                    warehouse,
+                                                                                    sector,
                                                                                 });
                                                                             }}
                                                                         >
                                                                             Editar
                                                                         </Button>
-                                                                    </>
-                                                                ) : (
-                                                                    <span className="text-[10px] uppercase font-bold text-[var(--color-text-tertiary)] tracking-wider">Solo lectura</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </Card>
-                                                );
-                                            })}
-                                            
+                                                                    ) : (
+                                                                        <span className="text-[10px] uppercase font-bold text-[var(--color-text-tertiary)] tracking-wider">
+                                                                            Solo lectura
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                             <Pagination
-                                                currentPage={warehousePage}
-                                                totalPages={warehouseTotalPages}
-                                                onPageChange={goToWarehousePage}
-                                                className="mt-2"
+                                                currentPage={sectorPage}
+                                                totalPages={sectorTotalPages}
+                                                onPageChange={goToSectorPage}
+                                            />
+                                        </div>
+                                    ) : activeUnitType === "space" &&
+                                      filteredSpaceResults.length > 0 ? (
+                                        <div className="space-y-3">
+                                            <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
+                                                <table className="w-full min-w-[880px] text-left text-sm">
+                                                    <thead className="bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]">
+                                                        <tr>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Espacio</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Código</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Bodega</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Sector</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Estado</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Capacidad</th>
+                                                            <th className="px-4 py-3 text-xs font-semibold uppercase">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                        {paginatedSpaces.map((space) => (
+                                                            <tr
+                                                                key={space.id}
+                                                                className="cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)]"
+                                                                onClick={() => {
+                                                                    setSelectedWarehouseId(space.warehouseId);
+                                                                    setSelectedSectorId(space.sectorId);
+                                                                    setSelectedSpaceId(space.id);
+                                                                    setFeedbackMessage(null);
+                                                                }}
+                                                            >
+                                                                <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
+                                                                    {space.name}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <Badge label={space.code} variant="brand" />
+                                                                </td>
+                                                                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                                                                    {space.warehouseName ?? "Sin bodega"}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                                                                    {space.sectorName ?? "Sin sector"}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <Badge
+                                                                        label={getStatusLabel(space.status)}
+                                                                        variant={STATUS_VARIANTS[space.status] ?? "neutral"}
+                                                                    />
+                                                                </td>
+                                                                <td className="px-4 py-3 text-[var(--color-text-primary)]">
+                                                                    {formatCapacity(space.capacityM2)}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {canManageStructure ? (
+                                                                        <Button
+                                                                            variant="secondary"
+                                                                            size="sm"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                setFeedbackMessage(null);
+                                                                                setEditor({
+                                                                                    entity: "space",
+                                                                                    mode: "edit",
+                                                                                    space,
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            Editar
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <span className="text-[10px] uppercase font-bold text-[var(--color-text-tertiary)] tracking-wider">
+                                                                            Solo lectura
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <Pagination
+                                                currentPage={spacePage}
+                                                totalPages={spaceTotalPages}
+                                                onPageChange={goToSpacePage}
                                             />
                                         </div>
                                     ) : (
                                         <EmptyState
-                                            title="No hay bodegas registradas"
-                                            description="Crea la primera bodega para empezar a modelar sectores y espacios."
+                                            title={
+                                                activeUnitType === "warehouse"
+                                                    ? "No hay bodegas registradas"
+                                                    : "Sin resultados para este tipo"
+                                            }
+                                            description={
+                                                activeUnitType === "warehouse"
+                                                    ? "Crea la primera bodega para empezar a modelar sectores y espacios."
+                                                    : "Ajusta búsqueda y filtros para encontrar resultados."
+                                            }
                                             action={
-                                                canManageWarehouses ? (
+                                                activeUnitType === "warehouse" && canManageWarehouses ? (
                                                     <Button
                                                         onClick={() =>
                                                             setEditor({
@@ -1763,13 +2095,47 @@ export function InfrastructureManagementView() {
                                 <CardHeader
                                     title="Detalle operativo"
                                     description={
-                                        isClientViewer
-                                            ? "Resumen de disponibilidad para la bodega seleccionada."
-                                            : "Resumen del contexto sobre el que se esta trabajando."
+                                        activeUnitType === "warehouse"
+                                            ? isClientViewer
+                                                ? "Resumen de disponibilidad para la bodega seleccionada."
+                                                : "Resumen del contexto sobre el que se está trabajando."
+                                            : activeUnitType === "sector"
+                                                ? "Resumen del sector seleccionado y su relación con la bodega."
+                                                : "Resumen del espacio seleccionado y su estado operativo."
+                                    }
+                                    action={
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            className="gap-2 border-border-default bg-surface-base hover:bg-surface-hover"
+                                            aria-expanded={isDetailExpanded}
+                                            aria-controls="operational-detail-panel"
+                                            onClick={() =>
+                                                setIsDetailExpanded((current) => !current)
+                                            }
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                                className={`h-4 w-4 transition-transform ${isDetailExpanded ? "rotate-180" : ""}`}
+                                                aria-hidden="true"
+                                            >
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                                                    clipRule="evenodd"
+                                                />
+                                            </svg>
+                                            {isDetailExpanded
+                                                ? "Ocultar detalle operativo"
+                                                : "Mostrar detalle operativo"}
+                                        </Button>
                                     }
                                 />
-                                <CardBody className="space-y-4">
-                                    {selectedWarehouse ? (
+                                {isDetailExpanded ? (
+                                    <CardBody id="operational-detail-panel" className="space-y-4">
+                                    {activeUnitType === "warehouse" && selectedWarehouse ? (
                                         <>
                                             <div className="rounded-2xl bg-[var(--color-surface-hover)] p-4">
                                                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
@@ -1821,321 +2187,92 @@ export function InfrastructureManagementView() {
                                                 </ul>
                                             </div>
                                         </>
-                                    ) : (
-                                        <EmptyState
-                                            title="Selecciona una bodega"
-                                            description="El detalle operativo aparece cuando eliges una bodega de trabajo."
-                                        />
-                                    )}
-                                </CardBody>
-                            </Card>
-                        </div>
-
-                        <div className="grid gap-6 xl:grid-cols-2">
-                            {showsSectorPanel ? (
-                                <Card>
-                                <CardHeader
-                                    title="Sectores"
-                                    description="Gestiona la segmentación interna de cada bodega."
-                                    action={
-                                        canManageStructure ? (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => {
-                                                    setFeedbackMessage(null);
-                                                    setEditor({
-                                                        entity: "sector",
-                                                        mode: "create",
-                                                    });
-                                                }}
-                                                disabled={!selectedWarehouse}
-                                            >
-                                                Nuevo sector
-                                            </Button>
-                                        ) : undefined
-                                    }
-                                />
-                                <CardBody padding="none" className="space-y-4">
-                                    {filteredSectors.length > 0 ? (
-                                        filteredSectors.map((sector) => {
-                                            const isSelected =
-                                                sector.id === selectedSectorId;
-
-                                            return (
-                                                <Card
-                                                    key={sector.id}
-                                                    clickable
-                                                    variant={isSelected ? "outlined" : "default"}
-                                                    className={[
-                                                        "border",
-                                                        isSelected
-                                                            ? "border-[var(--color-brand-strong)] bg-[var(--color-brand-subtle)]"
-                                                            : "border-[var(--color-border-subtle)]",
-                                                    ].join(" ")}
-                                                    onClick={() => {
-                                                        setSelectedSectorId(sector.id);
-                                                        setFeedbackMessage(null);
-                                                    }}
-                                                >
-                                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                                        <div className="space-y-2">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                                                                    {sector.name}
-                                                                </h3>
-                                                                <Badge
-                                                                    label={sector.code}
-                                                                    variant="brand"
-                                                                />
-                                                                <Badge
-                                                                    label={getStatusLabel(sector.status)}
-                                                                    variant={STATUS_VARIANTS[sector.status]}
-                                                                />
-                                                            </div>
-                                                            <p className="text-sm text-[var(--color-text-secondary)]">
-                                                                {sector.description ||
-                                                                    "Sin descripcion operativa"}
-                                                            </p>
-                                                            <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)]">
-                                                                <span>
-                                                                    Bodega:{" "}
-                                                                    {sector.warehouseName ||
-                                                                        "Sin referencia"}
-                                                                </span>
-                                                                <span>
-                                                                    Capacidad:{" "}
-                                                                    {formatCapacity(
-                                                                        sector.capacityM2
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {canManageStructure ? (
-                                                                <>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            setFeedbackMessage(null);
-                                                                            setEditor({
-                                                                                entity: "sector",
-                                                                                mode: "edit",
-                                                                                sector,
-                                                                            });
-                                                                        }}
-                                                                    >
-                                                                        Editar
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="danger"
-                                                                        size="sm"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            void handleDeleteSectorAction(
-                                                                                sector
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        Eliminar
-                                                                    </Button>
-                                                                </>
-                                                            ) : (
-                                                                <Badge
-                                                                    label="Solo lectura"
-                                                                    variant="neutral"
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </Card>
-                                            );
-                                        })
-                                    ) : (
-                                        <EmptyState
-                                            title="No hay sectores para esta bodega"
-                                            description={
-                                                selectedWarehouse
-                                                    ? "Crea el primer sector para estructurar esta instalacion."
-                                                    : "Primero selecciona una bodega para gestionar sectores."
-                                            }
-                                            action={
-                                                selectedWarehouse &&
-                                                canManageStructure ? (
-                                                    <Button
-                                                        onClick={() =>
-                                                            setEditor({
-                                                                entity: "sector",
-                                                                mode: "create",
-                                                            })
-                                                        }
-                                                    >
-                                                        Crear sector
-                                                    </Button>
-                                                ) : undefined
-                                            }
-                                        />
-                                    )}
-                                </CardBody>
-                                </Card>
-                            ) : null}
-
-                            <Card>
-                                <CardHeader
-                                    title="Espacios"
-                                    description={
-                                        isClientViewer
-                                            ? "Consulta espacios disponibles dentro de la bodega seleccionada."
-                                                    : "Administra la ocupación detallada de cada sector."
-                                    }
-                                    action={
-                                        canManageStructure ? (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => {
-                                                    setFeedbackMessage(null);
-                                                    setEditor({
-                                                        entity: "space",
-                                                        mode: "create",
-                                                    });
-                                                }}
-                                                disabled={!selectedWarehouse || !selectedSector}
-                                            >
-                                                Nuevo espacio
-                                            </Button>
-                                        ) : undefined
-                                    }
-                                />
-                                <CardBody padding="none" className="space-y-4">
-                                    {showsSectorPanel && selectedSector ? (
-                                        <div className="rounded-2xl bg-[var(--color-surface-hover)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                            Trabajando sobre el sector{" "}
-                                            <strong className="text-[var(--color-text-primary)]">
+                                    ) : activeUnitType === "sector" && selectedSector ? (
+                                        <div className="rounded-2xl bg-[var(--color-surface-hover)] p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                                                Sector activo
+                                            </p>
+                                            <h3 className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">
                                                 {selectedSector.name}
-                                            </strong>
-                                            {selectedWarehouse
-                                                ? ` de ${selectedWarehouse.name}`
-                                                : ""}
-                                            .
-                                        </div>
-                                    ) : null}
-
-                                    {filteredSpaces.length > 0 ? (
-                                        filteredSpaces.map((space) => (
-                                            <Card
-                                                key={space.id}
-                                                variant="default"
-                                                className="border border-[var(--color-border-subtle)]"
-                                            >
-                                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                                    <div className="space-y-2">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                                                                {space.name}
-                                                            </h3>
-                                                            <Badge
-                                                                label={space.code}
-                                                                variant="brand"
-                                                            />
-                                                            <Badge
-                                                                label={getStatusLabel(space.status)}
-                                                                variant={STATUS_VARIANTS[space.status]}
-                                                            />
-                                                        </div>
-                                                        <p className="text-sm text-[var(--color-text-secondary)]">
-                                                            {space.description ||
-                                                                "Sin descripcion operativa"}
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-tertiary)]">
-                                                            <span>
-                                                                Sector:{" "}
-                                                                {space.sectorName ||
-                                                                    "Sin referencia"}
-                                                            </span>
-                                                            <span>
-                                                                Bodega:{" "}
-                                                                {space.warehouseName ||
-                                                                    "Sin referencia"}
-                                                            </span>
-                                                            <span>
-                                                                Capacidad:{" "}
-                                                                {formatCapacity(
-                                                                    space.capacityM2
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {canManageStructure ? (
-                                                            <>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => {
-                                                                        setFeedbackMessage(null);
-                                                                        setEditor({
-                                                                            entity: "space",
-                                                                            mode: "edit",
-                                                                            space,
-                                                                        });
-                                                                    }}
-                                                                >
-                                                                    Editar
-                                                                </Button>
-                                                                <Button
-                                                                    variant="danger"
-                                                                    size="sm"
-                                                                    onClick={() => {
-                                                                        void handleDeleteSpaceAction(
-                                                                            space
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    Eliminar
-                                                                </Button>
-                                                            </>
-                                                        ) : (
-                                                            <Badge
-                                                                label="Solo lectura"
-                                                                variant="neutral"
-                                                            />
-                                                        )}
-                                                    </div>
+                                            </h3>
+                                            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                                                Bodega: {selectedSector.warehouseName ?? "Sin bodega"}
+                                            </p>
+                                            <div className="mt-4 grid gap-3 text-sm text-[var(--color-text-secondary)]">
+                                                <div className="flex items-center justify-between">
+                                                    <span>Estado</span>
+                                                    <Badge
+                                                        label={getStatusLabel(selectedSector.status)}
+                                                        variant={STATUS_VARIANTS[selectedSector.status] ?? "neutral"}
+                                                    />
                                                 </div>
-                                            </Card>
-                                        ))
+                                                <div className="flex items-center justify-between">
+                                                    <span>Espacios del sector</span>
+                                                    <strong className="text-[var(--color-text-primary)]">
+                                                        {
+                                                            spaces.filter(
+                                                                (space) =>
+                                                                    space.sectorId === selectedSector.id
+                                                            ).length
+                                                        }
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : activeUnitType === "space" && selectedSpace ? (
+                                        <div className="rounded-2xl bg-[var(--color-surface-hover)] p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                                                Espacio activo
+                                            </p>
+                                            <h3 className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">
+                                                {selectedSpace.name}
+                                            </h3>
+                                            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                                                {selectedSpace.warehouseName ?? "Sin bodega"} ·{" "}
+                                                {selectedSpace.sectorName ?? "Sin sector"}
+                                            </p>
+                                            <div className="mt-4 grid gap-3 text-sm text-[var(--color-text-secondary)]">
+                                                <div className="flex items-center justify-between">
+                                                    <span>Estado</span>
+                                                    <Badge
+                                                        label={getStatusLabel(selectedSpace.status)}
+                                                        variant={STATUS_VARIANTS[selectedSpace.status] ?? "neutral"}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span>Capacidad</span>
+                                                    <strong className="text-[var(--color-text-primary)]">
+                                                        {formatCapacity(selectedSpace.capacityM2)}
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <EmptyState
-                                            title="No hay espacios disponibles"
-                                            description={
-                                                showsSectorPanel
-                                                    ? selectedSector
-                                                        ? "Crea el primer espacio operativo dentro del sector seleccionado."
-                                                        : "Selecciona un sector para visualizar y administrar espacios."
-                                                    : selectedWarehouse
-                                                        ? "No hay espacios visibles para la bodega seleccionada."
-                                                        : "Selecciona una bodega para visualizar espacios disponibles."
+                                            title={
+                                                activeUnitType === "warehouse"
+                                                    ? "Selecciona una bodega"
+                                                    : activeUnitType === "sector"
+                                                        ? "Selecciona un sector"
+                                                        : "Selecciona un espacio"
                                             }
-                                            action={
-                                                selectedWarehouse &&
-                                                selectedSector &&
-                                                canManageStructure ? (
-                                                    <Button
-                                                        onClick={() =>
-                                                            setEditor({
-                                                                entity: "space",
-                                                                mode: "create",
-                                                            })
-                                                        }
-                                                    >
-                                                        Crear espacio
-                                                    </Button>
-                                                ) : undefined
+                                            description={
+                                                activeUnitType === "warehouse"
+                                                    ? "El detalle operativo aparece cuando eliges una bodega de trabajo."
+                                                    : activeUnitType === "sector"
+                                                        ? "El detalle operativo aparece cuando eliges un sector en la tabla."
+                                                        : "El detalle operativo aparece cuando eliges un espacio en la tabla."
                                             }
                                         />
                                     )}
-                                </CardBody>
+                                    </CardBody>
+                                ) : (
+                                    <CardBody id="operational-detail-panel">
+                                        <p className="text-sm text-[var(--color-text-secondary)]">
+                                            Expande este panel para revisar el contexto operativo de la unidad seleccionada.
+                                        </p>
+                                    </CardBody>
+                                )}
                             </Card>
                         </div>
                     </>

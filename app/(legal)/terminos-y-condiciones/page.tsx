@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Brand } from "@/components/Brand";
 function ChevronLeftIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
@@ -15,7 +16,7 @@ export default function TermsAndConditionsPage() {
     return (
         <div className="min-h-screen bg-[var(--color-surface-sunken)]">
             <div className="max-w-4xl mx-auto py-12 px-6 sm:px-8">
-                <div className="mb-8 block">
+                <div className="mb-8 flex items-center justify-between gap-4">
                     <button 
                         onClick={() => router.back()}
                         className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary-default)] transition-colors cursor-pointer"
@@ -23,6 +24,11 @@ export default function TermsAndConditionsPage() {
                         <ChevronLeftIcon className="w-4 h-4" />
                         Volver
                     </button>
+                    <Brand
+                        variant="logomarca"
+                        alt="Logomarca Nexus"
+                        className="h-6 w-auto object-contain opacity-90"
+                    />
                 </div>
 
                 <div className="bg-[var(--color-surface-app)] rounded-2xl shadow-sm border border-[var(--color-border-subtle)] p-8 sm:p-12 animate-in fade-in slide-in-from-bottom-6 duration-700">

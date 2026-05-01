@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -29,10 +30,18 @@ interface UserProfileData {
 interface UserProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
+    currentUserName?: string;
+    currentUserEmail?: string;
     onSave?: (data: UserProfileData) => void;
 }
 
-export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalProps) {
+export function UserProfileModal({
+    isOpen,
+    onClose,
+    currentUserName,
+    currentUserEmail,
+    onSave,
+}: UserProfileModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -63,12 +72,17 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
             
             // Garantizar compatibilidad con datos anteriores si es necesario
             setUserData({
-                name: data.name || "",
-                email: data.email || "",
+                name: currentUserName || data.name || "",
+                email: currentUserEmail || data.email || "",
                 avatarUrl: data.avatarUrl || "",
             });
         } catch (err) {
-            setError("No se pudieron cargar los datos del usuario.");
+            setUserData((prev) => ({
+                ...prev,
+                name: currentUserName || prev.name,
+                email: currentUserEmail || prev.email,
+            }));
+            setError("No se pudieron cargar todos los datos del perfil.");
         } finally {
             setIsLoading(false);
         }
@@ -115,11 +129,11 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
         </div>
     ) : (
         <div className="space-y-6">
-            {error && (
-                <div className="p-3 text-sm text-[var(--color-danger-strong)] bg-[var(--color-danger-subtle)] border border-[var(--color-danger-default)] rounded-lg">
+            {error ? (
+                <Alert variant="danger" className="rounded-lg">
                     {error}
-                </div>
-            )}
+                </Alert>
+            ) : null}
             
             {/* Cabecera del Perfil visual */}
             <div className="flex flex-col items-center gap-4 mb-6">
@@ -160,7 +174,7 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
                                     key={idx}
                                     type="button"
                                     onClick={() => selectAvatar(position)}
-                                    className={`relative rounded-full aspect-square overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-default)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface-sunken)] bg-white
+                                    className={`relative rounded-full aspect-square overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-default)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface-sunken)] bg-surface-base
                                         ${isSelected ? "ring-4 ring-[var(--color-primary-default)] shadow-lg scale-105" : "border-2 border-transparent hover:border-[var(--color-border-focus)] opacity-80 hover:opacity-100"}
                                     `}
                                     title={`Seleccionar avatar ${idx + 1}`}

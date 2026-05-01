@@ -85,13 +85,33 @@ export function AccessibilityMenu() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        const handleChatbotState = (event: Event) => {
+            const customEvent = event as CustomEvent<{ isOpen?: boolean }>;
+            if (customEvent.detail?.isOpen) {
+                setIsOpen(false);
+            }
+        };
+
+        window.addEventListener("nexus-chatbot:state", handleChatbotState);
+        return () =>
+            window.removeEventListener("nexus-chatbot:state", handleChatbotState);
+    }, []);
+
     return (
-        <div ref={menuRef} className="relative flex items-center z-50">
+        <div
+            ref={menuRef}
+            className="relative flex items-center"
+            style={{ zIndex: "var(--layer-accessibility)" }}
+        >
             {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm border border-brand-subtle
-                    ${isOpen ? "bg-surface-base text-brand-strong rotate-90" : "bg-brand-default text-white hover:bg-brand-strong hover:scale-105 active:scale-95"}
+                className={`nexus-a11y-fab w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm
+                    border border-[var(--color-border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-focus)]/40
+                    ${isOpen
+                        ? "bg-[var(--color-surface-hover)] text-[var(--color-text-primary)] rotate-90"
+                        : "bg-[var(--color-surface-base)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] hover:scale-105 active:scale-95"}
                 `}
                 aria-label={isOpen ? "Cerrar menú de accesibilidad" : "Abrir menú de accesibilidad"}
                 aria-expanded={isOpen}
@@ -163,10 +183,10 @@ function MenuButton({ children, onClick, active, title }: MenuButtonProps) {
         <button
             onClick={onClick}
             title={title}
-            className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full transition-all duration-200
+            className={`nexus-a11y-menu-btn w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full transition-all duration-200
                 ${active 
-                    ? "bg-brand-subtle text-brand-strong shadow-inner" 
-                    : "text-text-secondary hover:bg-surface-hover hover:text-text-primary active:bg-surface-active"}
+                    ? "bg-[var(--color-surface-hover)] text-[var(--color-text-primary)] shadow-inner ring-1 ring-[var(--color-border-default)]" 
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] active:bg-[var(--color-surface-active)]"}
             `}
         >
             {children}

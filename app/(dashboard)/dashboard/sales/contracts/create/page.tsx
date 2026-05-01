@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button, Card, CardBody, Select, Input } from "@/components/ui";
+import { Alert, Button, Card, CardBody, Select, Input } from "@/components/ui";
 import { Form, FormActions, FormRow, FormSection } from "@/components/ui/Form";
 import { RoleGuard } from "@/modules/auth";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
@@ -412,11 +412,11 @@ function ContractFormContent() {
                                             <Input type="date" label="Fecha de fin"    error={errors.end_date?.message}   disabled={isFromReservation} {...register("end_date")}   />
                                         </FormRow>
 
-                                        {validationOk === false && (
-                                            <div role="alert" className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]">
+                                        {validationOk === false ? (
+                                            <Alert variant="danger" className="rounded-lg">
                                                 ⚠ Una o más unidades ya no están disponibles en el período seleccionado. Por favor regresa al catálogo y realiza una nueva selección.
-                                            </div>
-                                        )}
+                                            </Alert>
+                                        ) : null}
 
                                         <div className="mt-4 pt-4 border-t border-[var(--color-border-subtle)] flex justify-end gap-3">
                                             <Button type="button" variant="outline" onClick={() => router.back()}>
@@ -449,12 +449,12 @@ function ContractFormContent() {
                                                 Las <strong>rental units</strong> se generan desde la infraestructura de bodegas y la sincronización del catálogo; no es el flujo principal crearlas aquí. El backend <strong>ignora el precio enviado por línea</strong> y aplica el precio de catálogo parametrizado (ADMIN). En esta pantalla solo confirmamos unidades y fechas.
                                             </p>
                                             <p className="mt-2">
-                                                <Link href="/dashboard/sales/rental-units" className="font-semibold underline">
-                                                    Ver listado técnico de unidades
+                                                <Link href="/dashboard/sales/commercial-pricing" className="font-semibold underline">
+                                                    Unidades, precios e IDs (parametrización comercial)
                                                 </Link>
                                                 {" · "}
-                                                <Link href="/dashboard/sales/commercial-pricing" className="font-semibold underline">
-                                                    Parametrización comercial
+                                                <Link href="/dashboard/sales/rental-units" className="font-semibold underline">
+                                                    Catálogo operativo (consulta comercial)
                                                 </Link>
                                             </p>
                                         </div>
@@ -556,11 +556,11 @@ function ContractFormContent() {
                                         </FormSection>
 
                                         {/* Error de submit */}
-                                        {submitError && (
-                                            <div role="alert" className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]">
+                                        {submitError ? (
+                                            <Alert variant="danger" className="rounded-lg">
                                                 {submitError}
-                                            </div>
-                                        )}
+                                            </Alert>
+                                        ) : null}
 
                                         <FormActions align="between" className="pt-6 border-t border-[var(--color-border-subtle)]">
                                             <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={isSubmitting}>

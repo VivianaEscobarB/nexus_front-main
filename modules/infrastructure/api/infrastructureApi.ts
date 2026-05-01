@@ -1,9 +1,11 @@
 import { httpClient } from "@/shared/api/httpClient";
 import type {
+    CreateEntityTypeInput,
     CreateSectorInput,
     CreateStatusCatalogInput,
     CreateSpaceInput,
     CreateWarehouseInput,
+    EntityTypeCatalog,
     InfrastructureStatus,
     ListSectorsParams,
     ListSpacesParams,
@@ -11,7 +13,9 @@ import type {
     ManagedSpace,
     ManagedWarehouse,
     StatusCatalog,
+    UpdateEntityTypeInput,
     UpdateSectorInput,
+    UpdateStatusCatalogInput,
     UpdateSpaceInput,
     UpdateWarehouseInput,
 } from "@/modules/infrastructure/api/infrastructureTypes";
@@ -19,6 +23,8 @@ import type {
 const WAREHOUSES_BASE_PATH = "/api/warehouses";
 const SECTORS_BASE_PATH = "/api/sectors";
 const SPACES_BASE_PATH = "/api/storage-spaces";
+const ENTITY_TYPES_BASE_PATH = "/api/entity-types";
+const STATUS_CATALOGS_BASE_PATH = "/api/status-catalogs";
 
 const VALID_STATUSES = new Set<InfrastructureStatus>([
     "ACTIVE",
@@ -134,6 +140,57 @@ function compactRecord<T extends Record<string, unknown>>(record: T): Partial<T>
     return Object.fromEntries(
         Object.entries(record).filter(([, value]) => value !== undefined && value !== null && value !== "")
     ) as Partial<T>;
+}
+
+function mapApiEntityType(payload: unknown): EntityTypeCatalog {
+    if (!isObject(payload)) {
+        throw new Error("La API devolvio un tipo de entidad invalido.");
+    }
+
+    const id = getNumber(payload.id ?? payload.entityTypeId ?? payload.value);
+    const name =
+        getString(payload.name) ??
+        getString(payload.code) ??
+        getString(payload.entityType) ??
+        null;
+
+    if (!id || !name) {
+        throw new Error("La API devolvio un tipo de entidad incompleto.");
+    }
+
+    return {
+        id,
+        name,
+        description: getString(payload.description) ?? undefined,
+    };
+}
+
+function mapApiStatusCatalog(payload: unknown): StatusCatalog {
+    if (!isObject(payload)) {
+        throw new Error("La API devolvio un estado invalido.");
+    }
+
+    const id = getNumber(payload.id ?? payload.statusCatalogId ?? payload.value);
+    if (!id) {
+        throw new Error("La API devolvio un estado sin identificador.");
+    }
+
+    return {
+        id,
+        name:
+            getString(payload.name) ??
+            getString(payload.statusName) ??
+            getString(payload.description) ??
+            "",
+        code: getString(payload.code) ?? undefined,
+        description: getString(payload.description) ?? undefined,
+        color: getString(payload.color) ?? undefined,
+        isOperational: getBoolean(payload.isOperational) ?? undefined,
+        entityTypeId:
+            getNumber(payload.entityTypeId) ??
+            getNumber(payload.entity_type_id) ??
+            undefined,
+    };
 }
 
 function mapApiWarehouse(payload: unknown): ManagedWarehouse {
@@ -376,28 +433,24 @@ export async function listStatusCatalogsByEntityType(
     entityTypeId: number
 ): Promise<StatusCatalog[]> {
     const payload = await httpClient.get<unknown>(
-        `/api/status-catalogs/entity-type/${entityTypeId}`
+        `${STATUS_CATALOGS_BASE_PATH}/entity-type/${entityTypeId}`
     );
 
     const items = extractCollection(payload);
-    return items
-        .filter(isObject)
-        .map((item) => ({
-            id: Number(item.id ?? item.statusCatalogId ?? item.value),
-            name:
-                getString(item.name) ?? getString(item.statusName) ??
-                getString(item.description) ?? "",
-            code: getString(item.code) ?? undefined,
-            description: getString(item.description) ?? undefined,
-        }))
-        .filter((item) => Number.isFinite(item.id));
+    return items.filter(isObject).map(mapApiStatusCatalog);
 }
 
-export async function createStatusCatalog(
-    input: CreateStatusCatalogInput
+export async function listStatusCatalogs(): Promise<StatusCatalog[]> {
+    const payload = await httpClient.get<unknown>(STATUS_CATALOGS_BASE_PATH);
+    return extractCollection(payload).filter(isObject).map(mapApiStatusCatalog);
+}
+
+export async function updateStatusCatalog(
+    id: number,
+    input: UpdateStatusCatalogInput
 ): Promise<StatusCatalog> {
-    const payload = await httpClient.post<unknown>(
-        "/api/status-catalogs",
+    const payload = await httpClient.put<unknown>(
+        `${STATUS_CATALOGS_BASE_PATH}/${id}`,
         compactRecord({
             code: input.code?.trim(),
             description: input.description?.trim(),
@@ -406,19 +459,63 @@ export async function createStatusCatalog(
             entityTypeId: input.entityTypeId,
         })
     );
+    return mapApiStatusCatalog(payload);
+}
 
-    if (!isObject(payload)) {
-        throw new Error("La API devolvio un estado invalido.");
-    }
+export async function deleteStatusCatalog(id: number): Promise<void> {
+    await httpClient.delete<void>(`${STATUS_CATALOGS_BASE_PATH}/${id}`);
+}
 
-    return {
-        id: Number(payload.id ?? payload.statusCatalogId ?? payload.value),
-        name:
-            getString(payload.name) ?? getString(payload.statusName) ??
-            getString(payload.description) ?? "",
-        code: getString(payload.code) ?? undefined,
-        description: getString(payload.description) ?? undefined,
-    };
+export async function createStatusCatalog(
+    input: CreateStatusCatalogInput
+): Promise<StatusCatalog> {
+    const payload = await httpClient.post<unknown>(
+        STATUS_CATALOGS_BASE_PATH,
+        compactRecord({
+            code: input.code?.trim(),
+            description: input.description?.trim(),
+            color: input.color?.trim(),
+            isOperational: input.isOperational,
+            entityTypeId: input.entityTypeId,
+        })
+    );
+    return mapApiStatusCatalog(payload);
+}
+
+export async function listEntityTypes(): Promise<EntityTypeCatalog[]> {
+    const payload = await httpClient.get<unknown>(ENTITY_TYPES_BASE_PATH);
+    return extractCollection(payload).filter(isObject).map(mapApiEntityType);
+}
+
+export async function createEntityType(
+    input: CreateEntityTypeInput
+): Promise<EntityTypeCatalog> {
+    const payload = await httpClient.post<unknown>(
+        ENTITY_TYPES_BASE_PATH,
+        compactRecord({
+            name: input.name?.trim(),
+            description: input.description?.trim(),
+        })
+    );
+    return mapApiEntityType(payload);
+}
+
+export async function updateEntityType(
+    id: number,
+    input: UpdateEntityTypeInput
+): Promise<EntityTypeCatalog> {
+    const payload = await httpClient.put<unknown>(
+        `${ENTITY_TYPES_BASE_PATH}/${id}`,
+        compactRecord({
+            name: input.name?.trim(),
+            description: input.description?.trim(),
+        })
+    );
+    return mapApiEntityType(payload);
+}
+
+export async function deleteEntityType(id: number): Promise<void> {
+    await httpClient.delete<void>(`${ENTITY_TYPES_BASE_PATH}/${id}`);
 }
 
 export async function listWarehouses(): Promise<ManagedWarehouse[]> {

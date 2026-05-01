@@ -18,6 +18,12 @@ export function Chatbot() {
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        window.dispatchEvent(
+            new CustomEvent("nexus-chatbot:state", { detail: { isOpen } })
+        );
+    }, [isOpen]);
+
     // Initial greeting when opened for the first time
     useEffect(() => {
         if (isOpen && messages.length === 0) {
@@ -71,9 +77,16 @@ export function Chatbot() {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <div
+            className="fixed flex flex-col items-end"
+            style={{
+                bottom: "var(--safe-floating-bottom)",
+                right: "var(--safe-floating-right)",
+                zIndex: "var(--layer-chatbot)",
+            }}
+        >
             {isOpen && (
-                <div className="mb-4 flex h-[450px] w-[350px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface-base)] shadow-2xl border border-[var(--color-border-subtle)] transition-all duration-300">
+                <div className="mb-4 flex h-[450px] w-[min(350px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface-base)] shadow-2xl border border-[var(--color-border-subtle)] transition-all duration-300">
                     {/* Header */}
                     <div className="flex items-center justify-between bg-[var(--color-brand-strong)] p-4 text-[var(--color-text-inverse)]">
                         <div className="flex items-center gap-2">

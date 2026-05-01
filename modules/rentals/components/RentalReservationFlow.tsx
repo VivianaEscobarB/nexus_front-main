@@ -9,7 +9,7 @@ import { useRentalSelection } from "../hooks/useRentalSelection";
 import { useRentalUnits } from "../hooks/useRentalUnits";
 import { useCreateReservation } from "../hooks/useCreateReservation";
 import type { Client } from "../types/Client";
-import { Button, Input } from "@/components/ui";
+import { Alert, Button, Input } from "@/components/ui";
 import { getRentalUnit, validateBulkAvailability } from "@/modules/sales";
 import type { RentalUnit } from "../types/rentalUnit.types";
 
@@ -74,11 +74,11 @@ function ReservationForm({
 
             <div className="p-6 space-y-5">
                 {/* Error banner */}
-                {error && (
-                    <div role="alert" className="p-3 rounded-lg bg-[var(--color-danger-subtle)] border border-[var(--color-danger-default)] text-[var(--color-danger-strong)] text-sm">
+                {error ? (
+                    <Alert variant="danger" className="rounded-lg">
                         {error}
-                    </div>
-                )}
+                    </Alert>
+                ) : null}
 
                 <SelectedRentalUnitsSummary units={selectedUnitModels} />
 
@@ -318,11 +318,11 @@ export function RentalReservationFlow() {
         <div className="space-y-6">
 
             {/* ── SECCIÓN 1: Catálogo (carga inmediata) ── */}
-            {catalogError && (
-                <div role="alert" className="p-4 rounded-xl text-center bg-[var(--color-danger-subtle)] text-[var(--color-danger-strong)] border border-[var(--color-danger-default)]">
+            {catalogError ? (
+                <Alert variant="danger" className="rounded-xl py-4 text-center">
                     No fue posible cargar el catálogo de unidades.
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
             {isLoading && <CatalogSkeleton />}
 
