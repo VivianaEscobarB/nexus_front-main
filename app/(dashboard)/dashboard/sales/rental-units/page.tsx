@@ -11,6 +11,7 @@ import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { listRentalUnits } from "@/modules/sales";
 import type { RentalUnit } from "@/modules/sales";
 import { isApiError } from "@/shared/api/apiError";
+import { userHasRole } from "@/shared/auth/primaryRole";
 import { UserRole } from "@/types";
 
 function getApiErrorMessage(error: unknown): string {

@@ -15,6 +15,7 @@ import { LegalFooter } from "@/components/ui/LegalFooter";
 import { useAuthStore, authStore } from "@/modules/auth/state/authStore";
 import { isBusinessProcessVisible } from "@/shared/config/processVisibility";
 import { UserRole } from "@/types";
+import { getPrimaryRoleName, userHasRole } from "@/shared/auth/primaryRole";
 
 type IconProps = {
     className?: string;
@@ -42,9 +43,10 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
     const [userProfile, setUserProfile] = useState<{avatarUrl: string} | null>(null);
 
-    const role = user?.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
+    const role = getPrimaryRoleName(user?.roles, UserRole.WAREHOUSE_OPERATOR);
 
     const getRouteMetadata = (path: string) => {
         if (path === "/dashboard") {
@@ -73,12 +75,15 @@ export default function DashboardLayout({
         }
         if (path.startsWith("/dashboard/infrastructure")) {
             const isSales = role === UserRole.SALES_AGENT;
-            
+            const isOperator = role === UserRole.WAREHOUSE_OPERATOR;
+
             return {
                 title: isSales ? "Disponibilidad operativa" : "Estructura de bodegas",
-                description: isSales 
-                        ? "Consulta la disponibilidad real de bodegas antes de ofertar." 
-                        : "Gestiona la estructura física de la operación."
+                description: isSales
+                    ? "Consulta la disponibilidad real de bodegas antes de ofertar."
+                    : isOperator
+                      ? "Consulta bodegas, sectores y espacios para ubicar tu trabajo en piso."
+                      : "Gestiona la estructura física de la operación.",
             };
         }
         if (path.startsWith("/dashboard/status-management")) {
@@ -100,6 +105,74 @@ export default function DashboardLayout({
                 title: "Unidades de arrendamiento",
                 description:
                     "Consulta del catálogo operativo: ubicación, disponibilidad y detalle por unidad.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/operador/recepcion-mercancia")) {
+            return {
+                title: "Recepción de mercancía",
+                description:
+                    "Registra vehículo, conductor, condiciones de transporte y documentación de la entrada.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/operador/recepcion-rf")) {
+            return {
+                title: "Entrada RF — recepción",
+                description:
+                    "Escanea códigos con la cámara o ingrésalos a mano y confirma la entrada al inventario.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/operador/conteo-inventario-rf")) {
+            return {
+                title: "Conteo RF — inventario",
+                description:
+                    "Conteo cíclico en piso: registra líneas (sistema vs físico) y cierra el conteo en el sistema.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/operador/movimientos-inventario")) {
+            return {
+                title: "Movimientos de inventario",
+                description:
+                    "Registra salidas, entradas o ajustes y revisa el impacto en el saldo por ubicación.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/supervisor/transferencias-bodegas")) {
+            return {
+                title: "Transferencias entre bodegas",
+                description:
+                    "Documenta traslados de producto entre sedes con fechas y cantidades.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/consulta-inventario")) {
+            return {
+                title: "Consulta de inventario",
+                description:
+                    role === UserRole.WAREHOUSE_OPERATOR
+                        ? "Consulta existencias por producto y espacio de almacenamiento."
+                        : "Filtra y revisa existencias por bodega, sector y estado operativo.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/historial-movimientos")) {
+            return {
+                title: "Historial de movimientos",
+                description:
+                    role === UserRole.WAREHOUSE_OPERATOR
+                        ? "Consulta movimientos recientes del inventario o la tabla de ejemplo; el histórico consolidado ampliará esta vista."
+                        : "Revisa entradas, salidas y ajustes registrados en el sistema.",
+            };
+        }
+
+        if (path.startsWith("/dashboard/supervisor/alertas-sistema")) {
+            return {
+                title: "Alertas del sistema",
+                description:
+                    "Prioriza vencimientos, stock bajo y otras señales antes de tomar decisiones.",
             };
         }
 
@@ -131,6 +204,10 @@ export default function DashboardLayout({
             });
     }, []);
 
+    React.useEffect(() => {
+        setIsMobileNavOpen(false);
+    }, [pathname]);
+
     const sessionDisplayName = [user?.first_name, user?.last_name]
         .filter(Boolean)
         .join(" ")
@@ -142,15 +219,63 @@ export default function DashboardLayout({
     ];
 
     if (role === UserRole.ADMIN) {
-        const infrastructureItems: NavItem[] = isBusinessProcessVisible("warehouseStructure")
-            ? [
-                {
-                    name: "Estructura de Bodegas",
-                    href: "/dashboard/infrastructure",
-                    icon: BoxIcon,
-                },
-            ]
-            : [];
+        const infrastructureItems: NavItem[] = [];
+        if (isBusinessProcessVisible("warehouseStructure")) {
+            if (userHasRole(user?.roles, UserRole.WAREHOUSE_OPERATOR)) {
+                infrastructureItems.push({
+                    name: "Recepción de mercancía",
+                    href: "/dashboard/operador/recepcion-mercancia",
+                    icon: TruckReceiveIcon,
+                });
+                infrastructureItems.push({
+                    name: "Entrada RF (cámara)",
+                    href: "/dashboard/operador/recepcion-rf",
+                    icon: CameraScannerIcon,
+                });
+                infrastructureItems.push({
+                    name: "Movimientos de inventario",
+                    href: "/dashboard/operador/movimientos-inventario",
+                    icon: ArrowsRightLeftIcon,
+                });
+                infrastructureItems.push({
+                    name: "Conteo RF (inventario)",
+                    href: "/dashboard/operador/conteo-inventario-rf",
+                    icon: ClipboardListIcon,
+                });
+            }
+            if (userHasRole(user?.roles, UserRole.WAREHOUSE_SUPERVISOR)) {
+                infrastructureItems.push({
+                    name: "Alertas del sistema",
+                    href: "/dashboard/supervisor/alertas-sistema",
+                    icon: BellAlertIcon,
+                });
+                infrastructureItems.push({
+                    name: "Transferencias entre bodegas",
+                    href: "/dashboard/supervisor/transferencias-bodegas",
+                    icon: BuildingOfficeIcon,
+                });
+            }
+            if (
+                userHasRole(user?.roles, UserRole.WAREHOUSE_OPERATOR) ||
+                userHasRole(user?.roles, UserRole.WAREHOUSE_SUPERVISOR)
+            ) {
+                infrastructureItems.push({
+                    name: "Consulta de inventario",
+                    href: "/dashboard/consulta-inventario",
+                    icon: MagnifyingGlassIcon,
+                });
+                infrastructureItems.push({
+                    name: "Historial de movimientos",
+                    href: "/dashboard/historial-movimientos",
+                    icon: HistoryIcon,
+                });
+            }
+            infrastructureItems.push({
+                name: "Estructura de bodegas",
+                href: "/dashboard/infrastructure",
+                icon: BoxIcon,
+            });
+        }
 
         const salesItems: NavItem[] = [
             ...(isBusinessProcessVisible("contracts")
@@ -204,16 +329,77 @@ export default function DashboardLayout({
         }
     } else if (role === UserRole.WAREHOUSE_SUPERVISOR) {
         if (isBusinessProcessVisible("warehouseStructure")) {
-            navGroups.push({
-                title: "OPERACIONES",
-                items: [
-                    {
-                        name: "Estructura Interna",
-                        href: "/dashboard/infrastructure",
-                        icon: BoxIcon,
-                    },
-                ],
-            });
+            const operatorFloorItems: NavItem[] = userHasRole(
+                user?.roles,
+                UserRole.WAREHOUSE_OPERATOR
+            )
+                ? [
+                      {
+                          name: "Recepción de mercancía",
+                          href: "/dashboard/operador/recepcion-mercancia",
+                          icon: TruckReceiveIcon,
+                      },
+                      {
+                          name: "Entrada RF (cámara)",
+                          href: "/dashboard/operador/recepcion-rf",
+                          icon: CameraScannerIcon,
+                      },
+                      {
+                          name: "Movimientos de inventario",
+                          href: "/dashboard/operador/movimientos-inventario",
+                          icon: ArrowsRightLeftIcon,
+                      },
+                      {
+                          name: "Conteo RF (inventario)",
+                          href: "/dashboard/operador/conteo-inventario-rf",
+                          icon: ClipboardListIcon,
+                      },
+                  ]
+                : [];
+
+            const supervisionItems: NavItem[] = [
+                {
+                    name: "Alertas del sistema",
+                    href: "/dashboard/supervisor/alertas-sistema",
+                    icon: BellAlertIcon,
+                },
+                {
+                    name: "Consulta de inventario",
+                    href: "/dashboard/consulta-inventario",
+                    icon: MagnifyingGlassIcon,
+                },
+                {
+                    name: "Historial de movimientos",
+                    href: "/dashboard/historial-movimientos",
+                    icon: HistoryIcon,
+                },
+                {
+                    name: "Transferencias entre bodegas",
+                    href: "/dashboard/supervisor/transferencias-bodegas",
+                    icon: BuildingOfficeIcon,
+                },
+                {
+                    name: "Estructura de bodegas",
+                    href: "/dashboard/infrastructure",
+                    icon: BoxIcon,
+                },
+            ];
+
+            if (operatorFloorItems.length > 0) {
+                navGroups.push({
+                    title: "OPERACIÓN EN PISO",
+                    items: operatorFloorItems,
+                });
+                navGroups.push({
+                    title: "SUPERVISIÓN",
+                    items: supervisionItems,
+                });
+            } else {
+                navGroups.push({
+                    title: "OPERACIONES",
+                    items: supervisionItems,
+                });
+            }
         }
     } else if (role === UserRole.SALES_AGENT) {
         const salesItems: NavItem[] = [
@@ -289,16 +475,62 @@ export default function DashboardLayout({
         }
     } else if (role === UserRole.WAREHOUSE_OPERATOR) {
         if (isBusinessProcessVisible("warehouseStructure")) {
-            navGroups.push({
-                title: "BODEGA",
-                items: [
-                    {
-                        name: "Consulta de Estructura",
-                        href: "/dashboard/infrastructure",
-                        icon: BoxIcon,
-                    },
-                ],
-            });
+            const operatorEntradaItems: NavItem[] = [
+                {
+                    name: "Recepción de mercancía",
+                    href: "/dashboard/operador/recepcion-mercancia",
+                    icon: TruckReceiveIcon,
+                },
+                {
+                    name: "Entrada RF (cámara)",
+                    href: "/dashboard/operador/recepcion-rf",
+                    icon: CameraScannerIcon,
+                },
+                {
+                    name: "Movimientos de inventario",
+                    href: "/dashboard/operador/movimientos-inventario",
+                    icon: ArrowsRightLeftIcon,
+                },
+                {
+                    name: "Conteo RF (inventario)",
+                    href: "/dashboard/operador/conteo-inventario-rf",
+                    icon: ClipboardListIcon,
+                },
+            ];
+            const operatorConsultaItems: NavItem[] = [
+                {
+                    name: "Consulta de inventario",
+                    href: "/dashboard/consulta-inventario",
+                    icon: MagnifyingGlassIcon,
+                },
+                {
+                    name: "Historial de movimientos",
+                    href: "/dashboard/historial-movimientos",
+                    icon: HistoryIcon,
+                },
+            ];
+            const operatorEstructuraItems: NavItem[] = [
+                {
+                    name: "Estructura de bodegas",
+                    href: "/dashboard/infrastructure",
+                    icon: BoxIcon,
+                },
+            ];
+
+            navGroups.push(
+                {
+                    title: "ENTRADA Y AJUSTES",
+                    items: operatorEntradaItems,
+                },
+                {
+                    title: "CONSULTA Y TRAZABILIDAD",
+                    items: operatorConsultaItems,
+                },
+                {
+                    title: "UBICACIÓN",
+                    items: operatorEstructuraItems,
+                }
+            );
         }
     } else if (role === UserRole.CLIENT) {
         const clientItems: NavItem[] = [
@@ -331,8 +563,15 @@ export default function DashboardLayout({
                 className="min-h-screen flex"
                 style={{ background: "var(--color-surface-sunken)" }}
             >
+                {isMobileNavOpen ? (
+                    <div
+                        className="fixed inset-0 z-40 bg-black/45 md:hidden"
+                        onClick={() => setIsMobileNavOpen(false)}
+                        aria-hidden="true"
+                    />
+                ) : null}
                 <aside
-                    className={`hidden md:flex flex-col border-r transition-all duration-300 sticky top-0 h-screen ${isSidebarCollapsed ? "w-20" : "w-64"}`}
+                    className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r transition-transform duration-300 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${isMobileNavOpen ? "translate-x-0" : ""} ${isSidebarCollapsed ? "md:w-20" : "md:w-64"}`}
                     style={{
                         background: "var(--color-sidebar-bg)",
                         borderColor: "var(--color-sidebar-border)",
@@ -352,9 +591,9 @@ export default function DashboardLayout({
                                 />
                             </div>
                         )}
-                        <button 
+                        <button
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className={`p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0 ${isSidebarCollapsed ? "" : "absolute right-4"}`}
+                            className={`hidden p-1.5 rounded-md text-[var(--color-sidebar-text)] hover:bg-white/10 transition-colors shrink-0 md:inline-flex ${isSidebarCollapsed ? "" : "md:absolute md:right-4"}`}
                             title={isSidebarCollapsed ? "Expandir menú" : "Contraer menú"}
                         >
                             {isSidebarCollapsed ? (
@@ -460,6 +699,7 @@ export default function DashboardLayout({
                                                             "transparent";
                                                     }
                                                 }}
+                                                onClick={() => setIsMobileNavOpen(false)}
                                             >
                                                 <item.icon
                                                     className="w-5 h-5 shrink-0"
@@ -493,8 +733,10 @@ export default function DashboardLayout({
                     >
                         <div className="flex items-center gap-3 md:hidden">
                             <button
+                                onClick={() => setIsMobileNavOpen((current) => !current)}
                                 className="p-2 rounded-md"
                                 style={{ color: "var(--color-text-secondary)" }}
+                                aria-label="Abrir menú de navegación"
                             >
                                 <MenuIcon className="w-6 h-6" />
                             </button>
@@ -620,6 +862,72 @@ function HomeIcon({ className, style }: IconProps) {
 
 function BoxIcon({ className, style }: IconProps) {
     return <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}><path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>;
+}
+
+function TruckReceiveIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5m12.75 0h2.25M19.5 7.125v11.25c0 .621-.504 1.125-1.125 1.125H18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H9" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75h4.125m4.125 0a48.11 48.11 0 0 1-3.408.392m0 0a1.125 1.125 0 0 0-1.591 0l-1.591 1.591M5.25 20.25h12M17.25 20.25v-4.5m0 0V8.25m0 0h1.875c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125H17.25" />
+        </svg>
+    );
+}
+
+function ArrowsRightLeftIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+        </svg>
+    );
+}
+
+function BuildingOfficeIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+        </svg>
+    );
+}
+
+function MagnifyingGlassIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+    );
+}
+
+function HistoryIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+    );
+}
+
+function BellAlertIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+        </svg>
+    );
+}
+
+function CameraScannerIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5h2.25m5.25 0h2.25M9 3h6l2.25 2.25H21v12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 17.25V5.25L5.25 3H9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
+        </svg>
+    );
+}
+
+function ClipboardListIcon({ className, style }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className} style={style}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75h3.375c.621 0 1.125-.504 1.125-1.125V18.75m0 0H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+        </svg>
+    );
 }
 
 function ClipboardIcon({ className, style }: IconProps) {

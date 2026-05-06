@@ -26,10 +26,6 @@ import {
     createSpace,
     createWarehouse,
     createStatusCatalog,
-    deleteSector,
-    deleteSpace,
-    deleteWarehouse,
-    enableWarehouse,
     listSectors,
     listSpaces,
     listStatusCatalogsByEntityType,
@@ -43,6 +39,7 @@ import {
     listCountries,
     listRegionsByCountry,
     listWarehouseTypes,
+    resolveCityHierarchy,
     type LocationCity,
     type LocationCountry,
     type LocationRegion,
@@ -62,6 +59,7 @@ import type {
     UpdateWarehouseInput,
 } from "@/modules/infrastructure";
 import { UserRole } from "@/types";
+import { getPrimaryRoleName } from "@/shared/auth/primaryRole";
 
 type CrudMode = "create" | "edit";
 
@@ -226,17 +224,127 @@ function isWarehouseInactive(warehouse: ManagedWarehouse): boolean {
     );
 }
 
+type StatusCatalogSelectOption = {
+    value: number;
+    label: string;
+    isOperational: boolean;
+};
+
+function isOperationalByCatalogId(
+    catalogId: number | undefined,
+    options: StatusCatalogSelectOption[],
+    fallback: boolean
+): boolean {
+    if (catalogId == null || Number.isNaN(catalogId)) {
+        return fallback;
+    }
+    const found = options.find((o) => o.value === catalogId);
+    if (!found) {
+        return fallback;
+    }
+    return found.isOperational;
+}
+
+function warehouseEditIsDeactivating(
+    warehouse: ManagedWarehouse,
+    nextCatalogId: number | undefined,
+    options: StatusCatalogSelectOption[]
+): boolean {
+    const prevInactive = isWarehouseInactive(warehouse);
+    const wasOperational = isOperationalByCatalogId(
+        warehouse.statusCatalogId,
+        options,
+        !prevInactive
+    );
+    const willBeOperational = isOperationalByCatalogId(
+        nextCatalogId,
+        options,
+        wasOperational
+    );
+    return wasOperational && !willBeOperational;
+}
+
+function sectorEditIsDeactivating(
+    sector: ManagedSector,
+    nextCatalogId: number | undefined,
+    options: StatusCatalogSelectOption[]
+): boolean {
+    const prevInactive = sector.status === "INACTIVE";
+    const wasOperational = isOperationalByCatalogId(
+        sector.statusCatalogId,
+        options,
+        !prevInactive
+    );
+    const willBeOperational = isOperationalByCatalogId(
+        nextCatalogId,
+        options,
+        wasOperational
+    );
+    return wasOperational && !willBeOperational;
+}
+
+function spaceEditIsDeactivating(
+    space: ManagedSpace,
+    nextCatalogId: number | undefined,
+    options: StatusCatalogSelectOption[]
+): boolean {
+    const prevInactive = space.status === "INACTIVE";
+    const wasOperational = isOperationalByCatalogId(
+        space.statusCatalogId,
+        options,
+        !prevInactive
+    );
+    const willBeOperational = isOperationalByCatalogId(
+        nextCatalogId,
+        options,
+        wasOperational
+    );
+    return wasOperational && !willBeOperational;
+}
+
 function getWarehouseStatusLabel(warehouse: ManagedWarehouse): string {
     if (isWarehouseInactive(warehouse)) {
         return "Inactivo";
     }
-    if (warehouse.operationalLabel) {
-        return warehouse.operationalLabel;
+    const catalogName = warehouse.statusName?.trim();
+    if (catalogName) {
+        return catalogName;
     }
-    if (warehouse.operationalStatus) {
-        return warehouse.operationalStatus === "INACTIVE" ? "Inactivo" : "Activo";
+    if (warehouse.operationalLabel?.trim()) {
+        return warehouse.operationalLabel.trim();
     }
-    return warehouse.active === false ? "Inactivo" : "Activo";
+    return getStatusLabel(warehouse.status);
+}
+
+function getWarehouseStatusBadgeVariant(
+    warehouse: ManagedWarehouse
+): "success" | "warning" | "danger" | "neutral" | "brand" {
+    if (isWarehouseInactive(warehouse)) {
+        return "neutral";
+    }
+    return STATUS_VARIANTS[warehouse.status] ?? "success";
+}
+
+function getSectorStatusLabel(sector: ManagedSector): string {
+    if (sector.status === "INACTIVE") {
+        return "Inactivo";
+    }
+    const catalogName = sector.statusName?.trim();
+    if (catalogName) {
+        return catalogName;
+    }
+    return getStatusLabel(sector.status);
+}
+
+function getSpaceStatusLabel(space: ManagedSpace): string {
+    if (space.status === "INACTIVE") {
+        return "Inactivo";
+    }
+    const catalogName = space.statusName?.trim();
+    if (catalogName) {
+        return catalogName;
+    }
+    return getStatusLabel(space.status);
 }
 
 function TextareaField({
@@ -302,7 +410,7 @@ function WarehouseFormModal({
     isOpen: boolean;
     mode: CrudMode;
     warehouse?: ManagedWarehouse;
-    warehouseStatusOptions: { value: number; label: string }[];
+    warehouseStatusOptions: StatusCatalogSelectOption[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -315,6 +423,8 @@ function WarehouseFormModal({
         handleSubmit,
         reset,
         control,
+        setValue,
+        getValues,
         formState: { errors, isValid },
     } = useForm<WarehouseFormValues>({
         resolver: zodResolver(warehouseSchema),
@@ -326,9 +436,12 @@ function WarehouseFormModal({
             countryId: "",
             regionId: "",
             cityId: "",
-            warehouseTypeId: "",
+            warehouseTypeId:
+                warehouse?.warehouseTypeId != null
+                    ? String(warehouse.warehouseTypeId)
+                    : "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
-            statusCatalogId: undefined,
+            statusCatalogId: warehouse?.statusCatalogId,
         },
     });
 
@@ -340,11 +453,118 @@ function WarehouseFormModal({
             countryId: "",
             regionId: "",
             cityId: "",
-            warehouseTypeId: "",
+            warehouseTypeId:
+                warehouse?.warehouseTypeId != null
+                    ? String(warehouse.warehouseTypeId)
+                    : "",
             totalCapacityM2: warehouse?.totalCapacityM2 ?? undefined,
-            statusCatalogId: undefined,
+            statusCatalogId: warehouse?.statusCatalogId,
         });
     }, [warehouse, reset]);
+
+    React.useEffect(() => {
+        if (!isOpen || mode !== "edit" || !warehouse) {
+            return;
+        }
+
+        const countryIdNum = warehouse.countryId ?? null;
+        const regionIdNum = warehouse.regionId ?? null;
+        const cityIdNum = warehouse.cityId ?? null;
+
+        if (
+            countryIdNum == null &&
+            regionIdNum == null &&
+            cityIdNum == null
+        ) {
+            return;
+        }
+
+        let cancelled = false;
+
+        (async () => {
+            try {
+                if (countryIdNum != null && regionIdNum != null) {
+                    const regionsData = await listRegionsByCountry(countryIdNum);
+                    if (cancelled) {
+                        return;
+                    }
+                    setRegions(regionsData);
+
+                    const citiesData = await listCitiesByRegion(regionIdNum);
+                    if (cancelled) {
+                        return;
+                    }
+                    setCities(citiesData);
+
+                    setValue("countryId", String(countryIdNum), {
+                        shouldValidate: false,
+                    });
+                    setValue("regionId", String(regionIdNum), {
+                        shouldValidate: false,
+                    });
+                    if (cityIdNum != null) {
+                        setValue("cityId", String(cityIdNum), {
+                            shouldValidate: true,
+                        });
+                    } else {
+                        setValue("cityId", "", { shouldValidate: false });
+                    }
+                    setLocationsError(null);
+                    return;
+                }
+
+                if (cityIdNum != null) {
+                    const hierarchy = await resolveCityHierarchy(cityIdNum);
+                    if (cancelled || !hierarchy) {
+                        return;
+                    }
+
+                    const regionsData = await listRegionsByCountry(
+                        hierarchy.countryId
+                    );
+                    if (cancelled) {
+                        return;
+                    }
+                    setRegions(regionsData);
+
+                    const citiesData = await listCitiesByRegion(hierarchy.regionId);
+                    if (cancelled) {
+                        return;
+                    }
+                    setCities(citiesData);
+
+                    setValue("countryId", String(hierarchy.countryId), {
+                        shouldValidate: false,
+                    });
+                    setValue("regionId", String(hierarchy.regionId), {
+                        shouldValidate: false,
+                    });
+                    setValue("cityId", String(hierarchy.cityId), {
+                        shouldValidate: true,
+                    });
+                    setLocationsError(null);
+                }
+            } catch {
+                if (!cancelled) {
+                    setLocationsError(
+                        "No se pudo cargar la ubicación de la bodega para edición."
+                    );
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        warehouse?.cityId,
+        warehouse?.countryId,
+        warehouse?.id,
+        warehouse?.regionId,
+        isOpen,
+        mode,
+        setValue,
+    ]);
 
     const [countries, setCountries] = React.useState<LocationCountry[]>([]);
     const [regions, setRegions] = React.useState<LocationRegion[]>([]);
@@ -357,6 +577,40 @@ function WarehouseFormModal({
 
     const selectedCountryId = useWatch({ control, name: "countryId" });
     const selectedRegionId = useWatch({ control, name: "regionId" });
+
+    const warehouseTypeOptionsForSelect = React.useMemo(() => {
+        const mapped = warehouseTypes.map((type) => ({
+            value: String(type.id),
+            label: type.name,
+        }));
+        if (
+            mode === "edit" &&
+            warehouse?.warehouseTypeId != null &&
+            !mapped.some((o) => o.value === String(warehouse.warehouseTypeId))
+        ) {
+            mapped.push({
+                value: String(warehouse.warehouseTypeId),
+                label:
+                    warehouse.typeName?.trim() ||
+                    `Tipo guardado (id ${warehouse.warehouseTypeId})`,
+            });
+        }
+        return mapped;
+    }, [mode, warehouse, warehouseTypes]);
+
+    React.useEffect(() => {
+        if (!isOpen || warehouseTypes.length === 0 || warehouse?.warehouseTypeId == null) {
+            return;
+        }
+        const idStr = String(warehouse.warehouseTypeId);
+        const current = getValues("warehouseTypeId")?.trim() ?? "";
+        if (current === idStr) {
+            return;
+        }
+        if (warehouseTypes.some((t) => String(t.id) === idStr)) {
+            setValue("warehouseTypeId", idStr, { shouldValidate: true });
+        }
+    }, [getValues, isOpen, setValue, warehouse?.id, warehouse?.warehouseTypeId, warehouseTypes]);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -417,7 +671,13 @@ function WarehouseFormModal({
                     return;
                 }
                 setRegions(data);
-                setCities([]);
+                const currentRegionId = getValues("regionId")?.trim() ?? "";
+                const regionStillValid =
+                    currentRegionId.length > 0 &&
+                    data.some((r) => String(r.id) === currentRegionId);
+                if (!regionStillValid) {
+                    setCities([]);
+                }
             } catch {
                 if (!isMounted) {
                     return;
@@ -432,7 +692,7 @@ function WarehouseFormModal({
         return () => {
             isMounted = false;
         };
-    }, [selectedCountryId]);
+    }, [getValues, selectedCountryId]);
 
     React.useEffect(() => {
         if (!selectedRegionId) {
@@ -499,6 +759,8 @@ function WarehouseFormModal({
                         code: values.code,
                         name: values.name,
                         location: values.location,
+                        countryId: values.countryId?.trim() || undefined,
+                        regionId: values.regionId?.trim() || undefined,
                         cityId: values.cityId?.trim() || undefined,
                         warehouseTypeId: values.warehouseTypeId
                             ? Number(values.warehouseTypeId)
@@ -622,14 +884,11 @@ function WarehouseFormModal({
                         <Select
                             label="Tipo de bodega"
                             options={
-                                isLoadingLocations && warehouseTypes.length === 0
+                                isLoadingLocations && warehouseTypeOptionsForSelect.length === 0
                                     ? [{ value: "", label: "Cargando tipos de bodega..." }]
                                     : [
                                           { value: "", label: "Selecciona un tipo de bodega" },
-                                          ...warehouseTypes.map((type) => ({
-                                              value: String(type.id),
-                                              label: type.name,
-                                          })),
+                                          ...warehouseTypeOptionsForSelect,
                                       ]
                             }
                             hint="Ejemplo: refrigerada, seca o industrial."
@@ -696,7 +955,7 @@ function SectorFormModal({
     sector?: ManagedSector;
     warehouses: ManagedWarehouse[];
     defaultWarehouseId: string | null;
-    sectorStatusOptions: { value: number; label: string }[];
+    sectorStatusOptions: StatusCatalogSelectOption[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -847,7 +1106,7 @@ function SpaceFormModal({
     sectors: ManagedSector[];
     defaultWarehouseId: string | null;
     defaultSectorId: string | null;
-    spaceStatusOptions: { value: number; label: string }[];
+    spaceStatusOptions: StatusCatalogSelectOption[];
     isSubmitting: boolean;
     actionError: string | null;
     onClose: () => void;
@@ -1164,7 +1423,7 @@ export function InfrastructureManagementView() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const role = user?.roles?.[0]?.role_name;
+    const role = getPrimaryRoleName(user?.roles, UserRole.WAREHOUSE_OPERATOR);
     const isSalesViewer = role === UserRole.SALES_AGENT;
     const isClientViewer = role === UserRole.CLIENT;
     const canManageWarehouses = role === UserRole.ADMIN;
@@ -1183,14 +1442,20 @@ export function InfrastructureManagementView() {
         null
     );
     const [warehouseStatusOptions, setWarehouseStatusOptions] = React.useState<
-        { value: number; label: string }[]
+        StatusCatalogSelectOption[]
     >([]);
     const [sectorStatusOptions, setSectorStatusOptions] = React.useState<
-        { value: number; label: string }[]
+        StatusCatalogSelectOption[]
     >([]);
     const [spaceStatusOptions, setSpaceStatusOptions] = React.useState<
-        { value: number; label: string }[]
+        StatusCatalogSelectOption[]
     >([]);
+    const [pendingInfraDeactivationConfirm, setPendingInfraDeactivationConfirm] =
+        React.useState<{
+            title: string;
+            description: string;
+            run: () => Promise<void>;
+        } | null>(null);
     const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<
         string | null
     >(null);
@@ -1354,18 +1619,21 @@ export function InfrastructureManagementView() {
                 warehouseStatuses.map((status) => ({
                     value: status.id,
                     label: status.name,
+                    isOperational: status.isOperational !== false,
                 }))
             );
             setSectorStatusOptions(
                 sectorStatuses.map((status) => ({
                     value: status.id,
                     label: status.name,
+                    isOperational: status.isOperational !== false,
                 }))
             );
             setSpaceStatusOptions(
                 spaceStatuses.map((status) => ({
                     value: status.id,
                     label: status.name,
+                    isOperational: status.isOperational !== false,
                 }))
             );
         } catch {
@@ -1507,94 +1775,6 @@ export function InfrastructureManagementView() {
         } finally {
             setIsSubmitting(false);
         }
-    }
-
-    async function handleDeleteWarehouseAction(warehouse: ManagedWarehouse) {
-        if (
-            !window.confirm(
-                `¿Eliminar la bodega ${warehouse.name}? Quedará inactiva (baja lógica).`
-            )
-        ) {
-            return;
-        }
-
-        setIsSubmitting(true);
-        setActionError(null);
-
-        try {
-            const updatedWarehouse = await deleteWarehouse(warehouse.id);
-            setWarehouses((current) =>
-                current.map((item) =>
-                    item.id === updatedWarehouse.id ? updatedWarehouse : item
-                )
-            );
-            setFeedbackMessage("Bodega eliminada correctamente.");
-        } catch (error) {
-            setActionError(getErrorMessage(error));
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
-
-    async function handleEnableWarehouseAction(warehouse: ManagedWarehouse) {
-        if (
-            !window.confirm(
-                `¿Reactivar la bodega ${warehouse.name}?`
-            )
-        ) {
-            return;
-        }
-
-        setIsSubmitting(true);
-        setActionError(null);
-
-        try {
-            const updatedWarehouse = await enableWarehouse(warehouse.id);
-            setWarehouses((current) =>
-                current.map((item) =>
-                    item.id === updatedWarehouse.id ? updatedWarehouse : item
-                )
-            );
-            setFeedbackMessage("Bodega reactivada correctamente.");
-        } catch (error) {
-            setActionError(getErrorMessage(error));
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
-
-    async function handleDeleteSectorAction(sector: ManagedSector) {
-        if (
-            !window.confirm(
-                `Se eliminara el sector ${sector.name}. Esta accion no se puede deshacer.`
-            )
-        ) {
-            return;
-        }
-
-        await runMutation(
-            async () => {
-                await deleteSector(sector.id);
-            },
-            "Sector eliminado correctamente."
-        );
-    }
-
-    async function handleDeleteSpaceAction(space: ManagedSpace) {
-        if (
-            !window.confirm(
-                `Se eliminara el espacio ${space.name}. Esta accion no se puede deshacer.`
-            )
-        ) {
-            return;
-        }
-
-        await runMutation(
-            async () => {
-                await deleteSpace(space.id);
-            },
-            "Espacio eliminado correctamente."
-        );
     }
 
     return (
@@ -1847,7 +2027,9 @@ export function InfrastructureManagementView() {
                                                                     <td className="px-4 py-3">
                                                                         <Badge
                                                                             label={getWarehouseStatusLabel(warehouse)}
-                                                                            variant={warehouseInactive ? "neutral" : "success"}
+                                                                            variant={getWarehouseStatusBadgeVariant(
+                                                                                warehouse
+                                                                            )}
                                                                         />
                                                                     </td>
                                                                     <td className="px-4 py-3 text-[var(--color-text-primary)]">
@@ -1932,7 +2114,7 @@ export function InfrastructureManagementView() {
                                                                 </td>
                                                                 <td className="px-4 py-3">
                                                                     <Badge
-                                                                        label={getStatusLabel(sector.status)}
+                                                                        label={getSectorStatusLabel(sector)}
                                                                         variant={STATUS_VARIANTS[sector.status] ?? "neutral"}
                                                                     />
                                                                 </td>
@@ -2019,7 +2201,7 @@ export function InfrastructureManagementView() {
                                                                 </td>
                                                                 <td className="px-4 py-3">
                                                                     <Badge
-                                                                        label={getStatusLabel(space.status)}
+                                                                        label={getSpaceStatusLabel(space)}
                                                                         variant={STATUS_VARIANTS[space.status] ?? "neutral"}
                                                                     />
                                                                 </td>
@@ -2139,7 +2321,7 @@ export function InfrastructureManagementView() {
                                         <>
                                             <div className="rounded-2xl bg-[var(--color-surface-hover)] p-4">
                                                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                                                    Bodega activa
+                                                    Bodega seleccionada
                                                 </p>
                                                 <h3 className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">
                                                     {selectedWarehouse.name}
@@ -2147,6 +2329,17 @@ export function InfrastructureManagementView() {
                                                 <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                                                     {selectedWarehouse.address}
                                                 </p>
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                                                        Estado
+                                                    </span>
+                                                    <Badge
+                                                        label={getWarehouseStatusLabel(selectedWarehouse)}
+                                                        variant={getWarehouseStatusBadgeVariant(
+                                                            selectedWarehouse
+                                                        )}
+                                                    />
+                                                </div>
                                                 <div className="mt-4 grid gap-3 text-sm text-[var(--color-text-secondary)]">
                                                     <div className="flex items-center justify-between">
                                                         <span>Sectores visibles</span>
@@ -2169,19 +2362,19 @@ export function InfrastructureManagementView() {
                                                 <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
                                                     <li>
                                                         {canManageWarehouses
-                                                            ? "Puede crear, editar y eliminar bodegas."
+                                                            ? "Puede crear, editar y desactivar bodegas."
                                                             : "Puede consultar bodegas, pero no modificar sus datos base."}
                                                     </li>
                                                     <li>
                                                         {canManageStructure
-                                                            ? "Puede crear, editar y eliminar sectores."
+                                                            ? "Puede crear, editar y desactivar sectores."
                                                             : isClientViewer
                                                                 ? "La consulta se concentra en la disponibilidad de espacios por bodega."
                                                                 : "Puede consultar sectores, pero no modificarlos."}
                                                     </li>
                                                     <li>
                                                         {canManageStructure
-                                                            ? "Puede crear, editar y eliminar espacios."
+                                                            ? "Puede crear, editar y desactivar espacios."
                                                             : "Puede consultar espacios, pero no modificarlos."}
                                                     </li>
                                                 </ul>
@@ -2202,7 +2395,7 @@ export function InfrastructureManagementView() {
                                                 <div className="flex items-center justify-between">
                                                     <span>Estado</span>
                                                     <Badge
-                                                        label={getStatusLabel(selectedSector.status)}
+                                                        label={getSectorStatusLabel(selectedSector)}
                                                         variant={STATUS_VARIANTS[selectedSector.status] ?? "neutral"}
                                                     />
                                                 </div>
@@ -2235,7 +2428,7 @@ export function InfrastructureManagementView() {
                                                 <div className="flex items-center justify-between">
                                                     <span>Estado</span>
                                                     <Badge
-                                                        label={getStatusLabel(selectedSpace.status)}
+                                                        label={getSpaceStatusLabel(selectedSpace)}
                                                         variant={STATUS_VARIANTS[selectedSpace.status] ?? "neutral"}
                                                     />
                                                 </div>
@@ -2289,6 +2482,33 @@ export function InfrastructureManagementView() {
                     actionError={actionError}
                     onClose={closeEditor}
                     onSubmit={async (values) => {
+                        if (
+                            editor?.entity === "warehouse" &&
+                            editor.mode === "edit" &&
+                            editor.warehouse &&
+                            warehouseEditIsDeactivating(
+                                editor.warehouse,
+                                values.statusCatalogId,
+                                warehouseStatusOptions
+                            )
+                        ) {
+                            const w = editor.warehouse;
+                            const payload = values as UpdateWarehouseInput;
+                            setPendingInfraDeactivationConfirm({
+                                title: "Confirmar desactivación de bodega",
+                                description: `Vas a marcar la bodega «${w.name}» (${w.code}) como no operativa en el catálogo. Comprueba que no afecte procesos en curso.`,
+                                run: async () => {
+                                    await runMutation(
+                                        async () => {
+                                            await updateWarehouse(w.id, payload);
+                                        },
+                                        "Bodega actualizada correctamente."
+                                    );
+                                },
+                            });
+                            return;
+                        }
+
                         await runMutation(
                             async () => {
                                 if (
@@ -2324,6 +2544,33 @@ export function InfrastructureManagementView() {
                     actionError={actionError}
                     onClose={closeEditor}
                     onSubmit={async (values) => {
+                        if (
+                            editor?.entity === "sector" &&
+                            editor.mode === "edit" &&
+                            editor.sector &&
+                            sectorEditIsDeactivating(
+                                editor.sector,
+                                values.statusCatalogId,
+                                sectorStatusOptions
+                            )
+                        ) {
+                            const s = editor.sector;
+                            const payload = values as UpdateSectorInput;
+                            setPendingInfraDeactivationConfirm({
+                                title: "Confirmar desactivación de sector",
+                                description: `Vas a marcar el sector «${s.name}» (${s.code}) como no operativo. Comprueba que no afecte espacios o inventarios vinculados.`,
+                                run: async () => {
+                                    await runMutation(
+                                        async () => {
+                                            await updateSector(s.id, payload);
+                                        },
+                                        "Sector actualizado correctamente."
+                                    );
+                                },
+                            });
+                            return;
+                        }
+
                         await runMutation(
                             async () => {
                                 if (
@@ -2360,6 +2607,33 @@ export function InfrastructureManagementView() {
                     actionError={actionError}
                     onClose={closeEditor}
                     onSubmit={async (values) => {
+                        if (
+                            editor?.entity === "space" &&
+                            editor.mode === "edit" &&
+                            editor.space &&
+                            spaceEditIsDeactivating(
+                                editor.space,
+                                values.statusCatalogId,
+                                spaceStatusOptions
+                            )
+                        ) {
+                            const sp = editor.space;
+                            const payload = values as UpdateSpaceInput;
+                            setPendingInfraDeactivationConfirm({
+                                title: "Confirmar desactivación de espacio",
+                                description: `Vas a marcar el espacio «${sp.name}» (${sp.code}) como no operativo. Comprueba que no queden reservas o movimientos pendientes.`,
+                                run: async () => {
+                                    await runMutation(
+                                        async () => {
+                                            await updateSpace(sp.id, payload);
+                                        },
+                                        "Espacio actualizado correctamente."
+                                    );
+                                },
+                            });
+                            return;
+                        }
+
                         await runMutation(
                             async () => {
                                 if (
@@ -2382,6 +2656,55 @@ export function InfrastructureManagementView() {
                         );
                     }}
                 />
+
+                <Modal
+                    isOpen={pendingInfraDeactivationConfirm !== null}
+                    onClose={() => {
+                        if (!isSubmitting) {
+                            setPendingInfraDeactivationConfirm(null);
+                        }
+                    }}
+                    closeOnBackdrop={!isSubmitting}
+                    title={pendingInfraDeactivationConfirm?.title ?? ""}
+                    description={pendingInfraDeactivationConfirm?.description ?? ""}
+                    footer={
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPendingInfraDeactivationConfirm(null)}
+                                disabled={isSubmitting}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                disabled={isSubmitting}
+                                isLoading={isSubmitting}
+                                onClick={() => {
+                                    const action = pendingInfraDeactivationConfirm;
+                                    if (!action) {
+                                        return;
+                                    }
+                                    void (async () => {
+                                        try {
+                                            await action.run();
+                                        } finally {
+                                            setPendingInfraDeactivationConfirm(null);
+                                        }
+                                    })();
+                                }}
+                            >
+                                Confirmar
+                            </Button>
+                        </div>
+                    }
+                >
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                        Solo se aplicará el cambio si confirmas. Cancela si no estás seguro o llegaste aquí por error.
+                    </p>
+                </Modal>
             </div>
         </RoleGuard>
     );

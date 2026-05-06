@@ -55,6 +55,24 @@ function normalizeUrl(value: string): string {
     return value.replace(/\/+$/, "");
 }
 
+/** `true` solo si el valor es explícitamente afirmativo; cualquier otro caso usa `fallback`. */
+function parsePublicBooleanFlag(
+    value: string | undefined,
+    fallback: boolean
+): boolean {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+    const v = String(value).trim().toLowerCase();
+    if (v === "1" || v === "true" || v === "yes" || v === "on") {
+        return true;
+    }
+    if (v === "0" || v === "false" || v === "no" || v === "off") {
+        return false;
+    }
+    return fallback;
+}
+
 const apiTarget = parseApiTarget(
     process.env.NEXT_PUBLIC_API_TARGET,
     "deployed"
@@ -116,6 +134,14 @@ export const appEnv = {
     csrfHeaderName,
     /** Clave publicable pk_test_… para Stripe.js; vacía si no hay pagos con tarjeta en el navegador. */
     stripePublishableKey: stripePublishableKey.length > 0 ? stripePublishableKey : null,
+    /**
+     * Cuando sea `true`, el formulario de transferencias entre bodegas se considera integrado con
+     * `POST /api/transfers` y se oculta el aviso de demo. Por defecto `false` (UI en modo demostración).
+     */
+    warehouseTransferApiEnabled: parsePublicBooleanFlag(
+        process.env.NEXT_PUBLIC_WAREHOUSE_TRANSFER_API_ENABLED,
+        false
+    ),
 } as const;
 
 export type { ApiTarget, ProviderMode };

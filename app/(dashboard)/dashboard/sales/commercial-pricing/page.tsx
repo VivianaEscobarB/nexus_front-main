@@ -16,6 +16,7 @@ import {
 } from "@/modules/sales";
 import type { RentalUnitPricingRow, UpdateRentalUnitPricingInput } from "@/modules/sales";
 import { isApiError } from "@/shared/api/apiError";
+import { userHasRole } from "@/shared/auth/primaryRole";
 import { UserRole } from "@/types";
 
 const CURRENCY_REGEX = /^[A-Z]{3}$/;

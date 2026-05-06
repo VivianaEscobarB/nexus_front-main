@@ -9,12 +9,12 @@ export const WarehouseDeleteDialog: React.FC<Props> = ({ isOpen, isLoading, onCl
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 space-y-6">
         <div className="space-y-2 text-center">
-          <h3 className="text-xl font-bold">¿Inactivar Bodega?</h3>
-          <p className="text-sm text-slate-500">La bodega será marcada como inactiva mediante el endpoint DELETE.</p>
+          <h3 className="text-xl font-bold">¿Desactivar bodega?</h3>
+          <p className="text-sm text-slate-500">La bodega quedará inactiva. Podrás reactivarla más adelante si el sistema lo permite.</p>
         </div>
         <div className="flex justify-center gap-4 pt-4 border-t border-slate-100">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancelar</Button>
-          <Button variant="danger" onClick={onConfirm} disabled={isLoading}>Sí, Inactivar</Button>
+          <Button variant="danger" onClick={onConfirm} disabled={isLoading}>Sí, desactivar</Button>
         </div>
       </div>
     </div>
