@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/Button";
 
 import { AccessibilityMenu } from "@/components/ui/AccessibilityMenu";
@@ -52,13 +53,17 @@ export default function HomePage() {
 
       {/* 1. Header / Navegación */}
       <header className="sticky top-0 z-50 w-full border-b backdrop-blur-md" style={{ background: "var(--color-surface-app)", borderColor: "var(--color-border-subtle)" }}>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src="/Exclude.svg" alt="Nexus Logo" className="h-12 w-12 object-contain" />
-            <span className="font-bold text-xl tracking-tight" style={{ color: "var(--color-text-primary)" }}>Nexus</span>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Brand
+            variant="logomarca"
+            alt="Logomarca Nexus"
+            className="h-9 md:h-10 w-auto object-contain"
+          />
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <a href="#soluciones" className="hidden md:inline-flex text-sm font-medium hover:opacity-80 transition-opacity" style={{ color: "var(--color-text-secondary)" }}>
+              Soluciones
+            </a>
             <AccessibilityMenu />
             <Link href="/login">
               <Button variant="primary" size="sm" className="hidden sm:flex">
@@ -72,12 +77,12 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col">
 
         {/* 2. Hero Section (Portada principal) */}
-        <section className="relative py-24 md:py-32 overflow-hidden flex flex-col items-center text-center px-6">
+        <section className="relative py-20 md:py-28 lg:py-32 overflow-hidden flex flex-col items-center text-center px-6">
           {/* Elemento de fondo sutil usando los colores brand del CSS */}
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full opacity-20 pointer-events-none blur-3xl animate-in fade-in duration-1000"
             style={{ background: "radial-gradient(circle, var(--color-brand-default) 0%, transparent 70%)" }} />
 
-          <div className="relative z-10 max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="relative z-10 max-w-5xl mx-auto space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700">
 
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium mb-4 backdrop-blur-sm"
               style={{ background: "var(--color-surface-hover)", borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}>
@@ -88,18 +93,18 @@ export default function HomePage() {
               SaaS Operativo v2.0 ya disponible
             </div>
 
-            <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[1.1] text-balance" style={{ color: "var(--color-text-primary)" }}>
+            <h1 className="mx-auto max-w-4xl text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[1.1] text-balance" style={{ color: "var(--color-text-primary)" }}>
               Controla tu inventario con <br />
               <span style={{ color: "var(--color-text-brand)" }}>
                 precisión absoluta.
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed font-medium" style={{ color: "var(--color-text-secondary)" }}>
+            <p className="text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed font-medium" style={{ color: "var(--color-text-secondary)" }}>
               Nexus es la plataforma definitiva para empresas que quieren automatizar sus almacenes, evitar pérdidas y escalar sus operaciones logísticas sin complicaciones.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 pt-4 md:pt-6">
               <Link href="/login" className="w-full sm:w-auto">
                 <Button variant="primary" size="lg" className="w-full h-16 text-xl px-10 rounded-2xl shadow-2xl shadow-brand-strong/30 hover:scale-105 active:scale-95 transition-all">
                   Comenzar ahora
@@ -108,11 +113,17 @@ export default function HomePage() {
                   </svg>
                 </Button>
               </Link>
-              <Link href="#soluciones" className="w-full sm:w-auto">
-                <Button variant="secondary" size="lg" className="w-full h-16 text-xl px-10 rounded-2xl border-2 hover:bg-surface-active transition-all">
-                  Ver soluciones
-                </Button>
-              </Link>
+              <a
+                href="#soluciones"
+                className="w-full sm:w-auto inline-flex items-center justify-center h-16 text-xl px-10 rounded-2xl border-2 font-medium transition-all hover:bg-surface-active"
+                style={{
+                  background: "var(--color-surface-sunken)",
+                  color: "var(--color-text-primary)",
+                  borderColor: "var(--color-border-default)",
+                }}
+              >
+                Ver soluciones
+              </a>
             </div>
           </div>
         </section>
@@ -122,7 +133,7 @@ export default function HomePage() {
         <section className="py-10 border-y" style={{ borderColor: "var(--color-border-subtle)", background: "var(--color-surface-sunken)" }}>
           <div className="max-w-7xl mx-auto px-6 text-center">
             <p className="text-sm font-medium uppercase tracking-widest mb-6" style={{ color: "var(--color-text-disabled)" }}>Poder operativo respaldado por tecnología moderna</p>
-            <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-300">
+            <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-70 transition-all duration-300">
               {/* Mock de logos de industrias */}
               <span className="text-xl font-bold font-serif" style={{ color: "var(--color-text-secondary)" }}>GLOBAL LOGISTICS</span>
               <span className="text-xl font-bold font-mono" style={{ color: "var(--color-text-secondary)" }}>TechStore Corp.</span>
@@ -145,7 +156,7 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {/* Propuesta 1 */}
-            <div className="p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            <div className="h-full p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
               style={{ background: "var(--color-surface-base)", borderColor: "var(--color-border-subtle)" }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
                 style={{ background: "var(--color-surface-hover)", color: "var(--color-text-brand)" }}>
@@ -158,7 +169,7 @@ export default function HomePage() {
             </div>
 
             {/* Propuesta 2 */}
-            <div className="p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
+            <div className="h-full p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
               style={{ background: "var(--color-sidebar-bg)", borderColor: "var(--color-border-default)" }}>
 
               <div className="absolute top-0 right-0 w-32 h-32 opacity-10 blur-xl" style={{ background: "var(--color-brand-strong)" }} />
@@ -174,7 +185,7 @@ export default function HomePage() {
             </div>
 
             {/* Propuesta 3 */}
-            <div className="p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            <div className="h-full p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
               style={{ background: "var(--color-surface-base)", borderColor: "var(--color-border-subtle)" }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
                 style={{ background: "var(--color-surface-hover)", color: "var(--color-text-brand)" }}>
@@ -191,7 +202,11 @@ export default function HomePage() {
         {/* 5. Cierre / CTA Final */}
         <section className="py-24 border-t mt-auto" style={{ borderColor: "var(--color-border-default)", background: "var(--color-surface-sunken)" }}>
           <div className="max-w-4xl mx-auto px-6 text-center space-y-8">
-            <img src="/Exclude.svg" alt="Nexus Decoración" className="h-32 w-32 mx-auto object-contain drop-shadow-lg scale-110 mb-6" />
+            <Brand
+              variant="isotipo"
+              alt="Isotipo Nexus"
+              className="h-24 w-24 md:h-28 md:w-28 mx-auto object-contain drop-shadow-lg scale-105 mb-4 md:mb-6"
+            />
 
             <h2 className="text-4xl md:text-5xl font-bold" style={{ color: "var(--color-text-primary)" }}>
               La organización del futuro.

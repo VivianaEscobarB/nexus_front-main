@@ -7,6 +7,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { buildLoginRedirectUrl } from "@/modules/auth/guards/guardUtils";
 import { useAuth } from "@/modules/auth/hooks/useAuth";
+import {
+    getNormalizedUserRoleNames,
+    normalizeSessionRoleName,
+} from "@/shared/auth/primaryRole";
 import { UserRole } from "@/types";
 
 type AllowedRole = UserRole | string;

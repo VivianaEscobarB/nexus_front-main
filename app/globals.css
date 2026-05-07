@@ -9,6 +9,13 @@
    1. Theme Variables (Light Mode)
    --------------------------------------------------------------------------- */
 :root {
+  /* Global layers and floating safe areas */
+  --layer-header: 40;
+  --layer-accessibility: 55;
+  --layer-chatbot: 60;
+  --safe-floating-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  --safe-floating-right: calc(1.5rem + env(safe-area-inset-right, 0px));
+
   /* Layout & Surfaces */
   --background: #fafafa;
   --foreground: #09090b;
@@ -45,12 +52,16 @@
   /* Status Colors */
   --success: #10b981;
   --success-foreground: #ffffff;
+  --success-subtle: color-mix(in srgb, var(--success) 16%, white);
   --warning: #f59e0b;
   --warning-foreground: #ffffff;
+  --warning-subtle: color-mix(in srgb, var(--warning) 18%, white);
   --danger: #ef4444;
   --danger-foreground: #ffffff;
+  --danger-subtle: color-mix(in srgb, var(--danger) 16%, white);
   --info: #0ea5e9;
   --info-foreground: #ffffff;
+  --info-subtle: color-mix(in srgb, var(--info) 16%, white);
 }
 
 /* ---------------------------------------------------------------------------
@@ -85,6 +96,11 @@
     --sidebar-primary-foreground: #ffffff;
     --sidebar-border: #27272a;
     --sidebar-accent: #18181b;
+
+    --success-subtle: color-mix(in srgb, var(--success) 24%, #09090b);
+    --warning-subtle: color-mix(in srgb, var(--warning) 26%, #09090b);
+    --danger-subtle: color-mix(in srgb, var(--danger) 24%, #09090b);
+    --info-subtle: color-mix(in srgb, var(--info) 24%, #09090b);
   }
 }
 
@@ -113,6 +129,10 @@
     --sidebar-primary-foreground: #ffffff;
     --sidebar-border: #27272a;
     --sidebar-accent: #18181b;
+    --success-subtle: color-mix(in srgb, var(--success) 24%, #09090b);
+    --warning-subtle: color-mix(in srgb, var(--warning) 26%, #09090b);
+    --danger-subtle: color-mix(in srgb, var(--danger) 24%, #09090b);
+    --info-subtle: color-mix(in srgb, var(--info) 24%, #09090b);
   }
 }
 
@@ -140,6 +160,10 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-border: #27272a;
   --sidebar-accent: #18181b;
+  --success-subtle: color-mix(in srgb, var(--success) 24%, #09090b);
+  --warning-subtle: color-mix(in srgb, var(--warning) 26%, #09090b);
+  --danger-subtle: color-mix(in srgb, var(--danger) 24%, #09090b);
+  --info-subtle: color-mix(in srgb, var(--info) 24%, #09090b);
 }
 
 /* ---------------------------------------------------------------------------
@@ -196,15 +220,19 @@
 
   /* Status Mappings */
   --color-success-default: var(--success);
+  --color-success-subtle: var(--success-subtle);
   --color-success-strong: var(--success);
   --color-success-text: var(--success);
   --color-warning-default: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
   --color-warning-strong: var(--warning);
   --color-warning-text: var(--warning);
   --color-danger-default: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
   --color-danger-strong: var(--danger);
   --color-danger-text: var(--danger);
   --color-info-default: var(--info);
+  --color-info-subtle: var(--info-subtle);
   --color-info-strong: var(--info);
   --color-info-text: var(--info);
 }
@@ -271,4 +299,14 @@ html[data-accessibility-font="dyslexia"] body {
 
 html[data-accessibility-contrast="high"] {
   filter: contrast(125%) saturate(110%);
+}
+
+html[data-accessibility-contrast="high"] .nexus-a11y-fab {
+  border-width: 2px;
+  border-color: var(--color-text-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-surface-base), 0 0 0 4px var(--color-text-primary);
+}
+
+html[data-accessibility-contrast="high"] .nexus-a11y-menu-btn {
+  border: 1px solid var(--color-border-strong);
 }

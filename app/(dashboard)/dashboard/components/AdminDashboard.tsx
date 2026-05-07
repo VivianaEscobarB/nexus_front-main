@@ -1,9 +1,14 @@
 "use client";
 
+import * as React from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Card, CardBody } from "@/components/ui/Card";
 import { isBusinessProcessVisible } from "@/shared/config/processVisibility";
+import { listUsers } from "@/modules/users";
+import { listEntityTypes, listStatusCatalogs } from "@/modules/infrastructure";
+import { listRentalUnitsPricing } from "@/modules/sales";
 
 function ShieldIcon() {
     return <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M3 6.75 12 3l9 3.75v5.625c0 4.97-3.108 9.407-7.8 11.125L12 21.75l-1.2-.6C6.108 19.532 3 15.095 3 10.125V6.75Z" /></svg>;
@@ -26,29 +31,31 @@ function TagIcon() {
     );
 }
 
-function SyncIcon() {
-    return (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-        </svg>
-    );
-}
-
 function AdminActionCard({
     title,
     description,
     href,
     cta,
     icon,
+    ctaVariant = "primary",
+    tone = "default",
 }: {
     title: string;
     description: string;
     href: string;
     cta: string;
     icon: ReactNode;
+    ctaVariant?: "primary" | "secondary" | "outline";
+    tone?: "default" | "maintenance";
 }) {
     return (
-        <div className="rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-6 shadow-sm">
+        <div
+            className={`rounded-2xl border p-6 shadow-sm ${
+                tone === "maintenance"
+                    ? "border-[var(--color-border-default)] bg-[var(--color-surface-hover)]"
+                    : "border-[var(--color-border-subtle)] bg-[var(--color-surface-base)]"
+            }`}
+        >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-surface-hover)] text-[var(--color-brand-strong)]">
                 {icon}
             </div>
@@ -60,105 +67,213 @@ function AdminActionCard({
             </p>
             <div className="mt-6">
                 <Link href={href}>
-                    <Button variant="primary">{cta}</Button>
+                    <Button variant={ctaVariant}>{cta}</Button>
                 </Link>
             </div>
         </div>
     );
 }
 
+function KpiCard({
+    label,
+    value,
+    hint,
+}: {
+    label: string;
+    value: string | number;
+    hint: string;
+}) {
+    return (
+        <Card variant="default" padding="none" className="rounded-xl">
+            <CardBody className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    {label}
+                </p>
+                <p className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">
+                    {value}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{hint}</p>
+            </CardBody>
+        </Card>
+    );
+}
+
 export function AdminDashboard() {
-    const activeProcesses = [
-        isBusinessProcessVisible("authentication")
-            ? "Acceso y seguridad"
-            : null,
-        isBusinessProcessVisible("userManagement")
-            ? "Gestión de usuarios"
-            : null,
-        isBusinessProcessVisible("warehouseStructure")
-            ? "Infraestructura de bodegas"
-            : null,
-        isBusinessProcessVisible("clientManagement")
-            ? "Gestión de clientes"
-            : null,
-    ].filter(Boolean);
+    const [isLoadingStats, setIsLoadingStats] = React.useState(true);
+    const [stats, setStats] = React.useState({
+        users: 0,
+        entityTypes: 0,
+        statuses: 0,
+        activePricing: 0,
+    });
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        const loadStats = async () => {
+            setIsLoadingStats(true);
+            try {
+                const [users, entityTypes, statuses, pricingRows] = await Promise.all([
+                    listUsers(),
+                    listEntityTypes(),
+                    listStatusCatalogs(),
+                    listRentalUnitsPricing(),
+                ]);
+
+                if (!isMounted) return;
+
+                setStats({
+                    users: users.length,
+                    entityTypes: entityTypes.length,
+                    statuses: statuses.length,
+                    activePricing: pricingRows.filter((row) => row.priceActive).length,
+                });
+            } catch {
+                if (!isMounted) return;
+                setStats({
+                    users: 0,
+                    entityTypes: 0,
+                    statuses: 0,
+                    activePricing: 0,
+                });
+            } finally {
+                if (isMounted) {
+                    setIsLoadingStats(false);
+                }
+            }
+        };
+
+        void loadStats();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     return (
         <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
-            <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <section className="rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-5 md:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="max-w-3xl">
                         <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-brand-strong)]">
                             <ShieldIcon />
                             Administración
                         </div>
-                        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
+                        <h1 className="mt-3 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
                             Panel administrativo
                         </h1>
-                        <p className="mt-3 text-base leading-7 text-[var(--color-text-secondary)]">
-                            Administra usuarios, clientes e infraestructura desde un solo lugar.
+                        <p className="mt-1 text-sm leading-6 text-[var(--color-text-secondary)]">
+                            Gestiona operación base, configuración comercial y mantenimiento del catálogo.
                         </p>
                     </div>
-                    <div className="rounded-2xl bg-[var(--color-surface-hover)] px-5 py-4 text-sm text-[var(--color-text-secondary)]">
-                        <p className="font-semibold text-[var(--color-text-primary)]">
-                            Módulos disponibles
-                        </p>
-                        <ul className="mt-2 space-y-1">
-                            {activeProcesses.map((process) => (
-                                <li key={process}>{process}</li>
-                            ))}
-                        </ul>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {isBusinessProcessVisible("userManagement") ? (
+                            <Link href="/dashboard/users">
+                                <Button variant="secondary" size="sm">
+                                    Gestionar usuarios
+                                </Button>
+                            </Link>
+                        ) : null}
+                        {isBusinessProcessVisible("warehouseStructure") ? (
+                            <Link href="/dashboard/infrastructure">
+                                <Button variant="secondary" size="sm">
+                                    Gestionar infraestructura
+                                </Button>
+                            </Link>
+                        ) : null}
+                        {isBusinessProcessVisible("contracts") ? (
+                            <Link href="/dashboard/sales/commercial-pricing">
+                                <Button variant="primary" size="sm">
+                                    Configurar precios
+                                </Button>
+                            </Link>
+                        ) : null}
                     </div>
                 </div>
             </section>
 
-            <section className="grid gap-6 md:grid-cols-2">
-                {isBusinessProcessVisible("userManagement") ? (
-                    <AdminActionCard
-                        title="Gestión de usuarios"
-                        description="Crea, edita, activa o desactiva usuarios según las necesidades de tu operación."
-                        href="/dashboard/users"
-                        cta="Abrir usuarios"
-                        icon={<UsersIcon />}
-                    />
-                ) : null}
-                {isBusinessProcessVisible("warehouseStructure") ? (
-                    <AdminActionCard
-                        title="Infraestructura de bodegas"
-                        description="Organiza bodegas, sectores y espacios para mantener la operación actualizada."
-                        href="/dashboard/infrastructure"
-                        cta="Abrir infraestructura"
-                        icon={<WarehouseIcon />}
-                    />
-                ) : null}
-                {isBusinessProcessVisible("warehouseStructure") ? (
-                    <AdminActionCard
-                        title="Unidades de arrendamiento"
-                        description="Consulta IDs y vínculos a bodega, sector o espacio. Las filas provienen de la infraestructura y del sync del catálogo."
-                        href="/dashboard/sales/rental-units"
-                        cta="Ver listado"
-                        icon={<WarehouseIcon />}
-                    />
-                ) : null}
-                {isBusinessProcessVisible("warehouseStructure") ? (
-                    <AdminActionCard
-                        title="Sincronización catálogo"
-                        description="Ejecuta un resync masivo físico → rental units si hubo datos previos a los eventos de sincronización."
-                        href="/dashboard/sales/commercial-sync"
-                        cta="Abrir sincronización"
-                        icon={<SyncIcon />}
-                    />
-                ) : null}
-                {isBusinessProcessVisible("contracts") ? (
-                    <AdminActionCard
-                        title="Parametrización comercial"
-                        description="Asigna precio base, moneda y estado comercial a cada unidad de arrendamiento del catálogo."
-                        href="/dashboard/sales/commercial-pricing"
-                        cta="Abrir parametrización"
-                        icon={<TagIcon />}
-                    />
-                ) : null}
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                    label="Usuarios"
+                    value={isLoadingStats ? "..." : stats.users}
+                    hint="Cuentas registradas en el sistema"
+                />
+                <KpiCard
+                    label="Tipos de entidad"
+                    value={isLoadingStats ? "..." : stats.entityTypes}
+                    hint="Estructuras con catálogo de estados"
+                />
+                <KpiCard
+                    label="Estados"
+                    value={isLoadingStats ? "..." : stats.statuses}
+                    hint="Estados disponibles en catálogo maestro"
+                />
+                <KpiCard
+                    label="Precios activos"
+                    value={isLoadingStats ? "..." : stats.activePricing}
+                    hint="Unidades comercialmente activas"
+                />
             </section>
+
+            {isBusinessProcessVisible("userManagement") ||
+            isBusinessProcessVisible("warehouseStructure") ? (
+                <section className="space-y-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                            Operación base
+                        </h2>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                            Módulos de uso frecuente para administración diaria.
+                        </p>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {isBusinessProcessVisible("userManagement") ? (
+                            <AdminActionCard
+                                title="Gestión de usuarios"
+                                description="Crea, edita, activa o desactiva usuarios según las necesidades de tu operación."
+                                href="/dashboard/users"
+                                cta="Gestionar usuarios"
+                                icon={<UsersIcon />}
+                                ctaVariant="primary"
+                            />
+                        ) : null}
+                        {isBusinessProcessVisible("warehouseStructure") ? (
+                            <AdminActionCard
+                                title="Infraestructura de bodegas"
+                                description="Organiza bodegas, sectores y espacios para mantener la operación actualizada."
+                                href="/dashboard/infrastructure"
+                                cta="Gestionar infraestructura"
+                                icon={<WarehouseIcon />}
+                                ctaVariant="primary"
+                            />
+                        ) : null}
+                    </div>
+                </section>
+            ) : null}
+
+            {isBusinessProcessVisible("contracts") ? (
+                <section className="space-y-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                            Comercial
+                        </h2>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                            Configuración central de precios y estado comercial.
+                        </p>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <AdminActionCard
+                            title="Parametrización comercial"
+                            description="Asigna precio base, moneda y estado comercial a cada unidad de arrendamiento del catálogo."
+                            href="/dashboard/sales/commercial-pricing"
+                            cta="Gestionar parametrización"
+                            icon={<TagIcon />}
+                            ctaVariant="primary"
+                        />
+                    </div>
+                </section>
+            ) : null}
+
         </div>
     );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, CardBody, Button } from "@/components/ui";
+import { Alert, Card, CardBody, Button } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -134,14 +134,11 @@ export default function ClientMyWarehousesPage() {
                         </Button>
                     </div>
 
-                    {error && (
-                        <div
-                            role="alert"
-                            className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]"
-                        >
+                    {error ? (
+                        <Alert variant="danger" className="rounded-lg">
                             {error}
-                        </div>
-                    )}
+                        </Alert>
+                    ) : null}
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Card, CardBody, Input, Select, Badge, Pagination } from "@/components/ui";
+import { Alert, Button, Card, CardBody, Input, Select, Badge, Pagination } from "@/components/ui";
 import { usePagination } from "@/shared/hooks/usePagination";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
@@ -11,6 +11,8 @@ import {
     cancelContract,
 } from "@/modules/sales";
 import { isApiError } from "@/shared/api/apiError";
+import { userHasRole } from "@/shared/auth/primaryRole";
+import { UserRole } from "@/types";
 import type { Contract, ContractStatus } from "@/modules/sales";
 
 // ─────────────────────────────────────────────────────────────
@@ -139,12 +141,12 @@ export default function ContractsPage() {
                 </div>
 
                 {/* Error */}
-                {pageError && (
-                    <div role="alert" className="rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)] flex items-center justify-between">
+                {pageError ? (
+                    <Alert variant="danger" className="flex items-center justify-between rounded-lg">
                         <span>{pageError}</span>
                         <Button variant="ghost" size="sm" onClick={fetchContracts}>Reintentar</Button>
-                    </div>
-                )}
+                    </Alert>
+                ) : null}
 
                 <Card>
                     <CardBody className="p-0">

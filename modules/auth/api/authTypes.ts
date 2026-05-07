@@ -27,6 +27,18 @@ export type CurrentUser = {
     roles: string[];
     clientId?: number | string | null;
     client_id?: number | string | null;
+    cityId?: number | null;
+    avatarUrl?: string | null;
+    avatar_url?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+};
+
+export type PatchCurrentUserRequest = {
+    username?: string;
+    email?: string;
+    cityId?: number | null;
+    avatarUrl?: string;
 };
 
 export type RegisterResponse = {

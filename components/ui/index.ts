@@ -1,7 +1,10 @@
 // components/ui — barrel export
 // Importa todos los componentes UI base desde un único punto de entrada.
 //
-// Uso: import { Button, Input, Modal, Badge, Label, Card, Form } from "@/components/ui";
+// Uso: import { Alert, Button, Input, Modal, Badge, Label, Card, Form } from "@/components/ui";
+
+export { Alert } from "./Alert";
+export type { AlertProps, AlertVariant } from "./Alert";
 
 export { Button } from "./Button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./Button";

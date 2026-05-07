@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardBody, Input, Select } from "@/components/ui";
+import { Alert, Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { Badge } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
@@ -131,12 +131,12 @@ export default function ReservationsPage() {
                     </div>
 
                     {/* Error global */}
-                    {pageError && (
-                        <div role="alert" className="rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)] flex items-center justify-between">
+                    {pageError ? (
+                        <Alert variant="danger" className="flex items-center justify-between rounded-lg">
                             <span>{pageError}</span>
                             <Button variant="ghost" size="sm" onClick={fetchReservations}>Reintentar</Button>
-                        </div>
-                    )}
+                        </Alert>
+                    ) : null}
 
                     {/* Tabla */}
                     <Card>
@@ -298,11 +298,11 @@ export default function ReservationsPage() {
                                     </div>
 
                                     {/* Error de acción */}
-                                    {actionError && (
-                                        <div role="alert" className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]">
+                                    {actionError ? (
+                                        <Alert variant="danger" className="rounded-lg">
                                             {actionError}
-                                        </div>
-                                    )}
+                                        </Alert>
+                                    ) : null}
                                 </div>
 
                                 {/* Acciones de pie */}

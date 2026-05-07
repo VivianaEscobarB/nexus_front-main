@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
@@ -251,15 +252,7 @@ export function ActivateAccountForm() {
     if (!activationToken) {
         return (
             <div className="flex flex-col gap-5">
-                <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
-                    style={{
-                        background: "var(--color-danger-subtle)",
-                        borderColor: "var(--color-danger-default)",
-                        color: "var(--color-danger-text)",
-                    }}
-                >
+                <Alert variant="danger" className="flex items-start gap-2.5 rounded-lg">
                     <svg
                         className="mt-0.5 h-4 w-4 flex-shrink-0"
                         viewBox="0 0 16 16"
@@ -269,7 +262,7 @@ export function ActivateAccountForm() {
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
                     </svg>
                     {MISSING_TOKEN_MESSAGE}
-                </div>
+                </Alert>
 
                 <Link
                     href="/login"
@@ -323,16 +316,8 @@ export function ActivateAccountForm() {
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
-            {serverError && (
-                <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
-                    style={{
-                        background: "var(--color-danger-subtle)",
-                        borderColor: "var(--color-danger-default)",
-                        color: "var(--color-danger-text)",
-                    }}
-                >
+            {serverError ? (
+                <Alert variant="danger" className="flex items-start gap-2.5 rounded-lg">
                     <svg
                         className="mt-0.5 h-4 w-4 flex-shrink-0"
                         viewBox="0 0 16 16"
@@ -342,8 +327,8 @@ export function ActivateAccountForm() {
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
                     </svg>
                     {serverError}
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
             <div className="flex flex-col gap-4">
                 <Input

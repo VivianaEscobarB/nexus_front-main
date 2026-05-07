@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Card, CardBody } from "@/components/ui";
+import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -137,32 +137,23 @@ export default function ClientContractsPage() {
             <RoleGuard allowedRoles={[UserRole.CLIENT]}>
                 <div className="mx-auto max-w-6xl animate-in fade-in space-y-6 duration-500">
 
-                    {!clientId && (
-                        <div
-                            role="alert"
-                            className="rounded border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] p-3 text-sm text-[var(--color-warning-strong)]"
-                        >
+                    {!clientId ? (
+                        <Alert variant="warning" className="rounded-lg">
                             Tu sesión no tiene cliente vinculado. No es posible listar ni pagar contratos hasta que la
                             cuenta quede asociada en el sistema.
-                        </div>
-                    )}
+                        </Alert>
+                    ) : null}
 
-                    {error && (
-                        <div
-                            role="alert"
-                            className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]"
-                        >
+                    {error ? (
+                        <Alert variant="danger" className="rounded-lg">
                             {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div
-                            role="status"
-                            className="rounded border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] p-3 text-sm text-[var(--color-success-strong)]"
-                        >
+                        </Alert>
+                    ) : null}
+                    {success ? (
+                        <Alert variant="success" role="status" className="rounded-lg">
                             {success}
-                        </div>
-                    )}
+                        </Alert>
+                    ) : null}
 
                     <div className="grid gap-6 lg:grid-cols-3">
                         <Card className="lg:col-span-1">

@@ -18,17 +18,32 @@ export function Chatbot() {
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Initial greeting when opened for the first time
     useEffect(() => {
-        if (isOpen && messages.length === 0) {
-            setMessages([{
+        window.dispatchEvent(
+            new CustomEvent("nexus-chatbot:state", { detail: { isOpen } })
+        );
+    }, [isOpen]);
+
+    const openChat = () => {
+        setIsOpen(true);
+        setMessages((prev) => {
+            if (prev.length > 0) return prev;
+            return [{
                 id: Date.now().toString(),
                 text: "¡Hola! Soy Nexus AI. Estoy aquí para ayudarte a navegar por el sistema.",
                 sender: "bot",
                 timestamp: new Date()
-            }]);
+            }];
+        });
+    };
+
+    const toggleChat = () => {
+        if (isOpen) {
+            setIsOpen(false);
+            return;
         }
-    }, [isOpen, messages.length]);
+        openChat();
+    };
 
     // Auto-scroll
     useEffect(() => {
@@ -71,9 +86,16 @@ export function Chatbot() {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <div
+            className="fixed flex flex-col items-end"
+            style={{
+                bottom: "var(--safe-floating-bottom)",
+                right: "var(--safe-floating-right)",
+                zIndex: "var(--layer-chatbot)",
+            }}
+        >
             {isOpen && (
-                <div className="mb-4 flex h-[450px] w-[350px] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface-base)] shadow-2xl border border-[var(--color-border-subtle)] transition-all duration-300">
+                <div className="mb-4 flex h-[450px] w-[min(350px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-[var(--color-surface-base)] shadow-2xl border border-[var(--color-border-subtle)] transition-all duration-300">
                     {/* Header */}
                     <div className="flex items-center justify-between bg-[var(--color-brand-strong)] p-4 text-[var(--color-text-inverse)]">
                         <div className="flex items-center gap-2">
@@ -143,7 +165,7 @@ export function Chatbot() {
 
             {/* Floating Toggle Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleChat}
                 className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-brand-strong)] text-[var(--color-text-inverse)] shadow-lg hover:bg-[var(--color-brand-stronger)] hover:scale-105 active:scale-95 transition-all duration-200"
                 aria-label="Abrir asistente de chat"
             >

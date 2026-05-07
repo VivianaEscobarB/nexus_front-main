@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardBody, Input, Modal, RoleBadge, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import {
     activateUser,
     createUser,
-    deleteUser,
+    deactivateUser,
     listUsers,
     updateUser,
 } from "@/modules/users/api/usersApi";
@@ -35,6 +35,10 @@ import { isApiError } from "@/shared/api/apiError";
 import { UserRole } from "@/types";
 
 type UserManagementViewMode = "default" | "create";
+type PendingUserAction =
+    | { type: "reactivate"; user: ManagedUser }
+    | { type: "deactivate"; user: ManagedUser }
+    | null;
 
 interface UserManagementViewProps {
     initialMode?: UserManagementViewMode;
@@ -137,10 +141,9 @@ function buildUserFormSchema(getAllowedRoles: () => readonly string[]) {
                 .string()
                 .min(1, "El correo es obligatorio")
                 .email("Debes ingresar un correo valido"),
-            role: z
-                .string()
-                .trim()
-                .min(1, "Selecciona un rol valido"),
+            roles: z
+                .array(z.string())
+                .min(1, "Selecciona al menos un rol"),
             status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"], {
                 message: "Selecciona un estado valido",
             }),
@@ -164,23 +167,41 @@ function buildUserFormSchema(getAllowedRoles: () => readonly string[]) {
             }
 
             const allowedRoles = getAllowedRoles();
-            if (allowedRoles.length > 0 && !allowedRoles.includes(values.role)) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ["role"],
-                    message: "Selecciona un rol valido para empleados.",
-                });
+            if (allowedRoles.length > 0) {
+                const invalidRole = values.roles.find(
+                    (roleName) => !allowedRoles.includes(roleName)
+                );
+                if (invalidRole) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["roles"],
+                        message:
+                            "Uno o más roles no están permitidos para empleados.",
+                    });
+                }
             }
         });
 }
 
 type UserFormValues = z.infer<ReturnType<typeof buildUserFormSchema>>;
 
+type PendingRestrictedStatusSubmit =
+    | { flow: "edit_downgrade"; values: UserFormValues }
+    | { flow: "create_restricted"; values: UserFormValues };
+
 function buildDefaultValues(user?: ManagedUser): UserFormValues {
+    const employeeRolesFromUser = (user?.roles ?? []).filter(
+        (roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName)
+    );
+    const roles =
+        employeeRolesFromUser.length > 0
+            ? employeeRolesFromUser
+            : [UserRole.WAREHOUSE_OPERATOR];
+
     return {
         username: user?.username ?? "",
         email: user?.email ?? "",
-        role: user?.roles[0] ?? UserRole.WAREHOUSE_OPERATOR,
+        roles,
         status: user?.status ?? "ACTIVE",
         countryId: "",
         regionId: "",
@@ -261,15 +282,22 @@ export function UserManagementView({
     const [locationsError, setLocationsError] = React.useState<string | null>(
         null
     );
+    const [pendingAction, setPendingAction] = React.useState<PendingUserAction>(
+        null
+    );
+    const [pendingRestrictedStatusSubmit, setPendingRestrictedStatusSubmit] =
+        React.useState<PendingRestrictedStatusSubmit | null>(null);
 
     const isEditing = Boolean(editingUser);
-    const allowedEmployeeRoleNames = React.useMemo(
-        () =>
-            availableRoles
-                .map((role) => role.name)
-                .filter((roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName)),
-        [availableRoles]
-    );
+    const allowedEmployeeRoleNames = React.useMemo(() => {
+        const fromApi = availableRoles
+            .map((role) => role.name)
+            .filter((roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName));
+        const fromEditedUser = (editingUser?.roles ?? []).filter(
+            (roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName)
+        );
+        return [...new Set([...fromApi, ...fromEditedUser])];
+    }, [availableRoles, editingUser]);
     const allowedEmployeeRoleNamesRef = React.useRef<readonly string[]>(
         allowedEmployeeRoleNames
     );
@@ -310,6 +338,7 @@ export function UserManagementView({
                 .map(mapRoleToSelectOption),
         [availableRoles]
     );
+
     const hasCreatedByColumn = React.useMemo(
         () => users.some((user) => Boolean(user.createdByName)),
         [users]
@@ -335,6 +364,31 @@ export function UserManagementView({
 
     const selectedCountryId = watch("countryId");
     const selectedRegionId = watch("regionId");
+    const selectedRoles = watch("roles") ?? [];
+
+    /** Incluye roles ya asignados al usuario que aún no aparecen en el catálogo cargado (evita perderlos al guardar). */
+    const formRoleCheckboxOptions = React.useMemo(() => {
+        const catalogValues = new Set(
+            employeeRoleOptions.map((option) => option.value)
+        );
+        const orphanRoles: { value: string; label: string }[] = [];
+        const seenOrphan = new Set<string>();
+        for (const roleName of selectedRoles) {
+            if (
+                catalogValues.has(roleName) ||
+                NON_EMPLOYEE_ROLE_NAMES.has(roleName) ||
+                seenOrphan.has(roleName)
+            ) {
+                continue;
+            }
+            seenOrphan.add(roleName);
+            orphanRoles.push({
+                value: roleName,
+                label: `${getRoleLabel(roleName)} · asignado (no está en el catálogo cargado)`,
+            });
+        }
+        return [...employeeRoleOptions, ...orphanRoles];
+    }, [employeeRoleOptions, selectedRoles]);
 
     function resetLocationPickers() {
         setRegions([]);
@@ -526,7 +580,7 @@ export function UserManagementView({
         setIsModalOpen(true);
     }
 
-    async function onSubmit(values: UserFormValues) {
+    async function executeUserSubmit(values: UserFormValues) {
         if (submitLockRef.current) {
             return;
         }
@@ -535,7 +589,13 @@ export function UserManagementView({
         setIsSubmitting(true);
         setActionError(null);
 
-        const rolesPayload = [values.role];
+        const rolesPayload = [
+            ...new Set(
+                values.roles.filter(
+                    (roleName) => !NON_EMPLOYEE_ROLE_NAMES.has(roleName)
+                )
+            ),
+        ];
         const cityId = Number(values.cityId);
 
         try {
@@ -544,7 +604,10 @@ export function UserManagementView({
                     username: values.username.trim(),
                     email: values.email.trim().toLowerCase(),
                     status: values.status,
-                    roles: rolesPayload,
+                    roles:
+                        rolesPayload.length > 0
+                            ? rolesPayload
+                            : [UserRole.WAREHOUSE_OPERATOR],
                     cityId,
                 };
 
@@ -560,7 +623,10 @@ export function UserManagementView({
                     username: values.username.trim(),
                     email: values.email.trim().toLowerCase(),
                     status: values.status,
-                    roles: rolesPayload,
+                    roles:
+                        rolesPayload.length > 0
+                            ? rolesPayload
+                            : [UserRole.WAREHOUSE_OPERATOR],
                     cityId,
                 };
 
@@ -590,15 +656,44 @@ export function UserManagementView({
         }
     }
 
-    async function handleReactivate(user: ManagedUser) {
+    async function onSubmit(values: UserFormValues) {
         if (
-            !window.confirm(
-                `Vas a reactivar a ${user.username}.`
-            )
+            editingUser &&
+            editingUser.status === "ACTIVE" &&
+            values.status !== "ACTIVE"
         ) {
+            setPendingRestrictedStatusSubmit({
+                flow: "edit_downgrade",
+                values,
+            });
             return;
         }
 
+        if (
+            !editingUser &&
+            (values.status === "INACTIVE" || values.status === "SUSPENDED")
+        ) {
+            setPendingRestrictedStatusSubmit({
+                flow: "create_restricted",
+                values,
+            });
+            return;
+        }
+
+        await executeUserSubmit(values);
+    }
+
+    async function confirmPendingRestrictedStatusSubmit() {
+        if (!pendingRestrictedStatusSubmit) {
+            return;
+        }
+
+        const { values } = pendingRestrictedStatusSubmit;
+        setPendingRestrictedStatusSubmit(null);
+        await executeUserSubmit(values);
+    }
+
+    async function handleReactivate(user: ManagedUser) {
         setFeedbackMessage(null);
         setPageError(null);
 
@@ -611,24 +706,34 @@ export function UserManagementView({
         }
     }
 
-    async function handleDelete(user: ManagedUser) {
-        if (
-            !window.confirm(
-                `Esta accion eliminara definitivamente a ${user.username}.`
-            )
-        ) {
-            return;
-        }
-
+    async function handleDeactivate(user: ManagedUser) {
         setFeedbackMessage(null);
         setPageError(null);
 
         try {
-            await deleteUser(user.id);
-            setFeedbackMessage(`Usuario ${user.username} eliminado.`);
+            await deactivateUser(user.id);
+            setFeedbackMessage(`Usuario ${user.username} desactivado.`);
             await loadUsers();
         } catch (error) {
             setPageError(getErrorMessage(error));
+        }
+    }
+
+    async function runPendingUserAction() {
+        if (!pendingAction) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            if (pendingAction.type === "reactivate") {
+                await handleReactivate(pendingAction.user);
+            } else {
+                await handleDeactivate(pendingAction.user);
+            }
+        } finally {
+            setIsSubmitting(false);
+            setPendingAction(null);
         }
     }
 
@@ -653,15 +758,15 @@ export function UserManagementView({
                 </div>
 
                 {feedbackMessage ? (
-                    <div className="rounded-xl border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]">
+                    <Alert variant="success" className="rounded-xl">
                         {feedbackMessage}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 {pageError ? (
-                    <div className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]">
+                    <Alert variant="danger" className="rounded-xl">
                         {pageError}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 <Card padding="lg">
@@ -792,7 +897,7 @@ export function UserManagementView({
                                                 <td className="px-4 py-4">
                                                     <div className="flex justify-end gap-2">
                                                         <Button
-                                                            variant="outline"
+                                                            variant="primary"
                                                             size="sm"
                                                             disabled={
                                                                 user.status === "INACTIVE" ||
@@ -815,18 +920,28 @@ export function UserManagementView({
                                                             <Button
                                                                 variant="secondary"
                                                                 size="sm"
-                                                                onClick={() => handleReactivate(user)}
+                                                                onClick={() =>
+                                                                    setPendingAction({
+                                                                        type: "reactivate",
+                                                                        user,
+                                                                    })
+                                                                }
                                                             >
                                                                 Reactivar
                                                             </Button>
                                                         ) : null}
                                                         {user.status !== "INACTIVE" ? (
                                                             <Button
-                                                                variant="danger"
+                                                                variant="secondary"
                                                                 size="sm"
-                                                                onClick={() => handleDelete(user)}
+                                                                onClick={() =>
+                                                                    setPendingAction({
+                                                                        type: "deactivate",
+                                                                        user,
+                                                                    })
+                                                                }
                                                             >
-                                                                Eliminar
+                                                                Desactivar
                                                             </Button>
                                                         ) : null}
                                                     </div>
@@ -863,19 +978,13 @@ export function UserManagementView({
                         aria-busy={isSubmitting}
                     >
                         {actionError ? (
-                            <div
-                                role="alert"
-                                className="rounded-xl border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
-                            >
+                            <Alert variant="danger" className="rounded-xl">
                                 {actionError}
-                            </div>
+                            </Alert>
                         ) : null}
 
                         {locationsError ? (
-                            <div
-                                role="alert"
-                                className="rounded-xl border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] px-4 py-3 text-sm text-[var(--color-warning-strong)]"
-                            >
+                            <Alert variant="warning" className="rounded-xl">
                                 {locationsError}
                                 <button
                                     type="button"
@@ -887,7 +996,7 @@ export function UserManagementView({
                                 >
                                     Limpiar ubicación
                                 </button>
-                            </div>
+                            </Alert>
                         ) : null}
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -981,14 +1090,69 @@ export function UserManagementView({
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Select
-                                label="Rol"
-                                options={employeeRoleOptions}
-                                disabled={employeeRoleOptions.length === 0}
-                                error={errors.role?.message}
-                                hint="Selecciona el rol que tendrá este usuario."
-                                {...register("role")}
-                            />
+                            <fieldset className="min-w-0 space-y-2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-4">
+                                <legend className="text-sm font-medium text-[var(--color-text-primary)] px-1">
+                                    Roles
+                                </legend>
+                                <p className="text-xs text-[var(--color-text-secondary)]">
+                                    Marca todos los roles que aplican; los permisos se combinan según cada rol.
+                                </p>
+                                <div className="mt-2 space-y-2.5">
+                                    {formRoleCheckboxOptions.length === 0 ? (
+                                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                                            Cargando roles disponibles…
+                                        </p>
+                                    ) : (
+                                        formRoleCheckboxOptions.map((option) => {
+                                            const checked = selectedRoles.includes(
+                                                option.value
+                                            );
+                                            return (
+                                                <label
+                                                    key={option.value}
+                                                    className="flex cursor-pointer items-start gap-3 text-sm text-[var(--color-text-primary)]"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--color-border-default)] text-[var(--color-brand-strong)] focus:ring-[var(--color-brand-strong)]"
+                                                        checked={checked}
+                                                        onChange={(event) => {
+                                                            const nextChecked =
+                                                                event.target
+                                                                    .checked;
+                                                            const base =
+                                                                selectedRoles.filter(
+                                                                    (r) =>
+                                                                        r !==
+                                                                        option.value
+                                                                );
+                                                            const next = nextChecked
+                                                                ? [
+                                                                      ...base,
+                                                                      option.value,
+                                                                  ]
+                                                                : base;
+                                                            setValue(
+                                                                "roles",
+                                                                next,
+                                                                {
+                                                                    shouldValidate: true,
+                                                                }
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span>{option.label}</span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                                {errors.roles?.message ? (
+                                    <p className="text-xs text-[var(--color-danger-strong)]">
+                                        {errors.roles.message}
+                                    </p>
+                                ) : null}
+                            </fieldset>
                             <Select
                                 label="Estado"
                                 options={STATUS_OPTIONS.map((status) => ({
@@ -1073,6 +1237,118 @@ export function UserManagementView({
                             </Button>
                         </div>
                     </form>
+                </Modal>
+                <Modal
+                    isOpen={pendingAction !== null}
+                    onClose={() => {
+                        if (!isSubmitting) {
+                            setPendingAction(null);
+                        }
+                    }}
+                    closeOnBackdrop={!isSubmitting}
+                    title={
+                        pendingAction?.type === "reactivate"
+                            ? "Confirmar reactivación"
+                            : "Confirmar desactivación"
+                    }
+                    description={
+                        pendingAction
+                            ? pendingAction.type === "reactivate"
+                                ? `Vas a reactivar a ${pendingAction.user.username}.`
+                                : `Se desactivará la cuenta de ${pendingAction.user.username}: no podrá iniciar sesión. Podrás reactivarla desde esta lista cuando lo necesites.`
+                            : ""
+                    }
+                    footer={
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPendingAction(null)}
+                                disabled={isSubmitting}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={
+                                    pendingAction?.type === "reactivate"
+                                        ? "secondary"
+                                        : "primary"
+                                }
+                                disabled={isSubmitting}
+                                isLoading={isSubmitting}
+                                onClick={() => void runPendingUserAction()}
+                            >
+                                {pendingAction?.type === "reactivate"
+                                    ? "Reactivar usuario"
+                                    : "Desactivar usuario"}
+                            </Button>
+                        </div>
+                    }
+                >
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                        {pendingAction?.type === "reactivate"
+                            ? "El usuario recuperará acceso a la plataforma. Confirma solo si es la acción que necesitas."
+                            : "La cuenta quedará inactiva y podrá reactivarse más adelante. Confirma solo si estás seguro de inhabilitar el acceso."}
+                    </p>
+                </Modal>
+
+                <Modal
+                    isOpen={pendingRestrictedStatusSubmit !== null}
+                    onClose={() => {
+                        if (!isSubmitting) {
+                            setPendingRestrictedStatusSubmit(null);
+                        }
+                    }}
+                    closeOnBackdrop={!isSubmitting}
+                    title={
+                        pendingRestrictedStatusSubmit?.flow === "create_restricted"
+                            ? "Confirmar alta con estado restringido"
+                            : "Confirmar cambio de estado"
+                    }
+                    description={
+                        pendingRestrictedStatusSubmit
+                            ? pendingRestrictedStatusSubmit.flow === "create_restricted"
+                                ? pendingRestrictedStatusSubmit.values.status === "INACTIVE"
+                                    ? `Se creará la cuenta de ${pendingRestrictedStatusSubmit.values.username} ya como inactiva: no podrá iniciar sesión hasta que la reactives.`
+                                    : `Se creará la cuenta de ${pendingRestrictedStatusSubmit.values.username} ya suspendida según las reglas del sistema.`
+                                : pendingRestrictedStatusSubmit.values.status === "INACTIVE"
+                                    ? `El usuario ${pendingRestrictedStatusSubmit.values.username} quedará inactivo y no podrá iniciar sesión hasta que lo reactives.`
+                                    : `El usuario ${pendingRestrictedStatusSubmit.values.username} quedará suspendido según las reglas definidas en el sistema.`
+                            : ""
+                    }
+                    footer={
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPendingRestrictedStatusSubmit(null)}
+                                disabled={isSubmitting}
+                            >
+                                Volver y revisar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                disabled={isSubmitting}
+                                isLoading={isSubmitting}
+                                onClick={() =>
+                                    void confirmPendingRestrictedStatusSubmit()
+                                }
+                            >
+                                {pendingRestrictedStatusSubmit?.flow ===
+                                "create_restricted"
+                                    ? "Confirmar alta"
+                                    : "Confirmar cambio"}
+                            </Button>
+                        </div>
+                    }
+                >
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                        {pendingRestrictedStatusSubmit?.flow === "create_restricted"
+                            ? "Registrar directamente en inactivo o suspendido suele reservarse a casos puntuales (previsión de ingreso, bloqueo previo al alta, etc.). Cancela si no es lo que buscas."
+                            : "Estás pasando un usuario activo a un estado restringido desde el formulario de edición. Cancela si llegaste aquí por error o si aún no has validado el impacto en accesos y permisos."}
+                    </p>
                 </Modal>
             </div>
         </RoleGuard>

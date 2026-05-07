@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { UserProfileRoleIndicator } from "@/components/UserProfileRoleIndicator";
+import type { Role } from "@/types";
+import { getCurrentUser, updateCurrentUserProfile } from "@/modules/auth/api/authApi";
 
 // Imagen de sprite de Freepik que el usuario descargó
 const AVATAR_SPRITE_URL = "/avatars-sprite.jpg";
@@ -29,10 +33,21 @@ interface UserProfileData {
 interface UserProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
+    currentUserName?: string;
+    currentUserEmail?: string;
+    /** Roles de la sesión autenticada (solo lectura; vienen del backend). */
+    sessionRoles?: Role[] | null;
     onSave?: (data: UserProfileData) => void;
 }
 
-export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalProps) {
+export function UserProfileModal({
+    isOpen,
+    onClose,
+    currentUserName,
+    currentUserEmail,
+    sessionRoles,
+    onSave,
+}: UserProfileModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -57,18 +72,21 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
         setIsLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/user");
-            if (!res.ok) throw new Error("Error al obtener los datos");
-            const data = await res.json();
+            const data = await getCurrentUser({ retryOnUnauthorized: false });
             
             // Garantizar compatibilidad con datos anteriores si es necesario
             setUserData({
-                name: data.name || "",
-                email: data.email || "",
-                avatarUrl: data.avatarUrl || "",
+                name: currentUserName || data.username || "",
+                email: currentUserEmail || data.email || "",
+                avatarUrl: data.avatarUrl || data.avatar_url || "",
             });
-        } catch (err) {
-            setError("No se pudieron cargar los datos del usuario.");
+        } catch {
+            setUserData((prev) => ({
+                ...prev,
+                name: currentUserName || prev.name,
+                email: currentUserEmail || prev.email,
+            }));
+            setError("No se pudieron cargar todos los datos del perfil.");
         } finally {
             setIsLoading(false);
         }
@@ -83,15 +101,14 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
         setIsSaving(true);
         setError(null);
         try {
-            const res = await fetch("/api/user", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(userData),
+            await updateCurrentUserProfile({
+                username: userData.name,
+                email: userData.email,
+                avatarUrl: userData.avatarUrl || "",
             });
-            if (!res.ok) throw new Error("Error al guardar los datos");
             if (onSave) onSave(userData);
             setIsEditing(false);
-        } catch (err) {
+        } catch {
             setError("Hubo un problema al guardar los cambios.");
         } finally {
             setIsSaving(false);
@@ -115,11 +132,11 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
         </div>
     ) : (
         <div className="space-y-6">
-            {error && (
-                <div className="p-3 text-sm text-[var(--color-danger-strong)] bg-[var(--color-danger-subtle)] border border-[var(--color-danger-default)] rounded-lg">
+            {error ? (
+                <Alert variant="danger" className="rounded-lg">
                     {error}
-                </div>
-            )}
+                </Alert>
+            ) : null}
             
             {/* Cabecera del Perfil visual */}
             <div className="flex flex-col items-center gap-4 mb-6">
@@ -148,6 +165,8 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
                 )}
             </div>
 
+            <UserProfileRoleIndicator roles={sessionRoles} />
+
             {/* Selección de Avatar (Solo en modo edición) */}
             {isEditing && (
                 <div className="space-y-3 p-4 bg-[var(--color-surface-sunken)] rounded-xl border border-[var(--color-border-subtle)]">
@@ -160,7 +179,7 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
                                     key={idx}
                                     type="button"
                                     onClick={() => selectAvatar(position)}
-                                    className={`relative rounded-full aspect-square overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-default)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface-sunken)] bg-white
+                                    className={`relative rounded-full aspect-square overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-default)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface-sunken)] bg-surface-base
                                         ${isSelected ? "ring-4 ring-[var(--color-primary-default)] shadow-lg scale-105" : "border-2 border-transparent hover:border-[var(--color-border-focus)] opacity-80 hover:opacity-100"}
                                     `}
                                     title={`Seleccionar avatar ${idx + 1}`}

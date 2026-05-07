@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormActions, FormRow, FormSection } from "@/components/ui/Form";
-import { Button, Card, CardBody, Input, Select } from "@/components/ui";
+import { Alert, Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { RoleGuard } from "@/modules/auth";
 import { createClient, persistClientCreateSuccessMessage } from "@/modules/clients";
 import {
@@ -249,23 +249,17 @@ export default function CreateClientPage() {
                 <Card padding="lg">
                     <CardBody>
                         {errorMsg ? (
-                            <div
-                                role="alert"
-                                className="mb-6 rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-4 text-sm font-medium text-[var(--color-danger-strong)]"
-                            >
+                            <Alert variant="danger" className="mb-6 rounded-lg font-medium">
                                 {errorMsg}
-                            </div>
+                            </Alert>
                         ) : null}
 
                         {locationsError ? (
-                            <div
-                                role="alert"
-                                className="mb-6 rounded-lg border border-[var(--color-warning-default)] bg-[var(--color-warning-subtle)] p-4 text-sm font-medium text-[var(--color-warning-strong)]"
-                            >
-                                {locationsError}
+                            <Alert variant="warning" className="mb-6 rounded-lg font-medium">
+                                {locationsError}{" "}
                                 <button
                                     type="button"
-                                    className="ml-2 underline"
+                                    className="ml-1 underline"
                                     onClick={() => {
                                         setLocationsError(null);
                                         resetLocationPickers();
@@ -273,7 +267,7 @@ export default function CreateClientPage() {
                                 >
                                     Limpiar ubicación
                                 </button>
-                            </div>
+                            </Alert>
                         ) : null}
 
                         <Form

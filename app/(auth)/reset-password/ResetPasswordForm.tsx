@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
@@ -227,16 +228,8 @@ export function ResetPasswordForm() {
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
-            {serverError && (
-                <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
-                    style={{
-                        background: "var(--color-danger-subtle)",
-                        borderColor: "var(--color-danger-default)",
-                        color: "var(--color-danger-text)",
-                    }}
-                >
+            {serverError ? (
+                <Alert variant="danger" className="flex items-start gap-2 rounded-lg">
                     <svg
                         className="mt-0.5 h-4 w-4 flex-shrink-0"
                         viewBox="0 0 16 16"
@@ -246,8 +239,8 @@ export function ResetPasswordForm() {
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
                     </svg>
                     {serverError}
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
             <Input
                 label="Correo electrónico asociado"
@@ -273,16 +266,7 @@ export function ResetPasswordForm() {
                 <div className="flex justify-end">
                     <Link
                         href="/forgot-password"
-                        className="text-xs font-medium transition-colors"
-                        style={{ color: "var(--color-text-brand)" }}
-                        onMouseOver={(event) => {
-                            event.currentTarget.style.color =
-                                "var(--color-brand-stronger)";
-                        }}
-                        onMouseOut={(event) => {
-                            event.currentTarget.style.color =
-                                "var(--color-text-brand)";
-                        }}
+                        className="text-sm font-medium text-text-brand transition-colors hover:text-brand-stronger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md px-1 py-0.5"
                     >
                         ¿No recibiste el código?
                     </Link>
@@ -302,16 +286,7 @@ export function ResetPasswordForm() {
                         <button
                             type="button"
                             onClick={() => setShowPassword((previous) => !previous)}
-                            className="pointer-events-auto transition-colors"
-                            style={{ color: "var(--color-text-tertiary)" }}
-                            onMouseOver={(event) => {
-                                event.currentTarget.style.color =
-                                    "var(--color-text-secondary)";
-                            }}
-                            onMouseOut={(event) => {
-                                event.currentTarget.style.color =
-                                    "var(--color-text-tertiary)";
-                            }}
+                            className="pointer-events-auto rounded-md text-text-tertiary transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-1"
                             aria-label={showPassword ? "Ocultar" : "Mostrar"}
                         >
                             <EyeIcon show={showPassword} />
@@ -333,16 +308,7 @@ export function ResetPasswordForm() {
                             onClick={() =>
                                 setShowConfirmPassword((previous) => !previous)
                             }
-                            className="pointer-events-auto transition-colors"
-                            style={{ color: "var(--color-text-tertiary)" }}
-                            onMouseOver={(event) => {
-                                event.currentTarget.style.color =
-                                    "var(--color-text-secondary)";
-                            }}
-                            onMouseOut={(event) => {
-                                event.currentTarget.style.color =
-                                    "var(--color-text-tertiary)";
-                            }}
+                            className="pointer-events-auto rounded-md text-text-tertiary transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-1"
                             aria-label={
                                 showConfirmPassword ? "Ocultar" : "Mostrar"
                             }
@@ -369,7 +335,7 @@ export function ResetPasswordForm() {
 
                 <Link
                     href="/login"
-                    className="text-sm font-medium text-center hover:underline transition-colors py-2"
+                    className="text-sm font-medium text-center hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md py-2"
                     style={{ color: "var(--color-text-tertiary)" }}
                 >
                     Cancelar y volver al login

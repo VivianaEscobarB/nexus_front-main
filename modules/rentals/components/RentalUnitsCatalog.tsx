@@ -29,9 +29,13 @@ export function RentalUnitsCatalog({ units, isSelected, onToggleSelect }: Rental
                         y espere unos segundos a la sincronización automática.
                     </li>
                     <li>
-                        Si hubo datos previos a eventos en tiempo real, un administrador puede ejecutar{" "}
-                        <Link href="/dashboard/sales/commercial-sync" className="font-semibold text-[var(--color-brand-strong)] underline">
-                            Resincronizar catálogo
+                        Si hubo datos previos a eventos en tiempo real, un administrador puede usar{" "}
+                        <span className="font-semibold text-[var(--color-text-primary)]">
+                            Sincronizar con infraestructura
+                        </span>{" "}
+                        en{" "}
+                        <Link href="/dashboard/sales/commercial-pricing" className="font-semibold text-[var(--color-brand-strong)] underline">
+                            Parametrización comercial
                         </Link>
                         .
                     </li>
@@ -43,7 +47,11 @@ export function RentalUnitsCatalog({ units, isSelected, onToggleSelect }: Rental
                         .
                     </li>
                     <li>
-                        Listado técnico de IDs y vínculos:{" "}
+                        Unidades, precios e IDs:{" "}
+                        <Link href="/dashboard/sales/commercial-pricing" className="font-semibold text-[var(--color-brand-strong)] underline">
+                            Parametrización comercial
+                        </Link>
+                        . Consulta operativa (comercial):{" "}
                         <Link href="/dashboard/sales/rental-units" className="font-semibold text-[var(--color-brand-strong)] underline">
                             Unidades de arrendamiento
                         </Link>

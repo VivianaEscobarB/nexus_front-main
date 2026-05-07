@@ -4,6 +4,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useRouter } from "next/navigation";
@@ -86,7 +87,7 @@ export function ForgotPasswordForm() {
                     >
                         Ingresar código ahora
                     </Button>
-                    <Link href="/login" className="text-sm font-medium transition-colors hover:underline text-center w-full block mt-2"
+                    <Link href="/login" className="text-sm font-medium transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md text-center w-full block mt-2"
                         style={{ color: "var(--color-text-tertiary)" }}>
                         Volver al inicio de sesión
                     </Link>
@@ -98,17 +99,19 @@ export function ForgotPasswordForm() {
     return (
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
             {/* Error del servidor */}
-            {serverError && (
-                <div role="alert"
-                    className="flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
-                    style={{ background: "var(--color-danger-subtle)", borderColor: "var(--color-danger-default)", color: "var(--color-danger-text)" }}>
-                    <svg className="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 16 16"
-                        fill="currentColor" aria-hidden="true">
+            {serverError ? (
+                <Alert variant="danger" className="flex items-start gap-2 rounded-lg">
+                    <svg
+                        className="mt-0.5 h-4 w-4 flex-shrink-0"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM7.25 4.75a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Zm.75 7a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z" />
                     </svg>
                     {serverError}
-                </div>
-            )}
+                </Alert>
+            ) : null}
 
             {/* Email */}
             <Input
@@ -127,7 +130,7 @@ export function ForgotPasswordForm() {
                     Enviar código de acceso
                 </Button>
 
-                <Link href="/login" className="text-sm font-medium text-center hover:underline transition-colors py-2" style={{ color: "var(--color-text-tertiary)" }}>
+                <Link href="/login" className="text-sm font-medium text-center hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-default/40 focus-visible:ring-offset-2 rounded-md py-2" style={{ color: "var(--color-text-tertiary)" }}>
                     Recordé mi contraseña, quiero volver
                 </Link>
             </div>

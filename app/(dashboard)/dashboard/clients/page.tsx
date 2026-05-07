@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardBody, Input, Pagination } from "@/components/ui";
+import { Alert, Button, Card, CardBody, Input, Pagination } from "@/components/ui";
 import { usePagination } from "@/shared/hooks/usePagination";
 import { RoleGuard } from "@/modules/auth";
 import {
@@ -108,21 +108,15 @@ export default function ClientDirectoryPage() {
                 </div>
 
                 {feedbackMessage ? (
-                    <div
-                        role="status"
-                        className="rounded-lg border border-[var(--color-success-default)] bg-[var(--color-success-subtle)] px-4 py-3 text-sm text-[var(--color-success-strong)]"
-                    >
+                    <Alert variant="success" role="status" className="rounded-lg">
                         {feedbackMessage}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 {pageError ? (
-                    <div
-                        role="alert"
-                        className="rounded-lg border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger-strong)]"
-                    >
+                    <Alert variant="danger" className="rounded-lg">
                         {pageError}
-                    </div>
+                    </Alert>
                 ) : null}
 
                 <Card padding="md">

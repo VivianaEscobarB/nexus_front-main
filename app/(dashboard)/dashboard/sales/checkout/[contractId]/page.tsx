@@ -1,8 +1,8 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardBody } from "@/components/ui";
+import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
 import { RoleGuard } from "@/modules/auth";
 import {
@@ -49,7 +49,7 @@ function LockIcon() {
 
 function CheckCircleIcon() {
     return (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-20 h-20 text-green-500 mx-auto">
+        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-20 h-20 text-success-default mx-auto">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
         </svg>
     );
@@ -62,10 +62,11 @@ function CheckCircleIcon() {
 export default function InternalCheckoutPage({
     params,
 }: {
-    params: Promise<{ contractId: string }>;
+    params: { contractId: string };
 }) {
-    const { contractId: contractIdStr } = use(params);
+    const { contractId: contractIdStr } = params;
     const contractId = Number(contractIdStr);
+    const isValidContractId = Number.isInteger(contractId) && contractId > 0;
     const router = useRouter();
 
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -77,7 +78,13 @@ export default function InternalCheckoutPage({
 
     // ── Contrato + pagos ───────────────────────────────────
     useEffect(() => {
-        if (!contractId) return;
+        if (!isValidContractId) {
+            setContract(null);
+            setPayments([]);
+            setError("ID de contrato inválido. Vuelve al listado e intenta de nuevo.");
+            setIsLoading(false);
+            return;
+        }
         let cancelled = false;
         setIsLoading(true);
         Promise.all([getContractById(contractId), listContractPayments(contractId)])
@@ -101,7 +108,7 @@ export default function InternalCheckoutPage({
         return () => {
             cancelled = true;
         };
-    }, [contractId]);
+    }, [contractId, isValidContractId]);
 
     const contractTotal = contract ? getContractMonetaryTotal(contract) : 0;
     const totalPaid = payments
@@ -169,7 +176,8 @@ export default function InternalCheckoutPage({
                                     </h2>
                                     <p className="text-[var(--color-text-secondary)] mt-2">
                                         El contrato <strong>#{contractId}</strong> fue activado exitosamente.
-                                        Las unidades asignadas se encuentran ahora en estado <span className="font-bold text-red-500">OCCUPIED</span>.
+                                        Las unidades asignadas se encuentran ahora en estado{" "}
+                                        <span className="font-bold text-danger-default">OCCUPIED</span>.
                                     </p>
                                 </div>
 
@@ -323,20 +331,25 @@ export default function InternalCheckoutPage({
                                 </div>
                             )}
 
-                            {/* Aviso al agente */}
-                            <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/30 dark:bg-amber-900/20">
-                                <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <Alert variant="warning" className="flex gap-3 items-start">
+                                <svg
+                                    className="mt-0.5 h-5 w-5 shrink-0 text-warning-default"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    aria-hidden="true"
+                                >
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
                                 <div>
-                                    <h4 className="text-sm font-bold text-amber-800 dark:text-amber-300">Atención</h4>
-                                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                                    <h4 className="text-sm font-bold">Atención</h4>
+                                    <p className="mt-1 text-xs opacity-90">
                                         {useStripeCheckout ? (
                                             <>
                                                 Con tarjeta (Stripe test) el cobro usa el <strong>total del contrato</strong> tal
                                                 como lo tiene el sistema. La activación del contrato la completa el servidor
                                                 cuando recibe el webhook de Stripe; en local debe tener corriendo{" "}
-                                                <code className="rounded bg-black/5 px-1 text-[10px] dark:bg-white/10">
+                                                <code className="rounded bg-surface-hover px-1 py-0.5 text-[10px] font-mono text-text-primary">
                                                     stripe listen
                                                 </code>{" "}
                                                 hacia el API.
@@ -350,14 +363,13 @@ export default function InternalCheckoutPage({
                                         )}
                                     </p>
                                 </div>
-                            </div>
+                            </Alert>
 
-                            {/* Error */}
-                            {error && (
-                                <div role="alert" className="rounded border border-[var(--color-danger-default)] bg-[var(--color-danger-subtle)] p-3 text-sm text-[var(--color-danger-strong)]">
+                            {error ? (
+                                <Alert variant="danger" className="rounded-lg">
                                     {error}
-                                </div>
-                            )}
+                                </Alert>
+                            ) : null}
 
                             {useStripeCheckout && contract && !isFullyPaid ? (
                                 <StripeContractCardPayment

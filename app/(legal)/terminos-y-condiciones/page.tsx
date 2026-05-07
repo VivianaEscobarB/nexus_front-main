@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Brand } from "@/components/Brand";
 function ChevronLeftIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
@@ -15,7 +16,7 @@ export default function TermsAndConditionsPage() {
     return (
         <div className="min-h-screen bg-[var(--color-surface-sunken)]">
             <div className="max-w-4xl mx-auto py-12 px-6 sm:px-8">
-                <div className="mb-8 block">
+                <div className="mb-8 flex items-center justify-between gap-4">
                     <button 
                         onClick={() => router.back()}
                         className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary-default)] transition-colors cursor-pointer"
@@ -23,6 +24,11 @@ export default function TermsAndConditionsPage() {
                         <ChevronLeftIcon className="w-4 h-4" />
                         Volver
                     </button>
+                    <Brand
+                        variant="logomarca"
+                        alt="Logomarca Nexus"
+                        className="h-6 w-auto object-contain opacity-90"
+                    />
                 </div>
 
                 <div className="bg-[var(--color-surface-app)] rounded-2xl shadow-sm border border-[var(--color-border-subtle)] p-8 sm:p-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
@@ -37,7 +43,7 @@ export default function TermsAndConditionsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-4">1. Aceptación del Acuerdo</h2>
                             <p>
-                                Al acceder o utilizar los servicios de gestión de bodegas provistos por <strong>Nexus Inventory</strong> (en adelante, "la Plataforma"), usted acepta estar estrictamente vinculado por estos Términos y Condiciones. Este acuerdo regula su acceso al ecosistema de análisis de stock, distribución de infraestructura (sectores y espacios) y perfilamiento comercial. Si usted representa a una persona jurídica, garantiza tener las facultades vinculantes para aceptar estos términos en su nombre.
+                                Al acceder o utilizar los servicios de gestión de bodegas provistos por <strong>Nexus Inventory</strong> (en adelante, &quot;la Plataforma&quot;), usted acepta estar estrictamente vinculado por estos Términos y Condiciones. Este acuerdo regula su acceso al ecosistema de análisis de stock, distribución de infraestructura (sectores y espacios) y perfilamiento comercial. Si usted representa a una persona jurídica, garantiza tener las facultades vinculantes para aceptar estos términos en su nombre.
                             </p>
                         </section>
 
@@ -63,7 +69,7 @@ export default function TermsAndConditionsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-4">4. Responsabilidades sobre Inventario Contractual</h2>
                             <p>
-                                Nuestra herramienta provee medios para rastrear el contenido de almacenaje mediante ubicaciones y contratos digitales. Nexus no es un almacén físico ni un agente de seguros logísticos. Todas las validaciones de las condiciones de la mercancía, manejo de refrigeración (cuando aplique a "control de temperatura") u otros servicios vinculados a las cajas, estibas u órdenes de entrada quedan bajo la estricta responsabilidad del operador / bodega física. 
+                                Nuestra herramienta provee medios para rastrear el contenido de almacenaje mediante ubicaciones y contratos digitales. Nexus no es un almacén físico ni un agente de seguros logísticos. Todas las validaciones de las condiciones de la mercancía, manejo de refrigeración (cuando aplique a &quot;control de temperatura&quot;) u otros servicios vinculados a las cajas, estibas u órdenes de entrada quedan bajo la estricta responsabilidad del operador / bodega física. 
                             </p>
                         </section>
 
