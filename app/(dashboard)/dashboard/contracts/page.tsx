@@ -11,6 +11,8 @@ import {
     cancelContract,
 } from "@/modules/sales";
 import { isApiError } from "@/shared/api/apiError";
+import { userHasRole } from "@/shared/auth/primaryRole";
+import { UserRole } from "@/types";
 import type { Contract, ContractStatus } from "@/modules/sales";
 
 // ─────────────────────────────────────────────────────────────

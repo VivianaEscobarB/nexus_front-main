@@ -24,17 +24,26 @@ export function Chatbot() {
         );
     }, [isOpen]);
 
-    // Initial greeting when opened for the first time
-    useEffect(() => {
-        if (isOpen && messages.length === 0) {
-            setMessages([{
+    const openChat = () => {
+        setIsOpen(true);
+        setMessages((prev) => {
+            if (prev.length > 0) return prev;
+            return [{
                 id: Date.now().toString(),
                 text: "¡Hola! Soy Nexus AI. Estoy aquí para ayudarte a navegar por el sistema.",
                 sender: "bot",
                 timestamp: new Date()
-            }]);
+            }];
+        });
+    };
+
+    const toggleChat = () => {
+        if (isOpen) {
+            setIsOpen(false);
+            return;
         }
-    }, [isOpen, messages.length]);
+        openChat();
+    };
 
     // Auto-scroll
     useEffect(() => {
@@ -156,7 +165,7 @@ export function Chatbot() {
 
             {/* Floating Toggle Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleChat}
                 className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-brand-strong)] text-[var(--color-text-inverse)] shadow-lg hover:bg-[var(--color-brand-stronger)] hover:scale-105 active:scale-95 transition-all duration-200"
                 aria-label="Abrir asistente de chat"
             >

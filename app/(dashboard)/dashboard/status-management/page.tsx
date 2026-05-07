@@ -81,6 +81,10 @@ export default function StatusManagementPage() {
     const [statusSearchTerm, setStatusSearchTerm] = React.useState("");
     const [isEntityTypeModalOpen, setIsEntityTypeModalOpen] = React.useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = React.useState(false);
+    const [pendingStatusDelete, setPendingStatusDelete] =
+        React.useState<StatusCatalog | null>(null);
+    const [pendingEntityTypeDelete, setPendingEntityTypeDelete] =
+        React.useState<EntityTypeCatalog | null>(null);
 
     const statusForm = useForm<StatusFormValues>({
         resolver: zodResolver(statusFormSchema),
@@ -250,44 +254,43 @@ export default function StatusManagementPage() {
         [entityTypeForm]
     );
 
-    const onDeleteStatus = React.useCallback(
-        async (status: StatusCatalog) => {
-            if (
-                !window.confirm(
-                    `Se eliminará el estado ${status.code ?? status.name}. Esta acción no se puede deshacer.`
-                )
-            ) {
-                return;
-            }
-            setIsDeletingStatusId(status.id);
-            setError(null);
-            setFeedback(null);
-            try {
-                await deleteStatusCatalog(status.id);
-                setFeedback("Estado eliminado correctamente.");
-                if (editingStatusId === status.id) {
-                    setEditingStatusId(null);
-                    statusForm.reset({
-                        code: "",
-                        description: "",
-                        color: "#22C55E",
-                        isOperational: "true",
-                        entityTypeId:
-                            entityTypes.length > 0 ? String(entityTypes[0].id) : "",
-                    });
-                }
-                await loadCatalogs();
-            } catch (deleteError) {
-                setError(getErrorMessage(deleteError));
-            } finally {
-                setIsDeletingStatusId(null);
-            }
-        },
-        [editingStatusId, entityTypes, loadCatalogs, statusForm]
-    );
+    const requestDeleteStatus = React.useCallback((status: StatusCatalog) => {
+        setPendingStatusDelete(status);
+    }, []);
 
-    const onDeleteEntityType = React.useCallback(
-        async (entityType: EntityTypeCatalog) => {
+    const confirmDeleteStatus = React.useCallback(async () => {
+        const status = pendingStatusDelete;
+        if (!status) {
+            return;
+        }
+        setIsDeletingStatusId(status.id);
+        setError(null);
+        setFeedback(null);
+        try {
+            await deleteStatusCatalog(status.id);
+            setFeedback("Estado eliminado correctamente.");
+            if (editingStatusId === status.id) {
+                setEditingStatusId(null);
+                statusForm.reset({
+                    code: "",
+                    description: "",
+                    color: "#22C55E",
+                    isOperational: "true",
+                    entityTypeId:
+                        entityTypes.length > 0 ? String(entityTypes[0].id) : "",
+                });
+            }
+            await loadCatalogs();
+        } catch (deleteError) {
+            setError(getErrorMessage(deleteError));
+        } finally {
+            setIsDeletingStatusId(null);
+            setPendingStatusDelete(null);
+        }
+    }, [editingStatusId, entityTypes, loadCatalogs, pendingStatusDelete, statusForm]);
+
+    const requestDeleteEntityType = React.useCallback(
+        (entityType: EntityTypeCatalog) => {
             const usageCount = statusCountByEntityType.get(entityType.id) ?? 0;
             if (usageCount > 0) {
                 setError(
@@ -295,32 +298,34 @@ export default function StatusManagementPage() {
                 );
                 return;
             }
-            if (
-                !window.confirm(
-                    `Se eliminará el tipo de entidad ${entityType.name}. Esta acción no se puede deshacer.`
-                )
-            ) {
-                return;
-            }
-            setIsDeletingEntityTypeId(entityType.id);
-            setError(null);
-            setFeedback(null);
-            try {
-                await deleteEntityType(entityType.id);
-                setFeedback("Tipo de entidad eliminado correctamente.");
-                if (editingEntityTypeId === entityType.id) {
-                    setEditingEntityTypeId(null);
-                    entityTypeForm.reset({ name: "", description: "" });
-                }
-                await loadCatalogs();
-            } catch (deleteError) {
-                setError(getErrorMessage(deleteError));
-            } finally {
-                setIsDeletingEntityTypeId(null);
-            }
+            setPendingEntityTypeDelete(entityType);
         },
-        [editingEntityTypeId, entityTypeForm, loadCatalogs, statusCountByEntityType]
+        [statusCountByEntityType]
     );
+
+    const confirmDeleteEntityType = React.useCallback(async () => {
+        const entityType = pendingEntityTypeDelete;
+        if (!entityType) {
+            return;
+        }
+        setIsDeletingEntityTypeId(entityType.id);
+        setError(null);
+        setFeedback(null);
+        try {
+            await deleteEntityType(entityType.id);
+            setFeedback("Tipo de entidad eliminado correctamente.");
+            if (editingEntityTypeId === entityType.id) {
+                setEditingEntityTypeId(null);
+                entityTypeForm.reset({ name: "", description: "" });
+            }
+            await loadCatalogs();
+        } catch (deleteError) {
+            setError(getErrorMessage(deleteError));
+        } finally {
+            setIsDeletingEntityTypeId(null);
+            setPendingEntityTypeDelete(null);
+        }
+    }, [editingEntityTypeId, entityTypeForm, loadCatalogs, pendingEntityTypeDelete]);
 
     const cancelStatusEditing = React.useCallback(() => {
         setEditingStatusId(null);
@@ -497,7 +502,7 @@ export default function StatusManagementPage() {
                                                             variant="danger"
                                                             size="sm"
                                                             onClick={() =>
-                                                                void onDeleteEntityType(entityType)
+                                                                requestDeleteEntityType(entityType)
                                                             }
                                                             title={
                                                                 (statusCountByEntityType.get(
@@ -637,7 +642,7 @@ export default function StatusManagementPage() {
                                                         <Button
                                                             variant="danger"
                                                             size="sm"
-                                                            onClick={() => void onDeleteStatus(status)}
+                                                            onClick={() => requestDeleteStatus(status)}
                                                             disabled={isDeletingStatusId === status.id}
                                                             isLoading={isDeletingStatusId === status.id}
                                                         >
@@ -797,6 +802,80 @@ export default function StatusManagementPage() {
                             disabled={entityTypes.length === 0}
                         />
                     </form>
+                </Modal>
+
+                <Modal
+                    isOpen={pendingStatusDelete !== null}
+                    onClose={() => setPendingStatusDelete(null)}
+                    closeOnBackdrop={isDeletingStatusId === null}
+                    title="Confirmar eliminación"
+                    description={
+                        pendingStatusDelete
+                            ? `Se eliminará el estado ${pendingStatusDelete.code ?? pendingStatusDelete.name}. Esta acción no se puede deshacer.`
+                            : ""
+                    }
+                    footer={
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPendingStatusDelete(null)}
+                                disabled={isDeletingStatusId !== null}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                onClick={() => void confirmDeleteStatus()}
+                                disabled={isDeletingStatusId !== null}
+                                isLoading={isDeletingStatusId !== null}
+                            >
+                                Eliminar estado
+                            </Button>
+                        </div>
+                    }
+                >
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                        Verifica que ningún flujo crítico dependa de este código antes de confirmar.
+                    </p>
+                </Modal>
+
+                <Modal
+                    isOpen={pendingEntityTypeDelete !== null}
+                    onClose={() => setPendingEntityTypeDelete(null)}
+                    closeOnBackdrop={isDeletingEntityTypeId === null}
+                    title="Confirmar eliminación"
+                    description={
+                        pendingEntityTypeDelete
+                            ? `Se eliminará el tipo de entidad ${pendingEntityTypeDelete.name}. Esta acción no se puede deshacer.`
+                            : ""
+                    }
+                    footer={
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPendingEntityTypeDelete(null)}
+                                disabled={isDeletingEntityTypeId !== null}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                onClick={() => void confirmDeleteEntityType()}
+                                disabled={isDeletingEntityTypeId !== null}
+                                isLoading={isDeletingEntityTypeId !== null}
+                            >
+                                Eliminar tipo
+                            </Button>
+                        </div>
+                    }
+                >
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                        Solo puedes eliminar tipos sin estados asociados en el catálogo.
+                    </p>
                 </Modal>
             </div>
         </RoleGuard>

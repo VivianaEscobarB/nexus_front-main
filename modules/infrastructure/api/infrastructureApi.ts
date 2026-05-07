@@ -108,6 +108,20 @@ function normalizeOperationalStatus(
     return null;
 }
 
+/** Código de estado de catálogo / dominio (p. ej. MAINTENANCE) antes del fallback operativo active/inactive. */
+function tryInfrastructureStatus(value: unknown): InfrastructureStatus | null {
+    if (typeof value !== "string" || !value.trim()) {
+        return null;
+    }
+
+    const normalized = value.trim().toUpperCase() as InfrastructureStatus;
+    if (VALID_STATUSES.has(normalized)) {
+        return normalized;
+    }
+
+    return null;
+}
+
 function extractCollection(payload: unknown): unknown[] {
     if (Array.isArray(payload)) {
         return payload;
@@ -215,6 +229,42 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
         getString(payload.warehouseCode) ??
         `WH-${id}`;
 
+    const nestedCity = isObject(payload.city) ? payload.city : null;
+    const nestedRegion =
+        isObject(payload.region) ? payload.region
+        : nestedCity && isObject(nestedCity.region) ? nestedCity.region
+        : null;
+    const nestedCountry =
+        isObject(payload.country) ? payload.country
+        : nestedRegion && isObject(nestedRegion.country) ? nestedRegion.country
+        : null;
+
+    const cityIdResolved =
+        getNumber(payload.cityId) ??
+        getNumber(payload.city_id) ??
+        (nestedCity ? getNumber(nestedCity.id) : null) ??
+        null;
+
+    const regionIdResolved =
+        getNumber(payload.regionId) ??
+        getNumber(payload.region_id) ??
+        getNumber(payload.departmentId) ??
+        getNumber(payload.department_id) ??
+        (nestedRegion ? getNumber(nestedRegion.id) : null) ??
+        (nestedCity && isObject(nestedCity.region)
+            ? getNumber((nestedCity.region as { id?: unknown }).id)
+            : null) ??
+        null;
+
+    const countryIdResolved =
+        getNumber(payload.countryId) ??
+        getNumber(payload.country_id) ??
+        (nestedCountry ? getNumber(nestedCountry.id) : null) ??
+        (nestedRegion && isObject(nestedRegion.country)
+            ? getNumber((nestedRegion.country as { id?: unknown }).id)
+            : null) ??
+        null;
+
     return {
         id: String(id),
         code,
@@ -224,13 +274,23 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
             getString(payload.location) ??
             getString(payload.description) ??
             "Sin direccion registrada",
+        countryId: countryIdResolved,
+        regionId: regionIdResolved,
+        cityId: cityIdResolved,
         cityName:
             getString(payload.cityName) ??
             (isObject(payload.city) ? getString(payload.city.name) : null) ??
             null,
+        warehouseTypeId:
+            getNumber(payload.warehouseTypeId) ??
+            getNumber(payload.warehouse_type_id) ??
+            getNumber(payload.typeId) ??
+            (isObject(payload.warehouseType) ? getNumber(payload.warehouseType.id) : null) ??
+            null,
         typeName:
             getString(payload.typeName) ??
             getString(payload.type_name) ??
+            (isObject(payload.warehouseType) ? getString(payload.warehouseType.name) : null) ??
             null,
         totalCapacityM2:
             getNumber(payload.totalCapacityM2) ??
@@ -240,11 +300,26 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
             getNumber(payload.availableCapacityM2) ??
             getNumber(payload.remainingCapacityM2) ??
             null,
-        status: normalizeStatus(
-            normalizeOperationalStatus(payload.operationalStatus) ??
-                (payload.active === false ? "INACTIVE" : "ACTIVE"),
-            "ACTIVE"
-        ),
+        status: (() => {
+            const catalogStatus =
+                tryInfrastructureStatus(payload.status) ??
+                tryInfrastructureStatus(payload.statusCode) ??
+                tryInfrastructureStatus(
+                    isObject(payload.statusCatalog)
+                        ? (payload.statusCatalog as { code?: unknown }).code
+                        : undefined
+                );
+
+            if (catalogStatus) {
+                return catalogStatus;
+            }
+
+            return normalizeStatus(
+                normalizeOperationalStatus(payload.operationalStatus) ??
+                    (payload.active === false ? "INACTIVE" : "ACTIVE"),
+                "ACTIVE"
+            );
+        })(),
         statusCatalogId:
             getNumber(payload.statusCatalogId) ??
             getNumber(payload.status_catalog_id) ??
@@ -260,6 +335,40 @@ function mapApiWarehouse(payload: unknown): ManagedWarehouse {
             getString(payload.status_name) ??
             null,
     };
+}
+
+function resolveSectorSpaceStatus(
+    payload: Record<string, unknown>,
+    defaultStatus: InfrastructureStatus
+): { status: InfrastructureStatus; statusName: string | null } {
+    const nestedCatalog = isObject(payload.statusCatalog)
+        ? (payload.statusCatalog as Record<string, unknown>)
+        : null;
+
+    const statusName =
+        getString(payload.statusName) ??
+        getString(payload.status_name) ??
+        getString(nestedCatalog?.name) ??
+        null;
+
+    const catalogStatus =
+        tryInfrastructureStatus(payload.status) ??
+        tryInfrastructureStatus(payload.statusCode) ??
+        tryInfrastructureStatus(nestedCatalog?.code);
+
+    if (catalogStatus) {
+        return { status: catalogStatus, statusName };
+    }
+
+    if (normalizeOperationalStatus(payload.operationalStatus) === "INACTIVE") {
+        return { status: "INACTIVE", statusName };
+    }
+
+    if (payload.active === false) {
+        return { status: "INACTIVE", statusName };
+    }
+
+    return { status: defaultStatus, statusName };
 }
 
 function mapApiSector(payload: unknown): ManagedSector {
@@ -289,6 +398,8 @@ function mapApiSector(payload: unknown): ManagedSector {
         getString(payload.warehouse_id) ??
         String(payload.warehouseId ?? payload.warehouse_id ?? payload.warehouseId ?? "");
 
+    const { status, statusName } = resolveSectorSpaceStatus(payload, "ACTIVE");
+
     return {
         id: String(id),
         code,
@@ -297,10 +408,8 @@ function mapApiSector(payload: unknown): ManagedSector {
         warehouseName: getString(payload.warehouseName) ?? null,
         description,
         capacityM2: getNumber(payload.capacityM2) ?? null,
-        status: normalizeStatus(
-            getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "ACTIVE"),
-            "ACTIVE"
-        ),
+        status,
+        statusName,
         statusCatalogId:
             getNumber(payload.statusCatalogId) ??
             getNumber(payload.status_catalog_id) ??
@@ -343,6 +452,8 @@ function mapApiSpace(payload: unknown): ManagedSpace {
         throw new Error("La API devolvio un espacio incompleto.");
     }
 
+    const { status, statusName } = resolveSectorSpaceStatus(payload, "AVAILABLE");
+
     return {
         id: String(id),
         code,
@@ -380,10 +491,8 @@ function mapApiSpace(payload: unknown): ManagedSpace {
             getNumber(payload.storageSpaceTypeId) ??
             getNumber(payload.storage_space_type_id) ??
             undefined,
-        status: normalizeStatus(
-            getString(payload.statusName) ?? getString(payload.status) ?? (payload.active === false ? "INACTIVE" : "AVAILABLE"),
-            "AVAILABLE"
-        ),
+        status,
+        statusName,
         statusCatalogId:
             getNumber(payload.statusCatalogId) ??
             getNumber(payload.status_catalog_id) ??
@@ -397,6 +506,8 @@ function buildWarehousePayload(input: CreateWarehouseInput | UpdateWarehouseInpu
         name: input.name?.trim(),
         totalCapacityM2: input.totalCapacityM2,
         location: input.location?.trim(),
+        countryId: input.countryId ? Number(input.countryId) : undefined,
+        regionId: input.regionId ? Number(input.regionId) : undefined,
         cityId: input.cityId ? Number(input.cityId) : undefined,
         statusCatalogId: input.statusCatalogId,
         warehouseTypeId: input.warehouseTypeId,

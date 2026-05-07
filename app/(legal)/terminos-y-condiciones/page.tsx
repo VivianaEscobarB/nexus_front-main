@@ -43,7 +43,7 @@ export default function TermsAndConditionsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-4">1. Aceptación del Acuerdo</h2>
                             <p>
-                                Al acceder o utilizar los servicios de gestión de bodegas provistos por <strong>Nexus Inventory</strong> (en adelante, "la Plataforma"), usted acepta estar estrictamente vinculado por estos Términos y Condiciones. Este acuerdo regula su acceso al ecosistema de análisis de stock, distribución de infraestructura (sectores y espacios) y perfilamiento comercial. Si usted representa a una persona jurídica, garantiza tener las facultades vinculantes para aceptar estos términos en su nombre.
+                                Al acceder o utilizar los servicios de gestión de bodegas provistos por <strong>Nexus Inventory</strong> (en adelante, &quot;la Plataforma&quot;), usted acepta estar estrictamente vinculado por estos Términos y Condiciones. Este acuerdo regula su acceso al ecosistema de análisis de stock, distribución de infraestructura (sectores y espacios) y perfilamiento comercial. Si usted representa a una persona jurídica, garantiza tener las facultades vinculantes para aceptar estos términos en su nombre.
                             </p>
                         </section>
 
@@ -69,7 +69,7 @@ export default function TermsAndConditionsPage() {
                         <section>
                             <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-4">4. Responsabilidades sobre Inventario Contractual</h2>
                             <p>
-                                Nuestra herramienta provee medios para rastrear el contenido de almacenaje mediante ubicaciones y contratos digitales. Nexus no es un almacén físico ni un agente de seguros logísticos. Todas las validaciones de las condiciones de la mercancía, manejo de refrigeración (cuando aplique a "control de temperatura") u otros servicios vinculados a las cajas, estibas u órdenes de entrada quedan bajo la estricta responsabilidad del operador / bodega física. 
+                                Nuestra herramienta provee medios para rastrear el contenido de almacenaje mediante ubicaciones y contratos digitales. Nexus no es un almacén físico ni un agente de seguros logísticos. Todas las validaciones de las condiciones de la mercancía, manejo de refrigeración (cuando aplique a &quot;control de temperatura&quot;) u otros servicios vinculados a las cajas, estibas u órdenes de entrada quedan bajo la estricta responsabilidad del operador / bodega física. 
                             </p>
                         </section>
 

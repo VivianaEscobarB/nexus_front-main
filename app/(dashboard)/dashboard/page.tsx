@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/hooks/useAuth";
 import { UserRole } from "@/types";
+import { getPrimaryRoleName, userHasRole } from "@/shared/auth/primaryRole";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { UserDashboard } from "./components/UserDashboard"; // operator
 import { SupervisorDashboard } from "./components/SupervisorDashboard";
@@ -22,9 +23,15 @@ export default function DashboardIndexPage() {
         );
     }
 
-    const role = user.roles?.[0]?.role_name || UserRole.WAREHOUSE_OPERATOR;
+    const role = getPrimaryRoleName(user.roles, UserRole.WAREHOUSE_OPERATOR);
+    const hasSupervisorRole = userHasRole(user.roles, UserRole.WAREHOUSE_SUPERVISOR);
 
     const renderDashboard = () => {
+        // Si un usuario tiene el rol de supervisor junto con otros,
+        // priorizamos su panel operativo para que siempre lo pueda consultar.
+        if (hasSupervisorRole) {
+            return <SupervisorDashboard />;
+        }
         switch (role) {
             case UserRole.ADMIN:
                 return <AdminDashboard />;

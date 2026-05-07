@@ -237,6 +237,15 @@ export async function activateUser(id: string): Promise<ManagedUser> {
     return mapApiUser(payload);
 }
 
-export async function deleteUser(id: string): Promise<void> {
-    await httpClient.delete<void>(`${USERS_BASE_PATH}/${id}`);
+/**
+ * Desactiva la cuenta (Spring: `PUT /api/users/{id}/deactivate` → `INACTIVE`).
+ * Preferido frente a DELETE /api/users/{id}, que en backend también es borrado lógico pero con semántica REST menos clara.
+ */
+export async function deactivateUser(id: string): Promise<ManagedUser> {
+    const payload = await httpClient.put<unknown>(
+        `${USERS_BASE_PATH}/${id}/deactivate`,
+        {}
+    );
+
+    return mapApiUser(payload);
 }

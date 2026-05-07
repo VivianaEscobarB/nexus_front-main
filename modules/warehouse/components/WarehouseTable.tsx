@@ -27,7 +27,7 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
       // UI Optimista: Actualizamos el estado local para que aparezca inactiva
       setWarehouses(prev => prev.map(w => w.id === warehouseToDelete ? { ...w, isActive: false } : w));
     } catch {
-      setDeleteError('No fue posible eliminar la bodega.');
+      setDeleteError('No fue posible desactivar la bodega.');
     } finally {
       setIsDeleting(false);
       setWarehouseToDelete(null);
@@ -58,7 +58,7 @@ export const WarehouseTable: React.FC<{ initialData: Warehouse[] }> = ({ initial
                 )}
               </td>
               <td className="p-4 text-right">
-                {w.isActive && <Button variant="danger" size="sm" onClick={() => setWarehouseToDelete(w.id)}>Eliminar</Button>}
+                {w.isActive && <Button variant="danger" size="sm" onClick={() => setWarehouseToDelete(w.id)}>Desactivar</Button>}
               </td>
             </tr>
           ))}

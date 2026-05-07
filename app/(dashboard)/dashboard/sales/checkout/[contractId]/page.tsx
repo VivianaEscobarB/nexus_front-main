@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { ProcessVisibilityGuard } from "@/shared/guards/ProcessVisibilityGuard";
@@ -62,10 +62,11 @@ function CheckCircleIcon() {
 export default function InternalCheckoutPage({
     params,
 }: {
-    params: Promise<{ contractId: string }>;
+    params: { contractId: string };
 }) {
-    const { contractId: contractIdStr } = use(params);
+    const { contractId: contractIdStr } = params;
     const contractId = Number(contractIdStr);
+    const isValidContractId = Number.isInteger(contractId) && contractId > 0;
     const router = useRouter();
 
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -77,7 +78,13 @@ export default function InternalCheckoutPage({
 
     // ── Contrato + pagos ───────────────────────────────────
     useEffect(() => {
-        if (!contractId) return;
+        if (!isValidContractId) {
+            setContract(null);
+            setPayments([]);
+            setError("ID de contrato inválido. Vuelve al listado e intenta de nuevo.");
+            setIsLoading(false);
+            return;
+        }
         let cancelled = false;
         setIsLoading(true);
         Promise.all([getContractById(contractId), listContractPayments(contractId)])
@@ -101,7 +108,7 @@ export default function InternalCheckoutPage({
         return () => {
             cancelled = true;
         };
-    }, [contractId]);
+    }, [contractId, isValidContractId]);
 
     const contractTotal = contract ? getContractMonetaryTotal(contract) : 0;
     const totalPaid = payments

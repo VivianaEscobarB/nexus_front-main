@@ -1,67 +1,122 @@
 "use client";
 
 import Link from "next/link";
+
 import { Button } from "@/components/ui/Button";
 
-function ViewIcon() {
-    return <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5S21.75 12 21.75 12s-3.75 7.5-9.75 7.5S2.25 12 2.25 12Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>;
-}
+const OPERATOR_QUICK_LINKS = [
+    {
+        href: "/dashboard/operador/recepcion-mercancia",
+        title: "Recepción de mercancía",
+        description: "Registro formal de vehículo, conductor y documentos de ingreso.",
+    },
+    {
+        href: "/dashboard/operador/recepcion-rf",
+        title: "Entrada RF (cámara)",
+        description: "Abre recepción, escanea códigos y confirma líneas con el API.",
+    },
+    {
+        href: "/dashboard/operador/movimientos-inventario",
+        title: "Movimientos de inventario",
+        description: "Entradas, salidas y ajustes con tipos y subtipos del sistema.",
+    },
+    {
+        href: "/dashboard/operador/conteo-inventario-rf",
+        title: "Conteo RF (inventario)",
+        description: "Crea conteos, registra líneas y cierra el conteo desde piso.",
+    },
+    {
+        href: "/dashboard/consulta-inventario",
+        title: "Consulta de inventario",
+        description: "Consulta existencias por producto y espacio de almacenamiento.",
+    },
+    {
+        href: "/dashboard/historial-movimientos",
+        title: "Historial de movimientos",
+        description: "Movimientos recientes del servidor y tabla de ejemplo como referencia.",
+    },
+] as const;
 
-function ReadOnlyCard({
-    title,
-    description,
-}: {
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-surface-hover)] text-[var(--color-brand-strong)]">
-                <ViewIcon />
-            </div>
-            <h2 className="mt-5 text-lg font-bold text-[var(--color-text-primary)]">
-                {title}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                {description}
-            </p>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
-                Solo lectura
-            </p>
-        </div>
-    );
-}
+const STRUCTURE_HINTS = [
+    {
+        title: "Bodegas",
+        description: "Sedes activas y su configuración general para ubicar el trabajo del día.",
+    },
+    {
+        title: "Sectores",
+        description: "Zonas dentro de cada bodega para orientar movimientos y conteos.",
+    },
+    {
+        title: "Espacios",
+        description: "Ubicaciones puntuales (racks, módulos) alineadas con el inventario.",
+    },
+] as const;
 
 export function UserDashboard() {
     return (
         <div className="mx-auto max-w-5xl space-y-8 animate-in fade-in duration-500">
-            <section className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-base)] p-8">
-                <h1 className="text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    Consulta operativa de estructura
+            <section className="rounded-3xl border border-border-subtle bg-surface-base p-8">
+                <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
+                    Tu día en bodega
                 </h1>
-                <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--color-text-secondary)]">
-                    Como operador de bodega puedes navegar la estructura completa para ubicar bodegas, sectores y espacios disponibles, sin realizar cambios estructurales.
+                <p className="mt-3 max-w-3xl text-base leading-7 text-text-secondary">
+                    Entra por recepción o RF, registra movimientos y conteos, y consulta inventario
+                    cuando necesites validar existencias. Las ubicaciones físicas las ves en la
+                    estructura de bodegas.
                 </p>
-                <div className="mt-6">
-                    <Link href="/dashboard/infrastructure">
-                        <Button variant="primary">Consultar estructura</Button>
-                    </Link>
+
+                <div className="mt-8 border-t border-border-subtle pt-8">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">
+                        Accesos rápidos
+                    </h2>
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {OPERATOR_QUICK_LINKS.map((item) => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className="group rounded-2xl border border-border-subtle bg-surface-sunken/35 p-4 transition-colors hover:border-border-default hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
+                            >
+                                <p className="font-semibold text-text-primary">{item.title}</p>
+                                <p className="mt-1 text-sm text-text-secondary">{item.description}</p>
+                                <span className="mt-3 inline-flex text-sm font-medium text-brand-strong group-hover:underline">
+                                    Ir
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-border-subtle bg-surface-sunken/30 p-5">
+                    <h2 className="text-sm font-semibold text-text-primary">Ubicaciones en el sistema</h2>
+                    <p className="mt-1 text-sm text-text-secondary">
+                        Consulta bodegas, sectores y espacios cuando necesites confirmar dónde
+                        registrar un movimiento o un conteo.
+                    </p>
+                    <div className="mt-4">
+                        <Link href="/dashboard/infrastructure">
+                            <Button variant="outline">Consultar estructura de bodegas</Button>
+                        </Link>
+                    </div>
                 </div>
             </section>
 
-            <section className="grid gap-6 md:grid-cols-3">
-                <ReadOnlyCard
-                    title="Bodegas"
-                    description="Ubica rápidamente las bodegas activas y su configuración general."
-                />
-                <ReadOnlyCard
-                    title="Sectores"
-                    description="Consulta la organización interna por sectores para entender la distribución operativa."
-                />
-                <ReadOnlyCard
-                    title="Espacios"
-                    description="Visualiza espacios y su estado sin habilitar acciones de creación o edición."
-                />
+            <section>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">
+                    Referencia: qué verás en estructura
+                </h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                    {STRUCTURE_HINTS.map((item) => (
+                        <div
+                            key={item.title}
+                            className="rounded-2xl border border-border-subtle bg-surface-base p-5"
+                        >
+                            <h3 className="text-base font-bold text-text-primary">{item.title}</h3>
+                            <p className="mt-2 text-sm leading-6 text-text-secondary">
+                                {item.description}
+                            </p>
+                        </div>
+                    ))}
+                </div>
             </section>
         </div>
     );

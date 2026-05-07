@@ -6,6 +6,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { UserProfileRoleIndicator } from "@/components/UserProfileRoleIndicator";
+import type { Role } from "@/types";
+import { getCurrentUser, updateCurrentUserProfile } from "@/modules/auth/api/authApi";
 
 // Imagen de sprite de Freepik que el usuario descargó
 const AVATAR_SPRITE_URL = "/avatars-sprite.jpg";
@@ -32,6 +35,8 @@ interface UserProfileModalProps {
     onClose: () => void;
     currentUserName?: string;
     currentUserEmail?: string;
+    /** Roles de la sesión autenticada (solo lectura; vienen del backend). */
+    sessionRoles?: Role[] | null;
     onSave?: (data: UserProfileData) => void;
 }
 
@@ -40,6 +45,7 @@ export function UserProfileModal({
     onClose,
     currentUserName,
     currentUserEmail,
+    sessionRoles,
     onSave,
 }: UserProfileModalProps) {
     const [isLoading, setIsLoading] = useState(true);
@@ -66,17 +72,15 @@ export function UserProfileModal({
         setIsLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/user");
-            if (!res.ok) throw new Error("Error al obtener los datos");
-            const data = await res.json();
+            const data = await getCurrentUser({ retryOnUnauthorized: false });
             
             // Garantizar compatibilidad con datos anteriores si es necesario
             setUserData({
-                name: currentUserName || data.name || "",
+                name: currentUserName || data.username || "",
                 email: currentUserEmail || data.email || "",
-                avatarUrl: data.avatarUrl || "",
+                avatarUrl: data.avatarUrl || data.avatar_url || "",
             });
-        } catch (err) {
+        } catch {
             setUserData((prev) => ({
                 ...prev,
                 name: currentUserName || prev.name,
@@ -97,15 +101,14 @@ export function UserProfileModal({
         setIsSaving(true);
         setError(null);
         try {
-            const res = await fetch("/api/user", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(userData),
+            await updateCurrentUserProfile({
+                username: userData.name,
+                email: userData.email,
+                avatarUrl: userData.avatarUrl || "",
             });
-            if (!res.ok) throw new Error("Error al guardar los datos");
             if (onSave) onSave(userData);
             setIsEditing(false);
-        } catch (err) {
+        } catch {
             setError("Hubo un problema al guardar los cambios.");
         } finally {
             setIsSaving(false);
@@ -161,6 +164,8 @@ export function UserProfileModal({
                     </div>
                 )}
             </div>
+
+            <UserProfileRoleIndicator roles={sessionRoles} />
 
             {/* Selección de Avatar (Solo en modo edición) */}
             {isEditing && (
