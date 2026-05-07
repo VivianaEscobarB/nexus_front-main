@@ -22,6 +22,9 @@ export interface RfScanResponse {
     productName: string;
     expectedQuantity: number;
     requiresLot: boolean;
+    productSku?: string | null;
+    suggestedStorageSpaceId?: number | null;
+    suggestedStorageSpaceCode?: string | null;
 }
 
 export interface RfConfirmBody {

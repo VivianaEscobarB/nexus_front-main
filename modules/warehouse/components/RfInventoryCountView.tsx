@@ -39,6 +39,7 @@ export function RfInventoryCountView() {
     const formId = useId();
     const videoRef = useRef<HTMLVideoElement>(null);
     const detectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const detectInFlightRef = useRef(false);
 
     const [products, setProducts] = useState<InventoryProductResponse[]>([]);
     const [productId, setProductId] = useState("");
@@ -182,6 +183,7 @@ export function RfInventoryCountView() {
             clearInterval(detectIntervalRef.current);
             detectIntervalRef.current = null;
         }
+        detectInFlightRef.current = false;
         const v = videoRef.current;
         if (v?.srcObject) {
             (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
@@ -220,7 +222,14 @@ export function RfInventoryCountView() {
                     formats: ["ean_13", "ean_8", "code_128", "code_39", "qr_code"],
                 });
                 detectIntervalRef.current = setInterval(async () => {
-                    if (!videoRef.current || videoRef.current.readyState < 2) return;
+                    if (
+                        detectInFlightRef.current ||
+                        !videoRef.current ||
+                        videoRef.current.readyState < 2
+                    ) {
+                        return;
+                    }
+                    detectInFlightRef.current = true;
                     try {
                         const codes = await detector.detect(videoRef.current);
                         if (codes.length > 0 && codes[0].rawValue) {
@@ -229,6 +238,8 @@ export function RfInventoryCountView() {
                         }
                     } catch {
                         /* frame */
+                    } finally {
+                        detectInFlightRef.current = false;
                     }
                 }, 280);
             }

@@ -6,6 +6,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { UserProfileRoleIndicator } from "@/components/UserProfileRoleIndicator";
+import type { Role } from "@/types";
 
 // Imagen de sprite de Freepik que el usuario descargó
 const AVATAR_SPRITE_URL = "/avatars-sprite.jpg";
@@ -32,6 +34,8 @@ interface UserProfileModalProps {
     onClose: () => void;
     currentUserName?: string;
     currentUserEmail?: string;
+    /** Roles de la sesión autenticada (solo lectura; vienen del backend). */
+    sessionRoles?: Role[] | null;
     onSave?: (data: UserProfileData) => void;
 }
 
@@ -40,6 +44,7 @@ export function UserProfileModal({
     onClose,
     currentUserName,
     currentUserEmail,
+    sessionRoles,
     onSave,
 }: UserProfileModalProps) {
     const [isLoading, setIsLoading] = useState(true);
@@ -161,6 +166,8 @@ export function UserProfileModal({
                     </div>
                 )}
             </div>
+
+            <UserProfileRoleIndicator roles={sessionRoles} />
 
             {/* Selección de Avatar (Solo en modo edición) */}
             {isEditing && (

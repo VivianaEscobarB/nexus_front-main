@@ -826,6 +826,7 @@ export default function DashboardLayout({
                 onClose={() => setIsProfileOpen(false)} 
                 currentUserName={sessionDisplayName}
                 currentUserEmail={sessionEmail}
+                sessionRoles={user?.roles}
                 onSave={(data) => setUserProfile(data)}
             />
         </AuthGuard>

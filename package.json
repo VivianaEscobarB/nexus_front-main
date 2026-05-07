@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:rf": "eslint modules/rf --max-warnings 0"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@stripe/stripe-js": "^5.10.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
+    "@zxing/browser": "^0.2.0",
     "axios": "^1.13.6",
     "fuse.js": "^7.3.0",
     "next": "16.1.6",
@@ -28,7 +32,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "fake-indexeddb": "^6.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

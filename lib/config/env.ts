@@ -142,6 +142,15 @@ export const appEnv = {
         process.env.NEXT_PUBLIC_WAREHOUSE_TRANSFER_API_ENABLED,
         false
     ),
+    /** Si es `false`, no se usa ZXing cuando falta `BarcodeDetector` (solo lectura nativa o manual). */
+    rfZxingFallbackEnabled: parsePublicBooleanFlag(
+        process.env.NEXT_PUBLIC_RF_ZXING_FALLBACK_ENABLED,
+        true
+    ),
+    /** Vibración al escanear / confirmar en dispositivos que la soporten. */
+    rfHapticsEnabled: parsePublicBooleanFlag(process.env.NEXT_PUBLIC_RF_HAPTICS_ENABLED, true),
+    /** Eventos `rf-telemetry` y trazas en consola (esta última solo en desarrollo). */
+    rfTelemetryEnabled: parsePublicBooleanFlag(process.env.NEXT_PUBLIC_RF_TELEMETRY_ENABLED, true),
 } as const;
 
 export type { ApiTarget, ProviderMode };

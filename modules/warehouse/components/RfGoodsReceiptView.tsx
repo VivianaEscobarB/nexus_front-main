@@ -7,37 +7,35 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { appEnv } from "@/lib/config/env";
-import { listWarehouses, type ManagedWarehouse } from "@/modules/infrastructure";
+import { ManualBarcodeInput } from "@/modules/rf/components/ManualBarcodeInput";
+import { RFScannerOverlay } from "@/modules/rf/components/RFScannerOverlay";
+import { useBarcodeScanner } from "@/modules/rf/hooks/useBarcodeScanner";
+import { useNetworkStatus } from "@/modules/rf/hooks/useNetworkStatus";
+import { formatRFConfirmSummary } from "@/modules/rf/mappers/rfApiMapper";
+import { normalizeRFError } from "@/modules/rf/services/rfError";
 import {
-    completeRfReception,
-    createInventoryReception,
+    completeRFReception,
+    isRFTransientError,
+    openRFReception,
     rfConfirm,
     rfScan,
-} from "@/modules/warehouse/api/operatorInventoryApi";
+} from "@/modules/rf/services/rfService";
+import { trackRFEvent } from "@/modules/rf/services/rfTelemetry";
+import { setRFDetected, setRFError, setRFState } from "@/modules/rf/store/useRFStore";
+import type { RFScanResult } from "@/modules/rf/types/rfTypes";
+import {
+    enqueueRFConfirmation,
+    listRFQueuedConfirmations,
+    removeRFQueuedConfirmation,
+} from "@/modules/rf/utils/offlineQueue";
+import { listWarehouses, type ManagedWarehouse } from "@/modules/infrastructure";
 import { StorageSpaceLocationPicker } from "@/modules/warehouse/components/StorageSpaceLocationPicker";
-import { isApiError } from "@/shared/api/apiError";
-
-declare global {
-    interface Window {
-        BarcodeDetector?: new (options?: { formats?: string[] }) => {
-            detect: (image: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
-        };
-    }
-}
-
-function getErrorMessage(error: unknown): string {
-    if (isApiError(error)) return error.message;
-    if (error instanceof Error && error.message) return error.message;
-    return "Error al comunicarse con el servidor.";
-}
 
 export function RfGoodsReceiptView() {
     const formId = useId();
     const videoRef = useRef<HTMLVideoElement>(null);
-    const detectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [warehouses, setWarehouses] = useState<ManagedWarehouse[]>([]);
     const [warehouseId, setWarehouseId] = useState("");
@@ -52,8 +50,10 @@ export function RfGoodsReceiptView() {
     const [manualCode, setManualCode] = useState("");
     const [receptionLineId, setReceptionLineId] = useState<number | null>(null);
     const [productName, setProductName] = useState("");
+    const [productSku, setProductSku] = useState<string | null>(null);
     const [expectedQuantity, setExpectedQuantity] = useState<number | null>(null);
     const [requiresLot, setRequiresLot] = useState(false);
+    const [suggestedStorageSpaceCode, setSuggestedStorageSpaceCode] = useState<string | null>(null);
     const [scanError, setScanError] = useState<string | null>(null);
 
     const [quantity, setQuantity] = useState(1);
@@ -67,9 +67,13 @@ export function RfGoodsReceiptView() {
     const [completeBusy, setCompleteBusy] = useState(false);
     const [completeError, setCompleteError] = useState<string | null>(null);
 
-    const [scanning, setScanning] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [detectorHint, setDetectorHint] = useState<string | null>(null);
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [syncStatus, setSyncStatus] = useState<"synced" | "pending" | "syncing" | "error">("synced");
+    const [syncMessage, setSyncMessage] = useState<string | null>(null);
+    const { isOnline } = useNetworkStatus();
+    const confirmStartedAtRef = useRef<number | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -82,7 +86,7 @@ export function RfGoodsReceiptView() {
                 }
             } catch (e) {
                 if (!cancelled) {
-                    setLoadWarehousesError(getErrorMessage(e));
+                    setLoadWarehousesError(normalizeRFError(e).message);
                 }
             }
         })();
@@ -96,6 +100,63 @@ export function RfGoodsReceiptView() {
         label: `${w.name} (${w.code})`,
     }));
 
+    const syncPendingConfirmations = useCallback(async () => {
+        if (!isOnline) return;
+        try {
+            const queue = await listRFQueuedConfirmations();
+            setPendingSyncCount(queue.length);
+            if (queue.length === 0) {
+                setSyncStatus("synced");
+                setSyncMessage(null);
+                return;
+            }
+
+            setSyncStatus("syncing");
+            setSyncMessage("Reintentando confirmaciones pendientes…");
+
+            let synced = 0;
+            for (const item of queue) {
+                try {
+                    await rfConfirm(item.payload);
+                    await removeRFQueuedConfirmation(item.id);
+                    synced += 1;
+                } catch {
+                    setSyncStatus("error");
+                    setSyncMessage("No se pudieron sincronizar todas las confirmaciones pendientes.");
+                    break;
+                }
+            }
+
+            const remaining = (await listRFQueuedConfirmations()).length;
+            setPendingSyncCount(remaining);
+            if (remaining === 0) {
+                setSyncStatus("synced");
+                setSyncMessage(
+                    synced > 0 ? `Sincronización completada (${synced} confirmación(es)).` : null
+                );
+            } else {
+                setSyncStatus("pending");
+            }
+        } catch {
+            setSyncStatus("error");
+            setSyncMessage("No fue posible consultar la cola offline en este dispositivo.");
+        }
+    }, [isOnline]);
+
+    useEffect(() => {
+        void syncPendingConfirmations();
+    }, [syncPendingConfirmations]);
+
+    useEffect(() => {
+        if (!isOnline) {
+            setSyncStatus("pending");
+            setSyncMessage("Sin conexión. Las confirmaciones nuevas se pondrán en cola.");
+        } else if (pendingSyncCount > 0) {
+            setSyncMessage("Conexión recuperada. Iniciando sincronización de pendientes.");
+            void syncPendingConfirmations();
+        }
+    }, [isOnline, pendingSyncCount, syncPendingConfirmations]);
+
     async function onOpenReception() {
         setSessionError(null);
         const wid = Number.parseInt(warehouseId, 10);
@@ -105,38 +166,26 @@ export function RfGoodsReceiptView() {
         }
         setSessionBusy(true);
         try {
-            const res = await createInventoryReception({ warehouseId: wid });
+            const res = await openRFReception({ warehouseId: wid });
             setReceptionId(res.id);
             setReceptionStatus(res.status);
+            setRFState("idle");
             setReceptionLineId(null);
             setProductName("");
+            setProductSku(null);
             setExpectedQuantity(null);
             setLastCode("");
             setConfirmMessage(null);
         } catch (e) {
-            setSessionError(getErrorMessage(e));
+            setSessionError(normalizeRFError(e).message);
         } finally {
             setSessionBusy(false);
         }
     }
 
-    const stopScan = useCallback(() => {
-        if (detectIntervalRef.current) {
-            clearInterval(detectIntervalRef.current);
-            detectIntervalRef.current = null;
-        }
-        const v = videoRef.current;
-        if (v?.srcObject) {
-            (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-            v.srcObject = null;
-        }
-        setScanning(false);
-    }, []);
-
-    useEffect(() => () => stopScan(), [stopScan]);
-
     const runScan = useCallback(
-        async (barcode: string) => {
+        async (barcode: string, source: "camera" | "manual") => {
+            const scanStartedAt = Date.now();
             const trimmed = barcode.trim();
             if (!trimmed) return;
             if (receptionId == null) {
@@ -145,87 +194,57 @@ export function RfGoodsReceiptView() {
             }
             setLastCode(trimmed);
             setScanError(null);
+            const scanResult: RFScanResult = {
+                code: trimmed,
+                source,
+                scannedAt: Date.now(),
+            };
+            setRFDetected(scanResult);
             try {
-                const res = await rfScan({ receptionId, barcode: trimmed });
-                setReceptionLineId(res.receptionLineId);
-                setProductName(res.productName);
-                setExpectedQuantity(res.expectedQuantity);
-                setRequiresLot(res.requiresLot);
-                setQuantity(Math.max(1, res.expectedQuantity));
-                if (!res.requiresLot) {
+                const scanVm = await rfScan({ receptionId, barcode: trimmed });
+                setReceptionLineId(scanVm.receptionLineId);
+                setProductName(scanVm.productName);
+                setProductSku(scanVm.productSku);
+                setExpectedQuantity(scanVm.expectedQuantity);
+                setRequiresLot(scanVm.requiresLot);
+                setQuantity(Math.max(1, scanVm.expectedQuantity));
+                if (scanVm.suggestedStorageSpaceId != null) {
+                    setStorageSpaceId(String(scanVm.suggestedStorageSpaceId));
+                }
+                setSuggestedStorageSpaceCode(scanVm.suggestedStorageSpaceCode);
+                if (source === "manual") {
+                    trackRFEvent("scan_success", { source: "manual", codeLength: trimmed.length });
+                    trackRFEvent("scan_time", {
+                        source: "manual",
+                        ms: Date.now() - scanStartedAt,
+                    });
+                }
+                if (!scanVm.requiresLot) {
                     setLotCode("");
                 }
             } catch (e) {
-                setScanError(getErrorMessage(e));
+                const normalized = normalizeRFError(e);
+                setScanError(normalized.message);
+                setRFError(normalized.message);
                 setReceptionLineId(null);
                 setProductName("");
+                setProductSku(null);
                 setExpectedQuantity(null);
+                setSuggestedStorageSpaceCode(null);
             }
         },
         [receptionId]
     );
 
-    async function startScan() {
-        setCameraError(null);
-        setDetectorHint(null);
-
-        if (receptionId == null) {
-            setCameraError("Abre una recepción antes de usar la cámara.");
+    function onManualSubmit() {
+        if (!manualCode.trim()) {
+            setScanError("Ingresa un código para escanear manualmente.");
             return;
         }
-
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setCameraError("Este dispositivo no permite acceso a la cámara desde el navegador.");
-            return;
-        }
-
-        if (typeof window.BarcodeDetector !== "function") {
-            setDetectorHint(
-                "Lectura automática no disponible en este navegador. Ingresa el código manualmente abajo.",
-            );
-        }
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-                audio: false,
-            });
-            const v = videoRef.current;
-            if (!v) {
-                stream.getTracks().forEach((t) => t.stop());
-                return;
-            }
-            v.srcObject = stream;
-            await v.play();
-            setScanning(true);
-
-            if (typeof window.BarcodeDetector === "function") {
-                const detector = new window.BarcodeDetector({
-                    formats: ["ean_13", "ean_8", "code_128", "code_39", "qr_code"],
-                });
-                detectIntervalRef.current = setInterval(async () => {
-                    if (!videoRef.current || videoRef.current.readyState < 2) return;
-                    try {
-                        const codes = await detector.detect(videoRef.current);
-                        if (codes.length > 0 && codes[0].rawValue) {
-                            await runScan(codes[0].rawValue);
-                            stopScan();
-                        }
-                    } catch {
-                        /* frame no listo */
-                    }
-                }, 280);
-            }
-        } catch {
-            setCameraError(
-                "No se pudo usar la cámara. Revisa permisos o usa la entrada manual del código.",
-            );
-        }
-    }
-
-    function onManualSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        void runScan(manualCode);
+        const trimmedCode = manualCode.trim();
+        trackRFEvent("manual_entry", { codeLength: trimmedCode.length });
+        setRFState("detected");
+        void runScan(trimmedCode, "manual");
         setManualCode("");
     }
 
@@ -234,12 +253,20 @@ export function RfGoodsReceiptView() {
     }
 
     async function onConfirm() {
-        if (receptionLineId == null) {
-            setConfirmError("Primero escanea un código válido.");
+        if (receptionId == null) {
+            setConfirmError("Debes abrir una recepción activa antes de confirmar.");
+            return;
+        }
+        if (receptionLineId == null || !productName.trim()) {
+            setConfirmError("Primero escanea un producto válido.");
             return;
         }
         if (requiresLot && !lotCode.trim()) {
             setConfirmError("Este producto requiere código de lote.");
+            return;
+        }
+        if (!Number.isFinite(quantity) || quantity < 1) {
+            setConfirmError("Ingresa una cantidad válida mayor o igual a 1.");
             return;
         }
         const sid = storageSpaceId.trim();
@@ -253,27 +280,112 @@ export function RfGoodsReceiptView() {
             storageSpaceIdOut = parsed;
         }
         setConfirmBusy(true);
+        setRFState("confirming");
+        confirmStartedAtRef.current = Date.now();
         setConfirmError(null);
         setConfirmMessage(null);
+        const payload = {
+            receptionLineId,
+            receivedQuantity: quantity,
+            lotCode: lotCode.trim() || undefined,
+            storageSpaceId: storageSpaceIdOut,
+        };
         try {
-            const res = await rfConfirm({
-                receptionLineId,
-                receivedQuantity: quantity,
-                lotCode: lotCode.trim() || undefined,
-                storageSpaceId: storageSpaceIdOut,
-            });
-            setConfirmMessage(
-                `Registrado. Estado: ${res.status}. Diferencia: ${res.difference}.` +
-                    (res.alertCreated ? " Se generó una alerta." : "")
-            );
+            const confirmVm = await rfConfirm(payload);
+            setConfirmMessage(formatRFConfirmSummary(confirmVm));
             setReceptionLineId(null);
             setProductName("");
+            setProductSku(null);
             setExpectedQuantity(null);
             setLastCode("");
+            setSuggestedStorageSpaceCode(null);
+            setRFState("success");
+            if (confirmStartedAtRef.current) {
+                trackRFEvent("confirm_time", {
+                    mode: "online",
+                    ms: Date.now() - confirmStartedAtRef.current,
+                });
+            }
+            if (
+                appEnv.rfHapticsEnabled &&
+                typeof navigator !== "undefined" &&
+                "vibrate" in navigator
+            ) {
+                navigator.vibrate(70);
+            }
         } catch (e) {
-            setConfirmError(getErrorMessage(e));
+            if (!isOnline || isRFTransientError(e)) {
+                try {
+                    await enqueueRFConfirmation(payload);
+                    const queued = await listRFQueuedConfirmations();
+                    setPendingSyncCount(queued.length);
+                    setSyncStatus("pending");
+                    setSyncMessage(
+                        !isOnline
+                            ? "Sin conexión: confirmación guardada en cola."
+                            : "Error de red: confirmación guardada para reintento automático."
+                    );
+                    setConfirmMessage("Confirmación en cola. Se enviará al recuperar conexión.");
+                    setConfirmError(null);
+                    setReceptionLineId(null);
+                    setProductName("");
+                    setProductSku(null);
+                    setExpectedQuantity(null);
+                    setLastCode("");
+                    setSuggestedStorageSpaceCode(null);
+                    setRFState("success");
+                    if (confirmStartedAtRef.current) {
+                        trackRFEvent("confirm_time", {
+                            mode: "queued_offline",
+                            ms: Date.now() - confirmStartedAtRef.current,
+                        });
+                    }
+                } catch {
+                    setConfirmError("No se pudo confirmar ni guardar en cola offline.");
+                    setRFError("No se pudo confirmar ni guardar en cola offline.");
+                }
+            } else {
+                const normalized = normalizeRFError(e);
+                setConfirmError(normalized.message);
+                setRFError(normalized.message);
+            }
         } finally {
             setConfirmBusy(false);
+            confirmStartedAtRef.current = null;
+        }
+    }
+
+    const {
+        isScanning,
+        start: startScanFromHook,
+        stop: stopScan,
+        devices,
+        deviceId,
+        setDeviceId,
+    } = useBarcodeScanner({
+        videoRef,
+        onCodeDetected: async (code) => {
+            setRFState("detected");
+            await runScan(code, "camera");
+        },
+        onError: (message) => {
+            setCameraError(message || null);
+            if (message) setRFError(message);
+        },
+        onHint: setDetectorHint,
+    });
+
+    async function startScan() {
+        if (receptionId == null) {
+            setCameraError("Abre una recepción antes de usar la cámara.");
+            return;
+        }
+        setCameraError(null);
+        await startScanFromHook();
+        if (videoRef.current?.srcObject) {
+            setRFState("scanning");
+        } else {
+            setRFState("idle");
         }
     }
 
@@ -292,14 +404,14 @@ export function RfGoodsReceiptView() {
         setCompleteBusy(true);
         setCompleteError(null);
         try {
-            await completeRfReception(receptionId, {
+            await completeRFReception(receptionId, {
                 storageSpaceId: completeSid,
             });
             setReceptionId(null);
             setReceptionStatus(null);
             setConfirmMessage("Recepción cerrada correctamente.");
         } catch (e) {
-            setCompleteError(getErrorMessage(e));
+            setCompleteError(normalizeRFError(e).message);
         } finally {
             setCompleteBusy(false);
         }
@@ -328,7 +440,9 @@ export function RfGoodsReceiptView() {
                     <DevicePhoneIcon className="h-5 w-5 text-brand-strong" aria-hidden />
                     <div className="flex flex-col">
                         <span className="text-xs font-semibold text-text-primary">Dispositivo RF</span>
-                        <span className="text-[10px] font-medium text-success-text">En línea</span>
+                        <span className={`text-[10px] font-medium ${isOnline ? "text-success-text" : "text-warning-text"}`}>
+                            {isOnline ? "En línea" : "Sin conexión"}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -336,6 +450,21 @@ export function RfGoodsReceiptView() {
             {loadWarehousesError ? (
                 <Alert variant="danger" className="rounded-xl text-sm">
                     {loadWarehousesError}
+                </Alert>
+            ) : null}
+            {!isOnline ? (
+                <Alert variant="warning" className="rounded-xl text-sm">
+                    Sin conexión. Puedes seguir escaneando; las confirmaciones se guardarán en cola.
+                </Alert>
+            ) : null}
+            {syncStatus !== "synced" || pendingSyncCount > 0 || syncMessage ? (
+                <Alert
+                    variant={syncStatus === "error" ? "danger" : "info"}
+                    className="rounded-xl text-sm"
+                >
+                    {syncMessage ?? "Estado de sincronización actualizado."}
+                    {pendingSyncCount > 0 ? ` Pendientes: ${pendingSyncCount}.` : ""}
+                    {syncStatus === "syncing" ? " Reintentando..." : ""}
                 </Alert>
             ) : null}
 
@@ -379,7 +508,9 @@ export function RfGoodsReceiptView() {
                                     setReceptionStatus(null);
                                     setReceptionLineId(null);
                                     setProductName("");
+                                    setProductSku(null);
                                     setConfirmMessage(null);
+                                    setSuggestedStorageSpaceCode(null);
                                 }}
                             >
                                 Nueva sesión
@@ -399,12 +530,23 @@ export function RfGoodsReceiptView() {
                 <CardBody className="space-y-5">
                     <div>
                         <span className="text-sm font-medium text-text-secondary">Escanear producto</span>
+                        {devices.length > 1 ? (
+                            <div className="mt-2">
+                                <Select
+                                    label="Cámara"
+                                    options={devices.map((d) => ({ value: d.deviceId, label: d.label }))}
+                                    value={deviceId}
+                                    onChange={(e) => setDeviceId(e.target.value)}
+                                    disabled={isScanning}
+                                />
+                            </div>
+                        ) : null}
                         <div className="mt-2 overflow-hidden rounded-xl border-2 border-dashed border-border-default bg-surface-sunken">
                             <div className="relative flex min-h-[200px] flex-col items-center justify-center p-4">
                                 <video
                                     ref={videoRef}
                                     className={
-                                        scanning
+                                        isScanning
                                             ? "h-56 w-full rounded-lg bg-black object-cover"
                                             : "hidden"
                                     }
@@ -412,7 +554,8 @@ export function RfGoodsReceiptView() {
                                     muted
                                     aria-label="Vista de cámara para escaneo"
                                 />
-                                {!scanning ? (
+                                {isScanning ? <RFScannerOverlay /> : null}
+                                {!isScanning ? (
                                     <div className="flex flex-col items-center gap-3 py-6 text-center">
                                         <BarcodeIllustration className="h-16 w-28 text-text-tertiary" />
                                         <p className="text-sm font-medium text-text-secondary">
@@ -455,29 +598,30 @@ export function RfGoodsReceiptView() {
                         ) : null}
                     </div>
 
-                    <form onSubmit={onManualSubmit} className="space-y-2 rounded-lg border border-border-subtle bg-surface-base p-3">
-                        <Label htmlFor={`${formId}-manual`}>Código manual</Label>
-                        <div className="flex gap-2">
-                            <Input
-                                id={`${formId}-manual`}
-                                value={manualCode}
-                                onChange={(e) => setManualCode(e.target.value)}
-                                placeholder="EAN / Code 128"
-                                className="flex-1"
-                                disabled={receptionId == null}
-                            />
-                            <Button type="submit" variant="secondary" disabled={receptionId == null}>
-                                Escanear
-                            </Button>
-                        </div>
-                    </form>
+                    <ManualBarcodeInput
+                        id={`${formId}-manual`}
+                        value={manualCode}
+                        onChange={setManualCode}
+                        onSubmit={onManualSubmit}
+                        disabled={receptionId == null}
+                    />
 
                     {productName ? (
                         <div className="space-y-3 rounded-lg border border-border-subtle bg-surface-base p-3">
                             <p className="text-sm font-semibold text-text-primary">{productName}</p>
+                            {productSku ? (
+                                <p className="text-xs text-text-tertiary">
+                                    SKU: <span className="font-mono text-text-secondary">{productSku}</span>
+                                </p>
+                            ) : null}
                             {expectedQuantity != null ? (
                                 <p className="text-xs text-text-secondary">
                                     Cantidad esperada (referencia): {expectedQuantity}
+                                </p>
+                            ) : null}
+                            {suggestedStorageSpaceCode ? (
+                                <p className="rounded-md border border-info-default/30 bg-info-subtle px-2 py-1 text-xs text-info-strong">
+                                    Ubicación sugerida: {suggestedStorageSpaceCode}
                                 </p>
                             ) : null}
                             {requiresLot ? (
