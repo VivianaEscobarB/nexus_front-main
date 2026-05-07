@@ -3,11 +3,19 @@ import type { RfConfirmResponse, RfScanResponse } from "@/modules/warehouse/api/
 import type { RFConfirmViewModel, RFScanViewModel } from "@/modules/rf/viewModels/rfViewModels";
 
 export function mapRfScanResponseToViewModel(raw: RfScanResponse): RFScanViewModel {
+    const expected = Number.isFinite(raw.expectedQuantity) ? raw.expectedQuantity : 0;
+    const received = Number.isFinite(raw.receivedQuantity) ? Number(raw.receivedQuantity) : 0;
+    const remaining = Number.isFinite(raw.remainingQuantity)
+        ? Number(raw.remainingQuantity)
+        : Math.max(0, expected - received);
     return {
         receptionLineId: raw.receptionLineId,
-        productName: raw.productName ?? "",
+        productName: raw.productName ?? raw.externalProductRef ?? "",
+        externalProductRef: raw.externalProductRef ?? null,
         productSku: raw.productSku ?? null,
-        expectedQuantity: raw.expectedQuantity ?? 0,
+        expectedQuantity: expected,
+        receivedQuantity: received,
+        remainingQuantity: remaining,
         requiresLot: Boolean(raw.requiresLot),
         suggestedStorageSpaceId: raw.suggestedStorageSpaceId ?? null,
         suggestedStorageSpaceCode: raw.suggestedStorageSpaceCode ?? null,

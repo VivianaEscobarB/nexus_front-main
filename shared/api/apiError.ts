@@ -26,6 +26,8 @@ export class ApiError extends Error implements AuthError {
     status: number;
     error: string;
     path: string;
+    code?: string;
+    details?: unknown;
 
     constructor(payload: AuthError) {
         super(payload.message);
@@ -34,6 +36,16 @@ export class ApiError extends Error implements AuthError {
         this.status = payload.status;
         this.error = payload.error;
         this.path = payload.path;
+        const extended = payload as AuthError & {
+            code?: unknown;
+            details?: unknown;
+        };
+        if (typeof extended.code === "string") {
+            this.code = extended.code;
+        }
+        if ("details" in extended) {
+            this.details = extended.details;
+        }
     }
 }
 
@@ -117,7 +129,10 @@ export function buildApiError(
 
     const rich = extractRichApiErrorMessage(payload);
 
-    return new ApiError({
+    const basePayload: AuthError & {
+        code?: string;
+        details?: unknown;
+    } = {
         timestamp: new Date().toISOString(),
         status,
         error: status >= 500 ? "Server Error" : "Request Error",
@@ -126,7 +141,16 @@ export function buildApiError(
                 ? (rich ?? UNAUTHORIZED_DEFAULT_MESSAGE)
                 : (rich ?? "No fue posible completar la solicitud."),
         path,
-    });
+    };
+
+    if (isObject(payload) && typeof payload.code === "string") {
+        basePayload.code = payload.code;
+    }
+    if (isObject(payload) && "details" in payload) {
+        basePayload.details = payload.details;
+    }
+
+    return new ApiError(basePayload);
 }
 
 export function isApiError(error: unknown): error is ApiError {

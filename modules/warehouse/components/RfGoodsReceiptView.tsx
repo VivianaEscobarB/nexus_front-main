@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -26,16 +27,30 @@ import { trackRFEvent } from "@/modules/rf/services/rfTelemetry";
 import { setRFDetected, setRFError, setRFState } from "@/modules/rf/store/useRFStore";
 import type { RFScanResult } from "@/modules/rf/types/rfTypes";
 import {
+    getInventoryReceptionDetail,
+    listActiveInventoryReceptions,
+} from "@/modules/warehouse/api/operatorInventoryApi";
+import type {
+    ActiveReceptionConflictDetails,
+    ReceptionExpectedLine,
+} from "@/modules/warehouse/api/operatorInventoryTypes";
+import {
     enqueueRFConfirmation,
     listRFQueuedConfirmations,
     removeRFQueuedConfirmation,
 } from "@/modules/rf/utils/offlineQueue";
 import { listWarehouses, type ManagedWarehouse } from "@/modules/infrastructure";
 import { StorageSpaceLocationPicker } from "@/modules/warehouse/components/StorageSpaceLocationPicker";
+import { isApiError } from "@/shared/api/apiError";
 
 export function RfGoodsReceiptView() {
     const formId = useId();
     const videoRef = useRef<HTMLVideoElement>(null);
+    const searchParams = useSearchParams();
+    const preferredWarehouseId = searchParams.get("warehouseId");
+    const preferredReceptionId = searchParams.get("receptionId");
+    const documentRef = searchParams.get("documentRef");
+    const supplier = searchParams.get("supplier");
 
     const [warehouses, setWarehouses] = useState<ManagedWarehouse[]>([]);
     const [warehouseId, setWarehouseId] = useState("");
@@ -50,6 +65,7 @@ export function RfGoodsReceiptView() {
     const [manualCode, setManualCode] = useState("");
     const [receptionLineId, setReceptionLineId] = useState<number | null>(null);
     const [productName, setProductName] = useState("");
+    const [externalProductRef, setExternalProductRef] = useState<string | null>(null);
     const [productSku, setProductSku] = useState<string | null>(null);
     const [expectedQuantity, setExpectedQuantity] = useState<number | null>(null);
     const [requiresLot, setRequiresLot] = useState(false);
@@ -72,8 +88,16 @@ export function RfGoodsReceiptView() {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [syncStatus, setSyncStatus] = useState<"synced" | "pending" | "syncing" | "error">("synced");
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
+    const [expectedLines, setExpectedLines] = useState<ReceptionExpectedLine[]>([]);
+    const [expectedLinesBusy, setExpectedLinesBusy] = useState(false);
+    const [expectedLinesError, setExpectedLinesError] = useState<string | null>(null);
     const { isOnline } = useNetworkStatus();
     const confirmStartedAtRef = useRef<number | null>(null);
+    const openReceptionAttemptRef = useRef<{
+        warehouseId: number;
+        clientRequestId: string;
+        createdAt: number;
+    } | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -82,7 +106,18 @@ export function RfGoodsReceiptView() {
                 const list = await listWarehouses();
                 if (!cancelled) {
                     setWarehouses(list);
-                    setWarehouseId((prev) => (prev || (list[0]?.id ?? "")));
+                    setWarehouseId((prev) => {
+                        if (prev) return prev;
+                        if (preferredWarehouseId) {
+                            const exists = list.some(
+                                (warehouse) => warehouse.id === preferredWarehouseId
+                            );
+                            if (exists) {
+                                return preferredWarehouseId;
+                            }
+                        }
+                        return list[0]?.id ?? "";
+                    });
                 }
             } catch (e) {
                 if (!cancelled) {
@@ -93,12 +128,63 @@ export function RfGoodsReceiptView() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [preferredWarehouseId]);
 
     const warehouseOptions = warehouses.map((w) => ({
         value: w.id,
         label: `${w.name} (${w.code})`,
     }));
+
+    const expectedSummary = useMemo(() => {
+        let pending = 0;
+        let partial = 0;
+        let complete = 0;
+        let excess = 0;
+        for (const line of expectedLines) {
+            if (line.receivedQuantity <= 0) {
+                pending += 1;
+                continue;
+            }
+            if (line.receivedQuantity < line.expectedQuantity) {
+                partial += 1;
+                continue;
+            }
+            if (line.receivedQuantity === line.expectedQuantity) {
+                complete += 1;
+                continue;
+            }
+            excess += 1;
+        }
+        return { pending, partial, complete, excess };
+    }, [expectedLines]);
+
+    const refreshExpectedLines = useCallback(async (targetReceptionId: number) => {
+        setExpectedLinesBusy(true);
+        setExpectedLinesError(null);
+        try {
+            const detail = await getInventoryReceptionDetail(targetReceptionId);
+            setExpectedLines(
+                detail.lines.filter((line) => Number.isFinite(line.receptionLineId) && line.receptionLineId > 0)
+            );
+        } catch (e) {
+            setExpectedLines([]);
+            setExpectedLinesError(normalizeRFError(e).message);
+        } finally {
+            setExpectedLinesBusy(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!preferredReceptionId) return;
+        const rid = Number.parseInt(preferredReceptionId, 10);
+        if (!Number.isFinite(rid) || rid <= 0) return;
+        setReceptionId((prev) => (prev ?? rid));
+        setRFState("idle");
+        if (!receptionStatus) {
+            setReceptionStatus("OPEN");
+        }
+        void refreshExpectedLines(rid);
+    }, [preferredReceptionId, receptionStatus, refreshExpectedLines]);
 
     const syncPendingConfirmations = useCallback(async () => {
         if (!isOnline) return;
@@ -166,17 +252,97 @@ export function RfGoodsReceiptView() {
         }
         setSessionBusy(true);
         try {
-            const res = await openRFReception({ warehouseId: wid });
+            // Resume-first: si ya existe activa para la bodega, retómala sin intentar crear otra.
+            const activeReceptions = await listActiveInventoryReceptions(wid);
+            const active = activeReceptions[0];
+            if (active) {
+                setReceptionId(active.id);
+                setReceptionStatus(active.status);
+                setRFState("idle");
+                setSessionError(null);
+                void refreshExpectedLines(active.id);
+                setConfirmMessage(
+                    `Ya existe una recepción activa (#${active.id}). Se retomó automáticamente.`
+                );
+                return;
+            }
+
+            const now = Date.now();
+            const reuseRecentAttempt =
+                openReceptionAttemptRef.current &&
+                openReceptionAttemptRef.current.warehouseId === wid &&
+                now - openReceptionAttemptRef.current.createdAt < 30_000;
+
+            const clientRequestId = reuseRecentAttempt
+                ? openReceptionAttemptRef.current.clientRequestId
+                : crypto.randomUUID();
+
+            openReceptionAttemptRef.current = {
+                warehouseId: wid,
+                clientRequestId,
+                createdAt: now,
+            };
+
+            const res = await openRFReception({
+                warehouseId: wid,
+                clientRequestId,
+                expectedDocumentRef: documentRef?.trim() || undefined,
+            });
             setReceptionId(res.id);
             setReceptionStatus(res.status);
             setRFState("idle");
             setReceptionLineId(null);
             setProductName("");
+            setExternalProductRef(null);
             setProductSku(null);
             setExpectedQuantity(null);
             setLastCode("");
             setConfirmMessage(null);
+            void refreshExpectedLines(res.id);
+            openReceptionAttemptRef.current = null;
         } catch (e) {
+            if (isApiError(e) && e.status === 409) {
+                const details = (e.details ?? null) as ActiveReceptionConflictDetails | null;
+                if (
+                    e.code === "ACTIVE_RECEPTION_EXISTS" &&
+                    details?.existingReceptionId &&
+                    Number.isFinite(details.existingReceptionId)
+                ) {
+                    setReceptionId(details.existingReceptionId);
+                    setReceptionStatus(details.status ?? "OPEN");
+                    setRFState("idle");
+                    setSessionError(null);
+                    void refreshExpectedLines(details.existingReceptionId);
+                    setConfirmMessage(
+                        `Ya existe una recepción activa (#${details.existingReceptionId}). Se retomó automáticamente.`
+                    );
+                    return;
+                }
+                try {
+                    const activeAfterConflict = await listActiveInventoryReceptions(wid);
+                    const resumed = activeAfterConflict[0];
+                    if (resumed) {
+                        openReceptionAttemptRef.current = null;
+                        setReceptionId(resumed.id);
+                        setReceptionStatus(resumed.status);
+                        setRFState("idle");
+                        setSessionError(null);
+                        void refreshExpectedLines(resumed.id);
+                        setConfirmMessage(
+                            `Ya existe una recepción activa (#${resumed.id}). Se retomó automáticamente.`
+                        );
+                        return;
+                    }
+                } catch {
+                    // si no se puede consultar activas, mostramos el mensaje normal
+                }
+            }
+            if (isApiError(e) && e.code === "ACTIVE_RECEPTION_EXISTS") {
+                setSessionError(
+                    "Ya existe una recepción activa para esta bodega. Retómala desde el listado de activas."
+                );
+                return;
+            }
             setSessionError(normalizeRFError(e).message);
         } finally {
             setSessionBusy(false);
@@ -204,10 +370,17 @@ export function RfGoodsReceiptView() {
                 const scanVm = await rfScan({ receptionId, barcode: trimmed });
                 setReceptionLineId(scanVm.receptionLineId);
                 setProductName(scanVm.productName);
+                setExternalProductRef(scanVm.externalProductRef);
                 setProductSku(scanVm.productSku);
                 setExpectedQuantity(scanVm.expectedQuantity);
                 setRequiresLot(scanVm.requiresLot);
-                setQuantity(Math.max(1, scanVm.expectedQuantity));
+                const matchedLine = expectedLines.find(
+                    (line) => line.receptionLineId === scanVm.receptionLineId
+                );
+                const remainingQty = matchedLine
+                    ? Math.max(0, matchedLine.expectedQuantity - matchedLine.receivedQuantity)
+                    : scanVm.remainingQuantity;
+                setQuantity(Math.max(1, remainingQty));
                 if (scanVm.suggestedStorageSpaceId != null) {
                     setStorageSpaceId(String(scanVm.suggestedStorageSpaceId));
                 }
@@ -228,12 +401,13 @@ export function RfGoodsReceiptView() {
                 setRFError(normalized.message);
                 setReceptionLineId(null);
                 setProductName("");
+                setExternalProductRef(null);
                 setProductSku(null);
                 setExpectedQuantity(null);
                 setSuggestedStorageSpaceCode(null);
             }
         },
-        [receptionId]
+        [expectedLines, receptionId]
     );
 
     function onManualSubmit() {
@@ -257,7 +431,7 @@ export function RfGoodsReceiptView() {
             setConfirmError("Debes abrir una recepción activa antes de confirmar.");
             return;
         }
-        if (receptionLineId == null || !productName.trim()) {
+        if (receptionLineId == null) {
             setConfirmError("Primero escanea un producto válido.");
             return;
         }
@@ -293,8 +467,19 @@ export function RfGoodsReceiptView() {
         try {
             const confirmVm = await rfConfirm(payload);
             setConfirmMessage(formatRFConfirmSummary(confirmVm));
+            setExpectedLines((previous) =>
+                previous.map((line) =>
+                    line.receptionLineId === receptionLineId
+                        ? {
+                              ...line,
+                              receivedQuantity: line.receivedQuantity + quantity,
+                          }
+                        : line
+                )
+            );
             setReceptionLineId(null);
             setProductName("");
+            setExternalProductRef(null);
             setProductSku(null);
             setExpectedQuantity(null);
             setLastCode("");
@@ -327,8 +512,19 @@ export function RfGoodsReceiptView() {
                     );
                     setConfirmMessage("Confirmación en cola. Se enviará al recuperar conexión.");
                     setConfirmError(null);
+                    setExpectedLines((previous) =>
+                        previous.map((line) =>
+                            line.receptionLineId === receptionLineId
+                                ? {
+                                      ...line,
+                                      receivedQuantity: line.receivedQuantity + quantity,
+                                  }
+                                : line
+                        )
+                    );
                     setReceptionLineId(null);
                     setProductName("");
+                    setExternalProductRef(null);
                     setProductSku(null);
                     setExpectedQuantity(null);
                     setLastCode("");
@@ -435,6 +631,17 @@ export function RfGoodsReceiptView() {
                             ← Volver al formulario completo de recepción
                         </Link>
                     </p>
+                    {documentRef ? (
+                        <p className="mt-2 text-xs text-text-tertiary">
+                            Documento: <span className="font-semibold text-text-secondary">{documentRef}</span>
+                            {supplier ? (
+                                <>
+                                    {" "}· Proveedor:{" "}
+                                    <span className="font-semibold text-text-secondary">{supplier}</span>
+                                </>
+                            ) : null}
+                        </p>
+                    ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-border-subtle bg-surface-base px-3 py-2 shadow-sm">
                     <DevicePhoneIcon className="h-5 w-5 text-brand-strong" aria-hidden />
@@ -506,8 +713,11 @@ export function RfGoodsReceiptView() {
                                 onClick={() => {
                                     setReceptionId(null);
                                     setReceptionStatus(null);
+                                    setExpectedLines([]);
+                                    setExpectedLinesError(null);
                                     setReceptionLineId(null);
                                     setProductName("");
+                                    setExternalProductRef(null);
                                     setProductSku(null);
                                     setConfirmMessage(null);
                                     setSuggestedStorageSpaceCode(null);
@@ -524,6 +734,74 @@ export function RfGoodsReceiptView() {
                     ) : null}
                 </CardBody>
             </Card>
+
+            {receptionId != null ? (
+                <Card>
+                    <CardHeader title="Pendientes del pedido" />
+                    <CardBody className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                            <div className="rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+                                Pendientes: <span className="font-semibold">{expectedSummary.pending}</span>
+                            </div>
+                            <div className="rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+                                Parciales: <span className="font-semibold">{expectedSummary.partial}</span>
+                            </div>
+                            <div className="rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+                                Completas: <span className="font-semibold">{expectedSummary.complete}</span>
+                            </div>
+                            <div className="rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+                                Excesos: <span className="font-semibold">{expectedSummary.excess}</span>
+                            </div>
+                        </div>
+                        {expectedLinesError ? (
+                            <Alert variant="warning" className="rounded-lg text-xs">
+                                {expectedLinesError}
+                            </Alert>
+                        ) : null}
+                        {expectedLinesBusy ? (
+                            <p className="text-xs text-text-tertiary">Cargando líneas esperadas...</p>
+                        ) : null}
+                        {!expectedLinesBusy && expectedLines.length === 0 ? (
+                            <p className="text-xs text-text-tertiary">
+                                No hay líneas esperadas asociadas a esta recepción.
+                            </p>
+                        ) : null}
+                        {expectedLines.length > 0 ? (
+                            <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border-subtle p-2">
+                                {expectedLines.map((line) => {
+                                    const status =
+                                        line.receivedQuantity <= 0
+                                            ? "pendiente"
+                                            : line.receivedQuantity < line.expectedQuantity
+                                              ? "parcial"
+                                              : line.receivedQuantity === line.expectedQuantity
+                                                ? "completa"
+                                                : "exceso";
+                                    return (
+                                        <div
+                                            key={line.receptionLineId}
+                                            className="rounded-md border border-border-subtle bg-surface-base px-2 py-2 text-xs"
+                                        >
+                                            <p className="font-semibold text-text-primary">
+                                                {line.productName || "Producto externo"}
+                                            </p>
+                                            <p className="text-text-tertiary">
+                                                SKU: {line.productSku || "N/A"} · Línea #{line.receptionLineId}
+                                            </p>
+                                            <p className="mt-1 text-text-secondary">
+                                                Esperado: {line.expectedQuantity} · Recibido: {line.receivedQuantity}
+                                            </p>
+                                            <p className="mt-1 font-medium uppercase tracking-wide text-[10px] text-brand-strong">
+                                                {status}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </CardBody>
+                </Card>
+            ) : null}
 
             <Card>
                 <CardHeader title="Escaneo y confirmación" />
@@ -606,9 +884,17 @@ export function RfGoodsReceiptView() {
                         disabled={receptionId == null}
                     />
 
-                    {productName ? (
+                    {productName || externalProductRef ? (
                         <div className="space-y-3 rounded-lg border border-border-subtle bg-surface-base p-3">
-                            <p className="text-sm font-semibold text-text-primary">{productName}</p>
+                            <p className="text-sm font-semibold text-text-primary">
+                                {productName || "Producto externo"}
+                            </p>
+                            {externalProductRef ? (
+                                <p className="text-xs text-text-tertiary">
+                                    Ref. externa:{" "}
+                                    <span className="font-mono text-text-secondary">{externalProductRef}</span>
+                                </p>
+                            ) : null}
                             {productSku ? (
                                 <p className="text-xs text-text-tertiary">
                                     SKU: <span className="font-mono text-text-secondary">{productSku}</span>

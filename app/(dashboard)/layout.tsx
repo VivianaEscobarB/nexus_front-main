@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
 import { AuthGuard } from "@/modules/auth";
+import { getCurrentUser } from "@/modules/auth/api/authApi";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { Brand } from "@/components/Brand";
 import { Alert } from "@/components/ui/Alert";
@@ -32,6 +33,23 @@ type NavGroup = {
     title?: string;
     items: NavItem[];
 };
+
+function getRoleLabel(roleName: string): string {
+    switch (roleName) {
+        case UserRole.ADMIN:
+            return "Administrador";
+        case UserRole.WAREHOUSE_SUPERVISOR:
+            return "Supervisor de bodega";
+        case UserRole.WAREHOUSE_OPERATOR:
+            return "Operador de bodega";
+        case UserRole.SALES_AGENT:
+            return "Agente comercial";
+        case UserRole.CLIENT:
+            return "Cliente";
+        default:
+            return roleName.replace(/_/g, " ");
+    }
+}
 
 export default function DashboardLayout({
     children,
@@ -196,9 +214,12 @@ export default function DashboardLayout({
     const metadata = getRouteMetadata(pathname);
 
     React.useEffect(() => {
-        fetch("/api/user")
-            .then(res => res.json())
-            .then(data => setUserProfile({ avatarUrl: data?.avatarUrl || "" }))
+        getCurrentUser({ retryOnUnauthorized: false })
+            .then((data) =>
+                setUserProfile({
+                    avatarUrl: data?.avatarUrl || data?.avatar_url || "",
+                })
+            )
             .catch(() => {
                 setUserProfile(null);
             });
@@ -213,6 +234,7 @@ export default function DashboardLayout({
         .join(" ")
         .trim() || "Usuario";
     const sessionEmail = user?.email || "usuario@nexus.com";
+    const sessionRoleLabel = getRoleLabel(role);
 
     const navGroups: NavGroup[] = [
         { items: [{ name: "Inicio", href: "/dashboard", icon: HomeIcon }] },
@@ -630,12 +652,28 @@ export default function DashboardLayout({
                                 </div>
                                 
                                 {!isSidebarCollapsed && (
-                                    <div className="flex flex-col flex-1 min-w-0">
-                                        <span className="text-sm font-bold truncate transition-colors" style={{ color: "var(--color-sidebar-text-active)" }}>
+                                    <div className="flex flex-1 min-w-0 flex-col items-start justify-center gap-1">
+                                        <span
+                                            className="max-w-full truncate text-sm font-semibold leading-tight transition-colors"
+                                            style={{ color: "var(--color-sidebar-text-active)" }}
+                                        >
                                             {sessionDisplayName}
                                         </span>
-                                        <span className="text-[10px] truncate opacity-60 font-medium leading-none" style={{ color: "var(--color-sidebar-text)" }}>
+                                        <span
+                                            className="max-w-full truncate text-[11px] font-medium leading-tight opacity-75"
+                                            style={{ color: "var(--color-sidebar-text)" }}
+                                        >
                                             {sessionEmail}
+                                        </span>
+                                        <span
+                                            className="mt-0.5 inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide truncate"
+                                            style={{
+                                                background: "var(--color-brand-subtle)",
+                                                color: "var(--color-brand-strong)",
+                                            }}
+                                            title={sessionRoleLabel}
+                                        >
+                                            {sessionRoleLabel}
                                         </span>
                                     </div>
                                 )}

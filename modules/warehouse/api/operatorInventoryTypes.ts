@@ -4,12 +4,50 @@ export type ReceptionStatus = string;
 
 export interface CreateReceptionBody {
     warehouseId: number;
+    clientRequestId?: string;
+    expectedDocumentRef?: string;
 }
 
 export interface ReceptionCreatedResponse {
     id: number;
     warehouseId: number;
     status: ReceptionStatus;
+}
+
+export interface ActiveReceptionResponse {
+    id: number;
+    warehouseId: number;
+    status: ReceptionStatus;
+}
+
+export interface ReceptionExpectedLine {
+    receptionLineId: number;
+    productName?: string | null;
+    productSku?: string | null;
+    expectedQuantity: number;
+    receivedQuantity: number;
+    requiresLot?: boolean;
+}
+
+export interface ReceptionDetailResponse {
+    id: number;
+    warehouseId: number;
+    status: ReceptionStatus;
+    lines: ReceptionExpectedLine[];
+}
+
+export interface CreateReceptionExpectedLineInput {
+    barcode: string;
+    expectedQuantity: number;
+    productName?: string;
+    productSku?: string;
+    requiresLot?: boolean;
+}
+
+export interface ActiveReceptionConflictDetails {
+    existingReceptionId?: number;
+    warehouseId?: number;
+    status?: ReceptionStatus;
 }
 
 export interface RfScanBody {
@@ -19,9 +57,12 @@ export interface RfScanBody {
 
 export interface RfScanResponse {
     receptionLineId: number;
-    productName: string;
     expectedQuantity: number;
+    receivedQuantity?: number;
+    remainingQuantity?: number;
     requiresLot: boolean;
+    externalProductRef?: string | null;
+    productName?: string | null;
     productSku?: string | null;
     suggestedStorageSpaceId?: number | null;
     suggestedStorageSpaceCode?: string | null;

@@ -1,4 +1,5 @@
-﻿import { BrowserMultiFormatReader, NotFoundException } from "@zxing/browser";
+﻿import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
+import { NotFoundException } from "@zxing/library";
 import React from "react";
 
 import { appEnv } from "@/lib/config/env";
@@ -26,6 +27,7 @@ export function useBarcodeScanner({
 
     const detectorRef = React.useRef<BarcodeDetector | null>(null);
     const zxingReaderRef = React.useRef<BrowserMultiFormatReader | null>(null);
+    const zxingControlsRef = React.useRef<IScannerControls | null>(null);
     const detectTimerRef = React.useRef<number | null>(null);
     const detectInFlightRef = React.useRef(false);
     const roiCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -38,13 +40,23 @@ export function useBarcodeScanner({
         }
         detectInFlightRef.current = false;
 
-        zxingReaderRef.current?.reset();
+        try {
+            zxingControlsRef.current?.stop();
+        } catch {
+            // evitar que un fallo de ZXing bloquee la limpieza del estado local
+        }
+        zxingControlsRef.current = null;
         zxingReaderRef.current = null;
+        detectorRef.current = null;
 
         const video = videoRef.current;
         const stream = video?.srcObject as MediaStream | null;
         if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
+            try {
+                stream.getTracks().forEach((track) => track.stop());
+            } catch {
+                // noop: algunos navegadores pueden lanzar al detener un track ya cerrado
+            }
         }
         if (video) {
             video.srcObject = null;
@@ -188,7 +200,7 @@ export function useBarcodeScanner({
             onHint("Fallback ZXing activo. Para mejor lectura, centra el código en el marco.");
             const reader = new BrowserMultiFormatReader();
             zxingReaderRef.current = reader;
-            void reader.decodeFromVideoDevice(undefined, video, async (result, error) => {
+            const controls = await reader.decodeFromVideoDevice(undefined, video, async (result, error) => {
                 if (result?.getText()) {
                     await runDetectedCode(result.getText());
                     return;
@@ -197,6 +209,7 @@ export function useBarcodeScanner({
                     onError("No fue posible decodificar con ZXing. Intenta con ingreso manual.");
                 }
             });
+            zxingControlsRef.current = controls;
         } catch {
             onError("No se pudo usar la cámara. Revisa permisos o usa la entrada manual del código.");
             trackRFEvent("camera_permission_error", { source: "camera" });

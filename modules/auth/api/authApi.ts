@@ -10,6 +10,7 @@ import type {
     RegisterRequest,
     RegisterResponse,
     ResetPasswordRequest,
+    PatchCurrentUserRequest,
 } from "@/modules/auth/api/authTypes";
 
 export function login(data: LoginRequest): Promise<void> {
@@ -102,5 +103,13 @@ export function getCurrentUser(
 ): Promise<CurrentUser> {
     return httpClient.get<CurrentUser>("/api/users/me", {
         retryOnUnauthorized: options.retryOnUnauthorized,
+    });
+}
+
+export function updateCurrentUserProfile(
+    data: PatchCurrentUserRequest
+): Promise<CurrentUser> {
+    return httpClient.patch<CurrentUser>("/api/users/me", data, {
+        retryOnUnauthorized: false,
     });
 }

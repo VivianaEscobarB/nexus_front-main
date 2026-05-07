@@ -1,4 +1,5 @@
 import type {
+    ActiveReceptionResponse,
     CreateCountBody,
     CreateCountLineBody,
     CreateLotBody,
@@ -15,7 +16,9 @@ import type {
     LotResponse,
     MovementSubtypeResponse,
     MovementTypeResponse,
+    ReceptionDetailResponse,
     ReceptionCreatedResponse,
+    CreateReceptionExpectedLineInput,
     RfCompleteReceptionBody,
     RfConfirmBody,
     RfConfirmResponse,
@@ -42,7 +45,7 @@ function asList<T>(raw: unknown): T[] {
     }
     if (v && typeof v === "object") {
         const o = v as Record<string, unknown>;
-        for (const key of ["content", "items", "data", "results"]) {
+        for (const key of ["content", "items", "data", "results", "records", "receptions", "alerts"]) {
             const inner = o[key];
             if (Array.isArray(inner)) {
                 return inner as T[];
@@ -59,6 +62,89 @@ export async function createInventoryReception(
 ): Promise<ReceptionCreatedResponse> {
     const raw = await httpClient.post<unknown>(`${BASE}/receptions`, body);
     return unwrap<ReceptionCreatedResponse>(raw);
+}
+
+export async function listActiveInventoryReceptions(
+    warehouseId?: number
+): Promise<ActiveReceptionResponse[]> {
+    const raw = await httpClient.get<unknown>(`${BASE}/receptions/active`, {
+        query: warehouseId ? { warehouseId } : undefined,
+    });
+    return asList<ActiveReceptionResponse>(raw);
+}
+
+export async function getInventoryReceptionDetail(
+    receptionId: number
+): Promise<ReceptionDetailResponse> {
+    const raw = await httpClient.get<unknown>(`${BASE}/receptions/${receptionId}`);
+    const payload = unwrap<Record<string, unknown>>(raw);
+    const lineSource =
+        (payload.lines as unknown[]) ??
+        (payload.receptionLines as unknown[]) ??
+        (payload.items as unknown[]) ??
+        [];
+    const lines = Array.isArray(lineSource)
+        ? lineSource.map((entry) => {
+              const row = (entry ?? {}) as Record<string, unknown>;
+              const receptionLineId =
+                  Number(row.receptionLineId ?? row.id ?? row.lineId) || 0;
+              const expectedQuantity = Number(
+                  row.expectedQuantity ?? row.quantityExpected ?? row.quantity ?? 0
+              );
+              const receivedQuantity = Number(
+                  row.receivedQuantity ?? row.quantityReceived ?? 0
+              );
+              return {
+                  receptionLineId,
+                  productName:
+                      typeof row.productName === "string"
+                          ? row.productName
+                          : typeof row.externalProductRef === "string"
+                            ? row.externalProductRef
+                            : typeof row.external_product_ref === "string"
+                              ? row.external_product_ref
+                              : null,
+                  productSku:
+                      typeof row.productSku === "string" ? row.productSku : null,
+                  expectedQuantity: Number.isFinite(expectedQuantity)
+                      ? expectedQuantity
+                      : 0,
+                  receivedQuantity: Number.isFinite(receivedQuantity)
+                      ? receivedQuantity
+                      : 0,
+                  requiresLot: Boolean(row.requiresLot),
+              };
+          })
+        : [];
+    return {
+        id: Number(payload.id ?? receptionId),
+        warehouseId: Number(payload.warehouseId ?? 0),
+        status: String(payload.status ?? "OPEN"),
+        lines,
+    };
+}
+
+export async function createInventoryReceptionExpectedLines(
+    receptionId: number,
+    lines: CreateReceptionExpectedLineInput[]
+): Promise<void> {
+    const expectedItems = lines.map((line) => ({
+        externalProductRef: line.productSku ?? line.productName ?? line.barcode,
+        expectedBarcodes: [line.barcode],
+        expectedQuantity: line.expectedQuantity,
+        requiresLot: line.requiresLot ?? false,
+    }));
+    const payload = {
+        lines: lines.map((line) => ({
+            barcode: line.barcode,
+            expectedQuantity: line.expectedQuantity,
+            productName: line.productName,
+            productSku: line.productSku,
+            requiresLot: line.requiresLot ?? false,
+        })),
+        expectedItems,
+    };
+    await httpClient.post<unknown>(`${BASE}/receptions/${receptionId}/lines`, payload);
 }
 
 export async function rfScan(body: RfScanBody): Promise<RfScanResponse> {
