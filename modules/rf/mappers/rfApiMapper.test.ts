@@ -20,8 +20,11 @@ describe("rfApiMapper", () => {
         expect(vm).toEqual({
             receptionLineId: 9,
             productName: "Test",
+            externalProductRef: null,
             productSku: null,
             expectedQuantity: 3,
+            receivedQuantity: 0,
+            remainingQuantity: 3,
             requiresLot: true,
             suggestedStorageSpaceId: null,
             suggestedStorageSpaceCode: null,
